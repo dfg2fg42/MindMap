@@ -912,19 +912,27 @@ function s2w(sx,sy){
 /* ════════════════ LAYOUT ════════════════ */
 function nodeH(id){var n=gn(id);var sc=n?n.scale||1:1;return Math.max(NH+VGAP,(NH+VGAP)*sc);}
 function subH(id){
-  var k=gc(id);
-  var self=(NH+VGAP); /* Y 간격은 항상 기본값 기준 */
-  if(!k.length)return self;
+  var n=gn(id); var k=gc(id);
+  var selfH = n ? nhFull(n)+VGAP : (NH+VGAP);
+  if(!k.length)return selfH;
   var t=0;for(var i=0;i<k.length;i++)t+=subH(k[i].id);
-  return Math.max(t, self);
+  return Math.max(t, selfH);
 }
 function layoutBranch(kids,par,dir){
   if(!kids.length)return;
   var total=0;for(var i=0;i<kids.length;i++)total+=subH(kids[i].id);
   var y=par.y-total/2;
+  var parW=nwFull(par);
   for(var i=0;i<kids.length;i++){
-    var h=subH(kids[i].id);kids[i].x=par.x+dir*HGAP;kids[i].y=y+h/2;y+=h;
-    var g=gc(kids[i].id);if(g.length)layoutBranch(g,kids[i],dir);
+    var kid=kids[i];
+    var kidW=nwFull(kid);
+    /* 부모 절반너비 + 여백60 + 자식 절반너비 */
+    var hgap=parW/2+60+kidW/2;
+    var h=subH(kid.id);
+    kid.x=par.x+dir*hgap;
+    kid.y=y+h/2;
+    y+=h;
+    var g=gc(kid.id);if(g.length)layoutBranch(g,kid,dir);
   }
 }
 function autoLayout(){
