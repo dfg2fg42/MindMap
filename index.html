@@ -121,7 +121,7 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 #world{position:absolute;left:0;top:0;transform-origin:0 0;z-index:2;}
 
 /* ══ NODES ══ */
-.node{position:absolute;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;min-width:82px;max-width:196px;padding:0 16px;font-size:.88rem;font-weight:700;text-align:center;white-space:nowrap;border:2.5px solid transparent;transition:box-shadow .15s,border-color .15s;}
+.node{position:absolute;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-size:.88rem;font-weight:700;text-align:center;white-space:nowrap;border:2.5px solid transparent;transition:box-shadow .15s,border-color .15s;}
 .node:hover{filter:brightness(1.1);}
 .node.root-node{font-size:1rem;font-weight:900;border-radius:14px;}
 @keyframes selPulse{0%,100%{box-shadow:0 0 0 2px rgba(57,255,20,.4),0 0 14px 4px rgba(57,255,20,.45),0 5px 20px rgba(0,0,0,.45);}50%{box-shadow:0 0 0 2px rgba(57,255,20,.6),0 0 22px 8px rgba(57,255,20,.65),0 5px 20px rgba(0,0,0,.45);}}
@@ -604,6 +604,8 @@ function gn(id){for(var i=0;i<nodes.length;i++)if(nodes[i].id===id)return nodes[
 function gr(){for(var i=0;i<nodes.length;i++)if(nodes[i].pid===null)return nodes[i];return null;}
 function gc(id){return nodes.filter(function(n){return n.pid===id;});}
 function nw(t,sc){sc=sc||1;var base=Math.max(84,Math.min(196,((t||'').length*10)+30));return Math.round(base*sc);}
+function nwFull(n){var sc=n.scale||1;return nw(n.text,sc)+(n.pid===null?16:0)*sc;}
+function nhFull(n){var sc=n.scale||1;return (n.pid===null?RH:NH)*sc;}
 function getCat(id){for(var i=0;i<cats.length;i++)if(cats[i].id===id)return cats[i];return null;}
 function catChildren(pid){return cats.filter(function(c){return c.parentId===pid;});}
 function getColor(id){
@@ -908,16 +910,20 @@ function s2w(sx,sy){
 }
 
 /* ════════════════ LAYOUT ════════════════ */
-function nodeH(id){var n=gn(id);var sc=n?n.scale||1:1;return (NH+VGAP)*sc;}
-function subH(id){var k=gc(id);if(!k.length)return nodeH(id);var t=0;for(var i=0;i<k.length;i++)t+=subH(k[i].id);return Math.max(t, nodeH(id));}
+function nodeH(id){var n=gn(id);var sc=n?n.scale||1:1;return Math.max(NH+VGAP,(NH+VGAP)*sc);}
+function subH(id){
+  var k=gc(id);
+  var self=(NH+VGAP); /* Y 간격은 항상 기본값 기준 */
+  if(!k.length)return self;
+  var t=0;for(var i=0;i<k.length;i++)t+=subH(k[i].id);
+  return Math.max(t, self);
+}
 function layoutBranch(kids,par,dir){
   if(!kids.length)return;
-  var parSc=par.scale||1;
-  var hgap=Math.round(HGAP*Math.max(1,parSc));
   var total=0;for(var i=0;i<kids.length;i++)total+=subH(kids[i].id);
   var y=par.y-total/2;
   for(var i=0;i<kids.length;i++){
-    var h=subH(kids[i].id);kids[i].x=par.x+dir*hgap;kids[i].y=y+h/2;y+=h;
+    var h=subH(kids[i].id);kids[i].x=par.x+dir*HGAP;kids[i].y=y+h/2;y+=h;
     var g=gc(kids[i].id);if(g.length)layoutBranch(g,kids[i],dir);
   }
 }
@@ -978,7 +984,13 @@ function renderCurves(){
     var c=nodes[i];if(c.pid===null)continue;
     var p=gn(c.pid);if(!p)continue;
     var color=getColor(c.id);
-    var pw=nw(p.text,p.scale||1)+(p.pid===null?16:0)*(p.scale||1),cw=nw(c.text,c.scale||1);
+    /* DOM 실측 우선, 없으면 계산값 */
+    var pelEl=document.getElementById('n'+p.id);
+    var celEl=document.getElementById('n'+c.id);
+    var pw=pelEl?pelEl.offsetWidth:nwFull(p);
+    var cw=celEl?celEl.offsetWidth:nwFull(c);
+    var ph=pelEl?pelEl.offsetHeight:nhFull(p);
+    var ch=celEl?celEl.offsetHeight:nhFull(c);
     var pwx,pwy,cwx,cwy;
     if(c.x>=p.x){pwx=p.x+pw/2;cwx=c.x-cw/2;}else{pwx=p.x-pw/2;cwx=c.x+cw/2;}
     pwy=p.y;cwy=c.y;
@@ -995,7 +1007,8 @@ function renderCurves(){
     var lk=links[li];
     var fa=gn(lk.from),ta=gn(lk.to);
     if(!fa||!ta)continue;
-    var fw=nw(fa.text)+(fa.pid===null?16:0),tw=nw(ta.text)+(ta.pid===null?16:0);
+    var faEl=document.getElementById('n'+fa.id),taEl=document.getElementById('n'+ta.id);
+    var fw=faEl?faEl.offsetWidth:nwFull(fa),tw=taEl?taEl.offsetWidth:nwFull(ta);
     var fh=fa.pid===null?RH:NH, th=ta.pid===null?RH:NH;
     /* 가장 가까운 엣지 포인트 계산 */
     var fx,fy,tx2,ty2;
@@ -1055,11 +1068,15 @@ function renderNodes(){
       var lbl=document.createElement('span');lbl.className='node-label';el.appendChild(lbl);
       world.appendChild(el);bindNode(el,n.id);
     }
-    var sc2=n.scale||1;var w=nw(n.text,sc2)+(n.pid===null?16:0)*sc2,h=(n.pid===null?RH:NH)*sc2;
+    var nEl=document.getElementById('n'+n.id);
+  var w=nEl?nEl.offsetWidth:nwFull(n),h=nEl?nEl.offsetHeight:nhFull(n);
+    var sc2=n.scale||1;
     var fs2=n.pid===null?(1.0*sc2):(0.88*sc2);
     el.style.left=(n.x-w/2)+'px';el.style.top=(n.y-h/2)+'px';
     el.style.width=w+'px';el.style.height=h+'px';
     el.style.fontSize=fs2+'rem';
+    el.style.borderRadius=Math.round(10*sc2)+'px';
+    el.style.padding='0 '+Math.round(16*sc2)+'px';
     var linkParentColors=getLinkParentColors(n.id);
     if(linkParentColors.length>=1){
       var baseColor=getColor(n.id);
@@ -1270,9 +1287,8 @@ function resolveOverlaps(){
         var a=nodes[i], b=nodes[j];
         /* 루트는 고정 */
         var aRoot=(a.pid===null), bRoot=(b.pid===null);
-        var aw=nw(a.text,a.scale||1), ah=(aRoot?RH:NH)*(a.scale||1);
-        var bw=nw(b.text,b.scale||1), bh=(bRoot?RH:NH)*(b.scale||1);
-        var PAD_Y=Math.max(14,((a.scale||1)+(b.scale||1))*7);
+        var aw=nwFull(a), ah=nhFull(a);
+        var bw=nwFull(b), bh=nhFull(b);
         var minDx=(aw+bw)/2+PAD_X;
         var minDy=(ah+bh)/2+PAD_Y;
         var dx=Math.abs(a.x-b.x);
@@ -1297,9 +1313,13 @@ function resolveOverlaps(){
 
 function renderAll(){
   resolveOverlaps();
-  renderNodes();renderCurves();updatePanel();
+  renderNodes();
+  /* DOM 크기 확정 후 커브 그리기 */
+  requestAnimationFrame(function(){
+    renderCurves();updatePanel();drawMM();
+  });
   document.getElementById('ncnt').textContent=nodes.length;
-  buildCatTree();drawMM();
+  buildCatTree();
 }
 
 /* ════════════════ MEMO + IMAGES ════════════════ */
@@ -1413,7 +1433,7 @@ function layoutSiblings(pid, dir){
   var kids=gc(pid);if(!kids.length)return;
   /* 새로 추가된 노드(X=0인 노드)만 X 위치 지정 */
   for(var i=0;i<kids.length;i++){
-    if(kids[i].x===par.x){ kids[i].x=par.x+dir*Math.round(HGAP*(par.scale||1)); }
+    if(kids[i].x===par.x){ kids[i].x=par.x+dir*HGAP; }
   }
   /* Y축만 균등 재배치 */
   var total=0;for(var i=0;i<kids.length;i++)total+=subH(kids[i].id);
@@ -1673,7 +1693,7 @@ function zoomAt(sx,sy,up){
 function fitView(){
   if(!nodes.length)return;
   var mx=Infinity,my=Infinity,xx=-Infinity,xy=-Infinity;
-  nodes.forEach(function(n){var sc3=n.scale||1;var w=nw(n.text,sc3)+(n.pid===null?16:0)*sc3,hh=(n.pid===null?RH:NH)*sc3;mx=Math.min(mx,n.x-w/2-30);my=Math.min(my,n.y-hh/2-30);xx=Math.max(xx,n.x+w/2+30);xy=Math.max(xy,n.y+hh/2+30);});
+  nodes.forEach(function(n){var w=nwFull(n),hh=nhFull(n);mx=Math.min(mx,n.x-w/2-30);my=Math.min(my,n.y-hh/2-30);xx=Math.max(xx,n.x+w/2+30);xy=Math.max(xy,n.y+hh/2+30);});
   var vp=document.getElementById('viewport');var vw=vp.clientWidth,vh=vp.clientHeight;
   var tw=xx-mx,th=xy-my;var z=Math.min(3,Math.max(0.15,Math.min(vw/tw,vh/th)*0.88));
   cam.z=z;cam.x=(vw-tw*z)/2-mx*z;cam.y=(vh-th*z)/2-my*z;
@@ -1925,16 +1945,32 @@ document.getElementById('btn-reset').onclick=function(){
 document.getElementById('np-up').onclick=function(e){e.stopPropagation();if(sel)moveSibling(sel,-1);};
 document.getElementById('np-down').onclick=function(e){e.stopPropagation();if(sel)moveSibling(sel,1);};
 function applyScaleChange(n){
-  /* 크기 변경 후 해당 노드가 루트이면 전체 재배치, 아니면 부모 기준 재배치 */
+  /* X 위치는 건드리지 않고 Y만 재배치 */
   if(n.pid===null){
-    autoLayout();
+    /* 루트: 1레벨 자식들만 Y 재배치 */
+    var kids1=gc(n.id);
+    if(kids1.length) repositionBranchY(n.id);
   } else {
-    /* 부모의 자식 전체 Y 재배치 */
-    repositionBranch(n.pid, getBranchDir(n.pid));
-    /* 자신의 자식도 X 간격 재계산 */
-    if(gc(n.id).length) repositionBranch(n.id, getBranchDir(n.id));
-    resolveOverlaps();
-    renderAll();saveAll();
+    /* 일반 노드: 부모 기준 Y 재배치 */
+    repositionBranchY(n.pid);
+    if(gc(n.id).length) repositionBranchY(n.id);
+  }
+  resolveOverlaps();
+  renderAll();saveAll();
+}
+
+/* X는 건드리지 않고 Y만 재배치 */
+function repositionBranchY(pid){
+  var par=gn(pid);if(!par)return;
+  var kids=nodes.filter(function(x){return x.pid===pid;});
+  if(!kids.length)return;
+  var total=0;for(var i=0;i<kids.length;i++)total+=subH(kids[i].id);
+  var y=par.y-total/2;
+  for(var i=0;i<kids.length;i++){
+    var h=subH(kids[i].id);
+    kids[i].y=y+h/2;
+    y+=h;
+    if(gc(kids[i].id).length) repositionBranchY(kids[i].id);
   }
 }
 document.getElementById('np-size-up').onclick=function(e){
