@@ -143,15 +143,13 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 .memo-dot{position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);width:8px;height:8px;border-radius:50%;background:#38b2ff;border:2px solid var(--bg);pointer-events:none;box-shadow:0 0 6px rgba(56,178,255,.7);}
 
 /* ══ MEMO TOOLTIP ══ */
-#memo-tooltip{position:fixed;z-index:400;background:var(--sur);border:1.5px solid #38b2ff;border-radius:10px;padding:10px 13px;max-width:420px;min-width:180px;min-height:60px;box-shadow:0 8px 28px rgba(0,0,0,.6),0 0 12px rgba(56,178,255,.2);pointer-events:auto;display:none;font-size:.81rem;line-height:1.65;color:var(--txt);overflow:hidden;resize:both;}
+#memo-tooltip{position:fixed;z-index:400;background:var(--sur);border:1.5px solid #38b2ff;border-radius:10px;padding:10px 13px;max-width:420px;min-width:180px;box-shadow:0 8px 28px rgba(0,0,0,.6),0 0 12px rgba(56,178,255,.2);pointer-events:auto;display:none;font-size:.81rem;line-height:1.65;color:var(--txt);}
 #memo-tooltip .mtt-title{font-size:.7rem;font-weight:800;color:#38b2ff;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:5px;}
-#memo-tooltip .mtt-body{white-space:pre-wrap;word-break:break-word;max-height:320px;overflow-y:auto;color:var(--txt);opacity:.9;}
+#memo-tooltip .mtt-body{white-space:pre-wrap;word-break:break-word;color:var(--txt);opacity:.9;}
 #memo-tooltip .mtt-img-preview{margin-top:7px;display:flex;gap:4px;flex-wrap:wrap;}
 #memo-tooltip .mtt-img-preview img{width:48px;height:48px;object-fit:cover;border-radius:5px;border:1px solid var(--bdr);}
 #memo-tooltip .mtt-title{cursor:move!important;}
-#memo-tooltip .mtt-body::-webkit-scrollbar{width:4px;}
-#memo-tooltip .mtt-body::-webkit-scrollbar-thumb{background:rgba(56,178,255,.4);border-radius:2px;}
-#memo-tooltip .mtt-body::-webkit-scrollbar-track{background:transparent;}
+
 
 /* ══ FLOATING PANEL ══ */
 #node-panel{position:fixed;z-index:150;background:var(--sur);border:1px solid var(--bdr);border-radius:99px;padding:5px 10px;display:none;align-items:center;gap:7px;box-shadow:0 6px 24px rgba(0,0,0,.55);}
@@ -1336,12 +1334,15 @@ function showMemoTooltip(nodeId,clientX,clientY){
       });
     }
     tt.style.display='block';
-    tt.style.width='';tt.style.height='';
+    tt.style.width=''; tt.style.height='';
+    // measure actual size after content is rendered
     var tw=tt.offsetWidth||260, th=tt.offsetHeight||120;
-    var tx=clientX+16,ty=clientY-10;
-    if(tx+tw>window.innerWidth-8)tx=clientX-tw-10;
-    if(ty+th>window.innerHeight-8)ty=window.innerHeight-th-8;
-    tt.style.left=Math.max(4,tx)+'px';tt.style.top=Math.max(4,ty)+'px';
+    var tx=clientX+16, ty=clientY-10;
+    if(tx+tw>window.innerWidth-8) tx=clientX-tw-10;
+    // if tooltip is taller than screen, position at top with margin
+    if(ty+th>window.innerHeight-8) ty=Math.max(4, window.innerHeight-th-8);
+    if(ty<4) ty=4;
+    tt.style.left=Math.max(4,tx)+'px'; tt.style.top=ty+'px';
   },300);
 }
 function hideMemoTooltip(){
