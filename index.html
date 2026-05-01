@@ -604,15 +604,66 @@ function getCat(id){for(var i=0;i<cats.length;i++)if(cats[i].id===id)return cats
 function catChildren(pid){return cats.filter(function(c){return c.parentId===pid;});}
 function getColor(id){
   var n=gn(id);if(!n)return BCOLORS[0];
-  if(n.customColor)return n.customColor;
-  if(n.pid===null)return '#5a52d5';
-  var cur=n;
-  while(true){var p=gn(cur.pid);if(!p||p.pid===null)break;cur=p;}
-  var root=gr();
-  var l1=nodes.filter(function(x){return x.pid===root.id;});
-  var idx=-1;for(var i=0;i<l1.length;i++)if(l1[i].id===cur.id){idx=i;break;}
-  if(idx<0)idx=0;
-  return BCOLORS[((idx%BCOLORS.length)+BCOLORS.length)%BCOLORS.length];
+
+  /* 루트 노드 */
+  if(n.pid===null) return n.customColor||'#5a52d5';
+
+  /* 부모 체인을 따라 올라가며 기준 색상 & 거리 계산 */
+  var depth=0, cur=n, baseColor=null, baseDepth=0;
+
+  /* 1단계: 자신부터 루트까지 customColor 있는 가장 가까운 조상 찾기 */
+  var walker=n;
+  var walkerDepth=0;
+  while(walker){
+    if(walker.customColor){
+      baseColor=walker.customColor;
+      baseDepth=walkerDepth;
+      break;
+    }
+    if(walker.pid===null){
+      /* 루트에 도달 — BCOLORS 기반 색상 사용 */
+      break;
+    }
+    walkerDepth++;
+    walker=gn(walker.pid);
+  }
+
+  /* customColor 없으면 BCOLORS 기준 (루트 1레벨 자식 색상) */
+  if(!baseColor){
+    var cur2=n;
+    while(true){var p2=gn(cur2.pid);if(!p2||p2.pid===null)break;cur2=p2;}
+    var root=gr();
+    var l1=nodes.filter(function(x){return x.pid===root.id;});
+    var bidx=-1;for(var i=0;i<l1.length;i++)if(l1[i].id===cur2.id){bidx=i;break;}
+    if(bidx<0)bidx=0;
+    baseColor=BCOLORS[((bidx%BCOLORS.length)+BCOLORS.length)%BCOLORS.length];
+    baseDepth=0; /* BCOLORS 기준이면 절대 depth 사용 */
+    /* 자신의 절대 깊이 계산 */
+    var tmp=n;walkerDepth=0;
+    while(tmp.pid!==null){walkerDepth++;tmp=gn(tmp.pid);if(!tmp)break;}
+    baseDepth=0;
+  }
+
+  /* 자신이 기준 색상 노드 자체이면 그대로 반환 */
+  if(walkerDepth===0 && n.customColor) return baseColor;
+
+  /* 기준으로부터 얼마나 아래인지 = walkerDepth */
+  var lightenAmt=Math.min(walkerDepth,8)*0.09;
+  return lightenHex(baseColor, lightenAmt);
+}
+
+/* hex 색상을 amount(0~1)만큼 밝게 */
+function lightenHex(hex,amount){
+  if(amount<=0)return hex;
+  hex=hex.replace('#','');
+  if(hex.length===3)hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  var r=parseInt(hex.substring(0,2),16);
+  var g=parseInt(hex.substring(2,4),16);
+  var b=parseInt(hex.substring(4,6),16);
+  r=Math.min(255,Math.round(r+(255-r)*amount));
+  g=Math.min(255,Math.round(g+(255-g)*amount));
+  b=Math.min(255,Math.round(b+(255-b)*amount));
+  return '#'+('0'+r.toString(16)).slice(-2)+('0'+g.toString(16)).slice(-2)+('0'+b.toString(16)).slice(-2);
 }
 
 /* ════════════════ SIDEBAR SLIDE ════════════════ */
