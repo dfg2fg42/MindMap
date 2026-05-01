@@ -499,22 +499,39 @@ body.link-mode .link-del-btn{display:block;}
       <div class="help-table">
         <div class="hr"><span class="hk">빈 공간 드래그</span><span class="hd">캔버스 이동 (패닝)</span></div>
         <div class="hr"><span class="hk">마우스 휠</span><span class="hd">줌 인/아웃</span></div>
+        <div class="hr"><span class="hk">노드 클릭</span><span class="hd">노드 선택</span></div>
+        <div class="hr"><span class="hk">노드 더블클릭</span><span class="hd">설정 패널 열기</span></div>
         <div class="hr"><span class="hk">노드 드래그</span><span class="hd">노드 위치 이동</span></div>
-        <div class="hr"><span class="hk">노드 더블클릭</span><span class="hd">노드 이름 편집</span></div>
         <div class="hr"><span class="hk">노드 우클릭</span><span class="hd">컨텍스트 메뉴</span></div>
         <div class="hr"><span class="hk">Shift + 드래그</span><span class="hd">여러 노드 영역 선택</span></div>
-        <div class="hr"><span class="hk">선택 노드 드래그</span><span class="hd">선택된 노드 전체 이동</span></div>
+        <div class="hr"><span class="hk">선택된 노드 드래그</span><span class="hd">선택된 노드 전체 이동</span></div>
       </div>
     </div>
 
     <div class="help-section">
       <div class="help-title">⌨️ 노드 편집</div>
       <div class="help-table">
-        <div class="hr"><span class="hk">Tab</span><span class="hd">선택 노드에 자식 노드 추가</span></div>
+        <div class="hr"><span class="hk">Tab</span><span class="hd">자식 노드 추가</span></div>
         <div class="hr"><span class="hk">Enter</span><span class="hd">형제 노드 추가</span></div>
-        <div class="hr"><span class="hk">Delete / Backspace</span><span class="hd">선택 노드 삭제 (확인 팝업)</span></div>
-        <div class="hr"><span class="hk">F2 / 더블클릭</span><span class="hd">노드 이름 편집</span></div>
+        <div class="hr"><span class="hk">F2</span><span class="hd">노드 이름 편집 시작</span></div>
+        <div class="hr"><span class="hk">Alt + Enter</span><span class="hd">편집 중 줄바꿈 (다음 줄 추가)</span></div>
+        <div class="hr"><span class="hk">Enter (편집 중)</span><span class="hd">편집 완료</span></div>
+        <div class="hr"><span class="hk">Delete / Backspace</span><span class="hd">선택 노드 삭제</span></div>
         <div class="hr"><span class="hk">Esc</span><span class="hd">편집 취소 / 선택 해제</span></div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <div class="help-title">🎨 설정 패널 (더블클릭으로 열기)</div>
+      <div class="help-table">
+        <div class="hr"><span class="hk">− / ＋ 버튼</span><span class="hd">노드 크기 축소 / 확대</span></div>
+        <div class="hr"><span class="hk">🎨 버튼</span><span class="hd">노드 배경색 선택</span></div>
+        <div class="hr"><span class="hk">› 버튼</span><span class="hd">폰트 설정 영역 펼치기 / 접기</span></div>
+        <div class="hr"><span class="hk">B 버튼 / Ctrl+B</span><span class="hd">글자 굵게 토글</span></div>
+        <div class="hr"><span class="hk">U 버튼 / Ctrl+U</span><span class="hd">글자 밑줄 토글</span></div>
+        <div class="hr"><span class="hk">a− / A+ 버튼</span><span class="hd">글자 크기 변경 (S → M → L → XL)</span></div>
+        <div class="hr"><span class="hk">🎨 색상 피커</span><span class="hd">글자 색상 자유 선택</span></div>
+        <div class="hr"><span class="hk">✕ 버튼</span><span class="hd">설정 패널 닫기</span></div>
       </div>
     </div>
 
@@ -527,14 +544,16 @@ body.link-mode .link-del-btn{display:block;}
     </div>
 
     <div class="help-section">
-      <div class="help-title">⚡ 기타 단축키</div>
+      <div class="help-title">⚡ 단축키 모음</div>
       <div class="help-table">
         <div class="hr"><span class="hk">Ctrl + Z</span><span class="hd">삭제 실행 취소 (최대 30단계)</span></div>
         <div class="hr"><span class="hk">Ctrl + F</span><span class="hd">노드 검색창 열기</span></div>
-        <div class="hr"><span class="hk">S</span><span class="hd">선택 노드 중요 표시 토글 (⭐)</span></div>
-        <div class="hr"><span class="hk">M</span><span class="hd">선택 노드 메모창 열기/닫기</span></div>
+        <div class="hr"><span class="hk">Ctrl + B</span><span class="hd">선택 노드 글자 굵게 토글</span></div>
+        <div class="hr"><span class="hk">Ctrl + U</span><span class="hd">선택 노드 글자 밑줄 토글</span></div>
+        <div class="hr"><span class="hk">S</span><span class="hd">중요 표시 토글 (⭐)</span></div>
+        <div class="hr"><span class="hk">M</span><span class="hd">메모창 열기 / 닫기</span></div>
         <div class="hr"><span class="hk">?</span><span class="hd">도움말 열기</span></div>
-        <div class="hr"><span class="hk">🔗 연결 버튼</span><span class="hd">참조 연결 모드 — 시작 노드 → 대상 노드 클릭으로 연결선 추가</span></div>
+        <div class="hr"><span class="hk">🔗 연결 버튼</span><span class="hd">참조 연결 모드 — 시작 노드 → 대상 노드 클릭</span></div>
         <div class="hr"><span class="hk">연결선 중앙 ×</span><span class="hd">참조 연결선 삭제</span></div>
       </div>
     </div>
