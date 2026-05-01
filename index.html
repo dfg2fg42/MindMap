@@ -876,6 +876,42 @@ function openIconPicker(catId,btnEl){
 }
 function closeIconPicker(){document.getElementById('icon-picker').style.display='none';iconPickerTarget=null;}
 
+/* ════════════════ ARROW MENU ════════════════ */
+function showArrowMenu(target, cx, cy, type){
+  closeArrowMenu();
+  var menu=document.createElement('div');
+  menu.id='arrow-menu';
+  menu.style.cssText='position:fixed;z-index:600;background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:6px 8px;display:flex;gap:6px;box-shadow:0 8px 28px rgba(0,0,0,.6);';
+  menu.style.left=cx+'px';menu.style.top=(cy-48)+'px';
+  var opts=[
+    {val:'none', label:'─', title:'화살표 없음'},
+    {val:'forward', label:'→', title:'정방향 →'},
+    {val:'backward', label:'←', title:'역방향 ←'},
+    {val:'both', label:'↔', title:'양방향 ↔'}
+  ];
+  var curArr = type==='tree' ? (gn(target)||{}).arrow||'none' : (target.arrow||'none');
+  opts.forEach(function(o){
+    var btn=document.createElement('button');
+    btn.textContent=o.label;btn.title=o.title;
+    btn.style.cssText='background:'+(curArr===o.val?'var(--acc)':'var(--sur2)')+';border:1px solid var(--bdr);border-radius:7px;width:34px;height:34px;font-size:1rem;cursor:pointer;color:var(--txt);font-weight:700;';
+    btn.onclick=function(e){
+      e.stopPropagation();
+      if(type==='tree'){var n=gn(target);if(n){n.arrow=o.val;}}
+      else{target.arrow=o.val;}
+      saveAll();renderAll();closeArrowMenu();
+    };
+    menu.appendChild(btn);
+  });
+  document.body.appendChild(menu);
+  /* 바깥 클릭 시 닫기 */
+  setTimeout(function(){
+    document.addEventListener('click',closeArrowMenu,{once:true});
+  },0);
+}
+function closeArrowMenu(){
+  var m=document.getElementById('arrow-menu');if(m)m.parentNode.removeChild(m);
+}
+
 /* ════════════════ CATEGORY DRAG & DROP ════════════════ */
 var dragCatId=null,dragOverId=null,dragPos=null;
 function clearDragHighlights(){
@@ -1062,9 +1098,43 @@ function getLinksOf(id){
 /* ════════════════ RENDER CURVES ════════════════ */
 function renderCurves(){
   var svg=document.getElementById('svg-layer');
-  /* 연결모드일 때만 SVG 레이어 클릭 허용 */
   svg.style.pointerEvents = linkMode ? 'all' : 'none';
   while(svg.firstChild)svg.removeChild(svg.firstChild);
+  /* ── SVG marker 정의 (화살촉) ── */
+  var defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
+  /* 색상별 marker를 동적으로 생성하는 함수 */
+  /* 세련된 눈물방울형 화살촉 - auto-start-reverse 하나로 통일 */
+  /* marker-end: 선 끝에서 진행방향 → */
+  /* marker-start + auto-start-reverse: 선 시작에서 역방향 ← */
+  function mkMarker(id,color){
+    var m=document.createElementNS('http://www.w3.org/2000/svg','marker');
+    m.setAttribute('id',id);
+    m.setAttribute('markerWidth','10');m.setAttribute('markerHeight','10');
+    m.setAttribute('refX','9');m.setAttribute('refY','5');
+    m.setAttribute('orient','auto-start-reverse');
+    m.setAttribute('markerUnits','userSpaceOnUse');
+    var p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d','M0,1 C3,2 7,4 9,5 C7,6 3,8 0,9 C2,7 3,6 3,5 C3,4 2,3 0,1 Z');
+    p.setAttribute('fill',color);p.setAttribute('opacity','0.95');
+    m.appendChild(p);defs.appendChild(m);
+  }
+  function mkMarkerRev(id,color){ mkMarker(id,color); }
+  svg.appendChild(defs);
+  var _markerIds={};
+  function getMarker(color){
+    var key='f'+color.replace(/[^a-fA-F0-9]/g,'');
+    if(!_markerIds[key]){
+      mkMarker('mk_'+key,color);
+      _markerIds[key]=true;
+    }
+    return 'url(#mk_'+key+')';
+  }
+  /* 화살촉 길이만큼 끝점 당기기 (marker-end가 선 위에 깔끔하게 얹히도록) */
+  function arrowOffset(x1,y1,x2,y2,dist){
+    var dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+    if(len<1)return{x:x2,y:y2};
+    return{x:x2-dx/len*dist,y:y2-dy/len*dist};
+  }
   for(var i=0;i<nodes.length;i++){
     var c=nodes[i];if(c.pid===null)continue;
     var p=gn(c.pid);if(!p)continue;
@@ -1080,11 +1150,29 @@ function renderCurves(){
     if(c.x>=p.x){pwx=p.x+pw/2;cwx=c.x-cw/2;}else{pwx=p.x-pw/2;cwx=c.x+cw/2;}
     pwy=p.y;cwy=c.y;
     var ps=w2s(pwx,pwy),cs=w2s(cwx,cwy),mx=(ps.x+cs.x)/2;
+    /* 화살촉 오프셋 적용 */
+    var arr_pre=c.arrow||'none';
+    var psx=ps.x,psy=ps.y,csx=cs.x,csy=cs.y;
+    var AO=9; /* 화살촉 길이 오프셋 */
+    if(arr_pre==='forward'||arr_pre==='both'){var ao=arrowOffset(psx,psy,csx,csy,AO);csx=ao.x;csy=ao.y;}
+    if(arr_pre==='backward'||arr_pre==='both'){var ao2=arrowOffset(csx,csy,psx,psy,AO);psx=ao2.x;psy=ao2.y;}
     var path=document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d','M'+ps.x+','+ps.y+' C'+mx+','+ps.y+' '+mx+','+cs.y+' '+cs.x+','+cs.y);
+    path.setAttribute('d','M'+psx+','+psy+' C'+mx+','+psy+' '+mx+','+csy+' '+csx+','+csy);
     path.setAttribute('fill','none');path.setAttribute('stroke',color);
     path.setAttribute('stroke-width',(p.pid===null)?'3':'2');
     path.setAttribute('stroke-linecap','round');path.setAttribute('opacity','0.9');
+    /* 화살표 방향 적용 */
+    var arr=c.arrow||'none';
+    if(arr==='forward'||arr==='both') path.setAttribute('marker-end',getMarker(color));
+    if(arr==='backward'||arr==='both') path.setAttribute('marker-start',getMarker(color));
+    /* 선 클릭 → 방향 선택 팝업 */
+    path.style.pointerEvents='stroke';path.style.cursor='pointer';
+    (function(cid){
+      path.addEventListener('click',function(e){
+        e.stopPropagation();
+        showArrowMenu(cid,e.clientX,e.clientY,'tree');
+      });
+    })(c.id);
     svg.appendChild(path);
   }
   /* ── 참조 연결선 (평상시: 노드 색상 실선 / 연결모드: 점선) ── */
@@ -1102,21 +1190,37 @@ function renderCurves(){
     fy=fa.y;ty2=ta.y;
     var sc1=w2s(fx,fy),sc2=w2s(tx2,ty2);
     var mx=(sc1.x+sc2.x)/2;
+    var larr_pre=lk.arrow||'none';
+    var lx1=sc1.x,ly1=sc1.y,lx2=sc2.x,ly2=sc2.y;
+    var LAO=9;
+    if(larr_pre==='forward'||larr_pre==='both'){var lao=arrowOffset(lx1,ly1,lx2,ly2,LAO);lx2=lao.x;ly2=lao.y;}
+    if(larr_pre==='backward'||larr_pre==='both'){var lao2=arrowOffset(lx2,ly2,lx1,ly1,LAO);lx1=lao2.x;ly1=lao2.y;}
     /* from 노드 색상 사용 */
     var linkColor=getColor(lk.from);
     var lpath=document.createElementNS('http://www.w3.org/2000/svg','path');
-    lpath.setAttribute('d','M'+sc1.x+','+sc1.y+' C'+mx+','+sc1.y+' '+mx+','+sc2.y+' '+sc2.x+','+sc2.y);
+    lpath.setAttribute('d','M'+lx1+','+ly1+' C'+mx+','+ly1+' '+mx+','+ly2+' '+lx2+','+ly2);
     lpath.setAttribute('fill','none');
     lpath.setAttribute('stroke',linkColor);
     lpath.setAttribute('stroke-width','2');
-    /* 연결 모드일 때만 점선 */
     if(linkMode) lpath.setAttribute('stroke-dasharray','6,4');
     lpath.setAttribute('stroke-linecap','round');
     lpath.setAttribute('opacity','0.9');
     lpath.setAttribute('data-link',lk.from+'-'+lk.to);
+    /* 참조선 화살표 */
+    var larr=lk.arrow||'none';
+    if(larr==='forward'||larr==='both') lpath.setAttribute('marker-end',getMarker(linkColor));
+    if(larr==='backward'||larr==='both') lpath.setAttribute('marker-start',getMarker(linkColor));
+    lpath.style.pointerEvents='stroke';lpath.style.cursor='pointer';
+    (function(lkref){
+      lpath.addEventListener('click',function(e){
+        if(linkMode)return;
+        e.stopPropagation();
+        showArrowMenu(lkref,e.clientX,e.clientY,'link');
+      });
+    })(lk);
     svg.appendChild(lpath);
     /* 연결선 중간에 × 삭제 버튼 (SVG circle+text) */
-    var bmx=(sc1.x+sc2.x)/2,bmy=(sc1.y+sc2.y)/2;
+    var bmx=(lx1+lx2)/2,bmy=(ly1+ly2)/2;
     var g=document.createElementNS('http://www.w3.org/2000/svg','g');
     g.setAttribute('class','link-del-btn');
     g.style.cursor='pointer';
