@@ -999,7 +999,15 @@ function renderNodes(){
     var w=nw(n.text)+(n.pid===null?16:0),h=n.pid===null?RH:NH;
     el.style.left=(n.x-w/2)+'px';el.style.top=(n.y-h/2)+'px';
     el.style.width=w+'px';el.style.height=h+'px';
-    el.style.background=getColor(n.id);el.style.color='#fff';
+    var linkParentColors=getLinkParentColors(n.id);
+    if(linkParentColors.length>=1){
+      var baseColor=getColor(n.id);
+      var allColors=[baseColor].concat(linkParentColors);
+      el.style.background=blendColors(allColors);
+    } else {
+      el.style.background=getColor(n.id);
+    }
+    el.style.color='#fff';
     el.classList.toggle('selected',sel===n.id);el.classList.toggle('starred',!!n.star);el.classList.toggle('multi-sel',multiSel.indexOf(n.id)>=0&&n.id!==sel);
     var sb=el.querySelector('.star-badge');
     if(n.star){if(!sb){sb=document.createElement('span');sb.className='star-badge';el.appendChild(sb);}sb.textContent='⭐';}
@@ -1148,6 +1156,43 @@ function getBranchDir(pid){
   var par=gn(pid);if(!par)return 1;
   if(par.pid===null)return 1;
   return par.x>=(gn(par.pid)||{x:0}).x?1:-1;
+}
+
+
+/* ════════════════ MIXED COLOR (링크 그라디언트) ════════════════ */
+function getLinkParentColors(id){
+  /* 이 노드를 to(대상)로 하는 links의 from 색상 수집 */
+  var fromLinks=links.filter(function(l){return l.to===id;});
+  if(!fromLinks.length) return [];
+  return fromLinks.map(function(l){return getColor(l.from);});
+}
+
+function ensureGradient(svgEl, gradId, colors){
+  /* 이미 있으면 재사용 */
+  var existing=svgEl.getElementById(gradId);
+  if(existing) svgEl.removeChild(existing);
+  var defs=svgEl.querySelector('defs');
+  if(!defs){defs=document.createElementNS('http://www.w3.org/2000/svg','defs');svgEl.insertBefore(defs,svgEl.firstChild);}
+  var grad=document.createElementNS('http://www.w3.org/2000/svg','linearGradient');
+  grad.setAttribute('id',gradId);
+  grad.setAttribute('x1','0%');grad.setAttribute('y1','0%');
+  grad.setAttribute('x2','100%');grad.setAttribute('y2','100%');
+  colors.forEach(function(c,i){
+    var stop=document.createElementNS('http://www.w3.org/2000/svg','stop');
+    stop.setAttribute('offset',(i/(colors.length-1)*100)+'%');
+    stop.setAttribute('stop-color',c);
+    grad.appendChild(stop);
+  });
+  defs.appendChild(grad);
+  return 'url(#'+gradId+')';
+}
+
+function blendColors(colors){
+  /* CSS에서 그라디언트 사용: linear-gradient */
+  if(colors.length===1)return colors[0];
+  var step=100/(colors.length-1);
+  var stops=colors.map(function(c,i){return c+' '+(i*step)+'%';});
+  return 'linear-gradient(135deg,'+stops.join(',')+')';
 }
 
 /* ════════════════ OVERLAP RESOLVER ════════════════ */
