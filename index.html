@@ -399,6 +399,10 @@ body.link-mode .link-del-btn{display:block;}
   <button class="npbtn" id="np-star" title="중요표시 (S)">☆</button>
   <button class="npbtn" id="np-memo" title="메모 (M)">📝</button>
   <div class="np-sep"></div>
+  <div class="np-sep"></div>
+  <button class="npbtn" id="np-size-down" title="노드 축소 (−)">−</button>
+  <span id="np-size-val" style="font-size:.72rem;color:var(--mut);min-width:28px;text-align:center;">100%</span>
+  <button class="npbtn" id="np-size-up" title="노드 확대 (+)">＋</button>
   <button class="npbtn" id="np-color-toggle" title="색상 선택">🎨</button>
   <div id="np-colors" class="np-colors-hidden"></div>
 </div>
@@ -599,7 +603,7 @@ var sbPinned=false;
 function gn(id){for(var i=0;i<nodes.length;i++)if(nodes[i].id===id)return nodes[i];return null;}
 function gr(){for(var i=0;i<nodes.length;i++)if(nodes[i].pid===null)return nodes[i];return null;}
 function gc(id){return nodes.filter(function(n){return n.pid===id;});}
-function nw(t){return Math.max(84,Math.min(196,((t||'').length*10)+30));}
+function nw(t,sc){sc=sc||1;var base=Math.max(84,Math.min(196,((t||'').length*10)+30));return Math.round(base*sc);}
 function getCat(id){for(var i=0;i<cats.length;i++)if(cats[i].id===id)return cats[i];return null;}
 function catChildren(pid){return cats.filter(function(c){return c.parentId===pid;});}
 function getColor(id){
@@ -704,6 +708,7 @@ function loadAll(){
       if(n.customColor===undefined)n.customColor=null;
       if(n.memo===undefined)n.memo='';
       if(n.imgs===undefined)n.imgs=[];
+      if(n.scale===undefined)n.scale=1;
     });
   });
   var cc=getCat(curCatId);
@@ -970,7 +975,7 @@ function renderCurves(){
     var c=nodes[i];if(c.pid===null)continue;
     var p=gn(c.pid);if(!p)continue;
     var color=getColor(c.id);
-    var pw=nw(p.text)+(p.pid===null?16:0),cw=nw(c.text);
+    var pw=nw(p.text,p.scale||1)+(p.pid===null?16:0)*(p.scale||1),cw=nw(c.text,c.scale||1);
     var pwx,pwy,cwx,cwy;
     if(c.x>=p.x){pwx=p.x+pw/2;cwx=c.x-cw/2;}else{pwx=p.x-pw/2;cwx=c.x+cw/2;}
     pwy=p.y;cwy=c.y;
@@ -1047,9 +1052,11 @@ function renderNodes(){
       var lbl=document.createElement('span');lbl.className='node-label';el.appendChild(lbl);
       world.appendChild(el);bindNode(el,n.id);
     }
-    var w=nw(n.text)+(n.pid===null?16:0),h=n.pid===null?RH:NH;
+    var sc2=n.scale||1;var w=nw(n.text,sc2)+(n.pid===null?16:0)*sc2,h=(n.pid===null?RH:NH)*sc2;
+    var fs2=n.pid===null?(1.0*sc2):(0.88*sc2);
     el.style.left=(n.x-w/2)+'px';el.style.top=(n.y-h/2)+'px';
     el.style.width=w+'px';el.style.height=h+'px';
+    el.style.fontSize=fs2+'rem';
     var linkParentColors=getLinkParentColors(n.id);
     if(linkParentColors.length>=1){
       var baseColor=getColor(n.id);
@@ -1121,6 +1128,9 @@ function updatePanel(){
   cp.classList.remove('open');
   var ctBtn=document.getElementById('np-color-toggle');
   if(ctBtn) ctBtn.classList.remove('on');
+  /* 크기 % 표시 */
+  var sizeVal=document.getElementById('np-size-val');
+  if(sizeVal) sizeVal.textContent=Math.round((n.scale||1)*100)+'%';
   PALETTE.forEach(function(c){
     var d=document.createElement('div');d.className='npc'+(n.customColor===c.v?' on':'');
     d.style.background=c.v;d.title=c.n;
@@ -1257,8 +1267,8 @@ function resolveOverlaps(){
         var a=nodes[i], b=nodes[j];
         /* 루트는 고정 */
         var aRoot=(a.pid===null), bRoot=(b.pid===null);
-        var aw=nw(a.text), ah=(aRoot?RH:NH);
-        var bw=nw(b.text), bh=(bRoot?RH:NH);
+        var aw=nw(a.text,a.scale||1), ah=(aRoot?RH:NH)*(a.scale||1);
+        var bw=nw(b.text,b.scale||1), bh=(bRoot?RH:NH)*(b.scale||1);
         var minDx=(aw+bw)/2+PAD_X;
         var minDy=(ah+bh)/2+PAD_Y;
         var dx=Math.abs(a.x-b.x);
@@ -1385,7 +1395,7 @@ function addChild(pid){
   if(childDir==='right') dir=1;
   else if(childDir==='left') dir=-1;
   else dir=(par.pid===null?1:(par.x>=gr().x?1:-1));
-  var newN={id:nid++,text:'새 아이디어',x:par.x,y:par.y,pid:pid,star:false,customColor:null,memo:'',imgs:[]}; /* X는 layoutSiblings에서 설정 */
+  var newN={id:nid++,text:'새 아이디어',x:par.x,y:par.y,pid:pid,star:false,customColor:null,memo:'',imgs:[],scale:1}; /* X는 layoutSiblings에서 설정 */
   nodes.push(newN);sel=newN.id;
   /* 기존 노드 위치 유지 — 부모의 형제 그룹만 Y축 재정렬 */
   layoutSiblings(pid, dir);
@@ -1659,7 +1669,7 @@ function zoomAt(sx,sy,up){
 function fitView(){
   if(!nodes.length)return;
   var mx=Infinity,my=Infinity,xx=-Infinity,xy=-Infinity;
-  nodes.forEach(function(n){var w=nw(n.text)+(n.pid===null?16:0);mx=Math.min(mx,n.x-w/2-30);my=Math.min(my,n.y-NH/2-30);xx=Math.max(xx,n.x+w/2+30);xy=Math.max(xy,n.y+NH/2+30);});
+  nodes.forEach(function(n){var sc3=n.scale||1;var w=nw(n.text,sc3)+(n.pid===null?16:0)*sc3,hh=(n.pid===null?RH:NH)*sc3;mx=Math.min(mx,n.x-w/2-30);my=Math.min(my,n.y-hh/2-30);xx=Math.max(xx,n.x+w/2+30);xy=Math.max(xy,n.y+hh/2+30);});
   var vp=document.getElementById('viewport');var vw=vp.clientWidth,vh=vp.clientHeight;
   var tw=xx-mx,th=xy-my;var z=Math.min(3,Math.max(0.15,Math.min(vw/tw,vh/th)*0.88));
   cam.z=z;cam.x=(vw-tw*z)/2-mx*z;cam.y=(vh-th*z)/2-my*z;
@@ -1724,7 +1734,7 @@ document.getElementById('restore-input').addEventListener('change',function(e){
         if(!c.icon)c.icon='🗂';if(c.collapsed===undefined)c.collapsed=false;
         c.nodes.forEach(function(n){
           if(n.star===undefined)n.star=false;if(n.customColor===undefined)n.customColor=null;
-          if(n.memo===undefined)n.memo='';if(n.imgs===undefined)n.imgs=[];
+          if(n.memo===undefined)n.memo='';if(n.imgs===undefined)n.imgs=[];if(n.scale===undefined)n.scale=1;
         });
       });
       var cc=getCat(curCatId);if(!cc){curCatId=cats[0].id;cc=cats[0];}
@@ -1910,6 +1920,18 @@ document.getElementById('btn-reset').onclick=function(){
 /* node panel */
 document.getElementById('np-up').onclick=function(e){e.stopPropagation();if(sel)moveSibling(sel,-1);};
 document.getElementById('np-down').onclick=function(e){e.stopPropagation();if(sel)moveSibling(sel,1);};
+document.getElementById('np-size-up').onclick=function(e){
+  e.stopPropagation();
+  var n=gn(sel);if(!n)return;
+  n.scale=Math.min(3.0, Math.round(((n.scale||1)+0.1)*10)/10);
+  saveAll();renderAll();
+};
+document.getElementById('np-size-down').onclick=function(e){
+  e.stopPropagation();
+  var n=gn(sel);if(!n)return;
+  n.scale=Math.max(0.5, Math.round(((n.scale||1)-0.1)*10)/10);
+  saveAll();renderAll();
+};
 document.getElementById('np-color-toggle').onclick=function(e){
   e.stopPropagation();
   var cp=document.getElementById('np-colors');
