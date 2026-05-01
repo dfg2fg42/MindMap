@@ -1103,30 +1103,34 @@ function renderCurves(){
   /* ── SVG marker 정의 (화살촉) ── */
   var defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
   /* 색상별 marker를 동적으로 생성하는 함수 */
-  /* 세련된 눈물방울형 화살촉 - auto-start-reverse 하나로 통일 */
-  /* marker-end: 선 끝에서 진행방향 → */
-  /* marker-start + auto-start-reverse: 선 시작에서 역방향 ← */
+  /* forward(→): marker-end용, orient=auto → 선 끝에서 진행방향 */
   function mkMarker(id,color){
     var m=document.createElementNS('http://www.w3.org/2000/svg','marker');
     m.setAttribute('id',id);
     m.setAttribute('markerWidth','10');m.setAttribute('markerHeight','10');
     m.setAttribute('refX','9');m.setAttribute('refY','5');
-    m.setAttribute('orient','auto-start-reverse');
+    m.setAttribute('orient','auto');
     m.setAttribute('markerUnits','userSpaceOnUse');
     var p=document.createElementNS('http://www.w3.org/2000/svg','path');
     p.setAttribute('d','M0,1 C3,2 7,4 9,5 C7,6 3,8 0,9 C2,7 3,6 3,5 C3,4 2,3 0,1 Z');
     p.setAttribute('fill',color);p.setAttribute('opacity','0.95');
     m.appendChild(p);defs.appendChild(m);
   }
-  function mkMarkerRev(id,color){ mkMarker(id,color); }
+  /* 화살촉 직접 그리기: tip이 (0,0), 오른쪽 방향 기준, angle로 회전 */
+  function addArrowHead(svgEl, x, y, angle, color){
+    var g=document.createElementNS('http://www.w3.org/2000/svg','path');
+    /* tip=(0,0), 꼬리 왼쪽으로 뻗음. 오른쪽(→) 방향 기준 */
+    var d='M0,0 L-11,-5 L-8,0 L-11,5 Z';
+    g.setAttribute('d',d);
+    g.setAttribute('fill',color);g.setAttribute('opacity','0.95');
+    g.setAttribute('transform','translate('+x+','+y+') rotate('+angle+')');
+    svgEl.appendChild(g);
+  }
   svg.appendChild(defs);
   var _markerIds={};
   function getMarker(color){
     var key='f'+color.replace(/[^a-fA-F0-9]/g,'');
-    if(!_markerIds[key]){
-      mkMarker('mk_'+key,color);
-      _markerIds[key]=true;
-    }
+    if(!_markerIds[key]){ mkMarker('mk_'+key,color); _markerIds[key]=true; }
     return 'url(#mk_'+key+')';
   }
   /* 화살촉 길이만큼 끝점 당기기 (marker-end가 선 위에 깔끔하게 얹히도록) */
@@ -1151,20 +1155,32 @@ function renderCurves(){
     pwy=p.y;cwy=c.y;
     var ps=w2s(pwx,pwy),cs=w2s(cwx,cwy),mx=(ps.x+cs.x)/2;
     /* 화살촉 오프셋 적용 */
-    var arr_pre=c.arrow||'none';
     var psx=ps.x,psy=ps.y,csx=cs.x,csy=cs.y;
-    var AO=9; /* 화살촉 길이 오프셋 */
-    if(arr_pre==='forward'||arr_pre==='both'){var ao=arrowOffset(psx,psy,csx,csy,AO);csx=ao.x;csy=ao.y;}
-    if(arr_pre==='backward'||arr_pre==='both'){var ao2=arrowOffset(csx,csy,psx,psy,AO);psx=ao2.x;psy=ao2.y;}
     var path=document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('d','M'+psx+','+psy+' C'+mx+','+psy+' '+mx+','+csy+' '+csx+','+csy);
     path.setAttribute('fill','none');path.setAttribute('stroke',color);
     path.setAttribute('stroke-width',(p.pid===null)?'3':'2');
     path.setAttribute('stroke-linecap','round');path.setAttribute('opacity','0.9');
-    /* 화살표 방향 적용 */
+    /* 화살표 방향 적용
+       → = 오른쪽 노드 방향, ← = 왼쪽 노드 방향 (화면 절대 기준)
+       leftX = 실제 화면상 왼쪽 노드 좌표, rightX = 오른쪽 노드 좌표 */
     var arr=c.arrow||'none';
-    if(arr==='forward'||arr==='both') path.setAttribute('marker-end',getMarker(color));
-    if(arr==='backward'||arr==='both') path.setAttribute('marker-start',getMarker(color));
+    if(arr!=='none'){
+      /* 어느 쪽이 왼쪽/오른쪽인지 판별 */
+      var leftPt  = (psx <= csx) ? {x:psx,y:psy} : {x:csx,y:csy};
+      var rightPt = (psx <= csx) ? {x:csx,y:csy} : {x:psx,y:psy};
+      /* → = 오른쪽 끝에 화살촉, ← = 왼쪽 끝에 화살촉 */
+      if(arr==='forward'||arr==='both'){
+        /* 오른쪽 노드 방향 화살촉: rightPt에서 leftPt→rightPt 방향 */
+        var angFwd=Math.atan2(rightPt.y-leftPt.y, rightPt.x-leftPt.x)*180/Math.PI;
+        addArrowHead(svg, rightPt.x, rightPt.y, angFwd, color);
+      }
+      if(arr==='backward'||arr==='both'){
+        /* 왼쪽 노드 방향 화살촉: leftPt에서 rightPt→leftPt 방향 */
+        var angBwd=Math.atan2(leftPt.y-rightPt.y, leftPt.x-rightPt.x)*180/Math.PI;
+        addArrowHead(svg, leftPt.x, leftPt.y, angBwd, color);
+      }
+    }
     /* 선 클릭 → 방향 선택 팝업 */
     path.style.pointerEvents='stroke';path.style.cursor='pointer';
     (function(cid){
@@ -1190,11 +1206,7 @@ function renderCurves(){
     fy=fa.y;ty2=ta.y;
     var sc1=w2s(fx,fy),sc2=w2s(tx2,ty2);
     var mx=(sc1.x+sc2.x)/2;
-    var larr_pre=lk.arrow||'none';
     var lx1=sc1.x,ly1=sc1.y,lx2=sc2.x,ly2=sc2.y;
-    var LAO=9;
-    if(larr_pre==='forward'||larr_pre==='both'){var lao=arrowOffset(lx1,ly1,lx2,ly2,LAO);lx2=lao.x;ly2=lao.y;}
-    if(larr_pre==='backward'||larr_pre==='both'){var lao2=arrowOffset(lx2,ly2,lx1,ly1,LAO);lx1=lao2.x;ly1=lao2.y;}
     /* from 노드 색상 사용 */
     var linkColor=getColor(lk.from);
     var lpath=document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -1206,10 +1218,20 @@ function renderCurves(){
     lpath.setAttribute('stroke-linecap','round');
     lpath.setAttribute('opacity','0.9');
     lpath.setAttribute('data-link',lk.from+'-'+lk.to);
-    /* 참조선 화살표 */
+    /* 참조선 화살표 (→=오른쪽, ←=왼쪽 절대 기준) */
     var larr=lk.arrow||'none';
-    if(larr==='forward'||larr==='both') lpath.setAttribute('marker-end',getMarker(linkColor));
-    if(larr==='backward'||larr==='both') lpath.setAttribute('marker-start',getMarker(linkColor));
+    if(larr!=='none'){
+      var lleftPt  = (lx1 <= lx2) ? {x:lx1,y:ly1} : {x:lx2,y:ly2};
+      var lrightPt = (lx1 <= lx2) ? {x:lx2,y:ly2} : {x:lx1,y:ly1};
+      if(larr==='forward'||larr==='both'){
+        var langFwd=Math.atan2(lrightPt.y-lleftPt.y, lrightPt.x-lleftPt.x)*180/Math.PI;
+        addArrowHead(svg, lrightPt.x, lrightPt.y, langFwd, linkColor);
+      }
+      if(larr==='backward'||larr==='both'){
+        var langBwd=Math.atan2(lleftPt.y-lrightPt.y, lleftPt.x-lrightPt.x)*180/Math.PI;
+        addArrowHead(svg, lleftPt.x, lleftPt.y, langBwd, linkColor);
+      }
+    }
     lpath.style.pointerEvents='stroke';lpath.style.cursor='pointer';
     (function(lkref){
       lpath.addEventListener('click',function(e){
