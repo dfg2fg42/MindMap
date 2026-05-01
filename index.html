@@ -1156,7 +1156,18 @@ function delNode(id){
   if(undoStack.length>30)undoStack.shift();
   nodes=nodes.filter(function(n){return del.indexOf(n.id)<0;});
   if(del.indexOf(sel)>=0){sel=null;if(memoOpen)closeMemo();}
-  autoLayout();
+  /* 기존 노드 위치 유지 — 삭제된 노드의 부모 자식 그룹만 Y 재배치 */
+  var parId = n.pid;
+  if(parId!==null && gn(parId)){
+    var parDir2 = (function(){
+      var par=gn(parId);
+      if(!par)return 1;
+      if(par.pid===null) return n.x>=par.x?1:-1;
+      return n.x>=par.x?1:-1;
+    })();
+    repositionBranch(parId, parDir2);
+  }
+  renderAll();saveAll();
 }
 function undoDelete(){
   if(!undoStack.length){showToast('↩ 되돌릴 내용이 없습니다');return;}
