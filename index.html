@@ -143,11 +143,15 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 .memo-dot{position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);width:8px;height:8px;border-radius:50%;background:#38b2ff;border:2px solid var(--bg);pointer-events:none;box-shadow:0 0 6px rgba(56,178,255,.7);}
 
 /* ══ MEMO TOOLTIP ══ */
-#memo-tooltip{position:fixed;z-index:400;background:var(--sur);border:1.5px solid #38b2ff;border-radius:10px;padding:10px 13px;max-width:260px;min-width:120px;box-shadow:0 8px 28px rgba(0,0,0,.6),0 0 12px rgba(56,178,255,.2);pointer-events:none;display:none;font-size:.81rem;line-height:1.65;color:var(--txt);}
+#memo-tooltip{position:fixed;z-index:400;background:var(--sur);border:1.5px solid #38b2ff;border-radius:10px;padding:10px 13px;max-width:420px;min-width:180px;min-height:60px;box-shadow:0 8px 28px rgba(0,0,0,.6),0 0 12px rgba(56,178,255,.2);pointer-events:auto;display:none;font-size:.81rem;line-height:1.65;color:var(--txt);overflow:hidden;resize:both;}
 #memo-tooltip .mtt-title{font-size:.7rem;font-weight:800;color:#38b2ff;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:5px;}
-#memo-tooltip .mtt-body{white-space:pre-wrap;word-break:break-word;max-height:120px;overflow:hidden;color:var(--txt);opacity:.9;}
+#memo-tooltip .mtt-body{white-space:pre-wrap;word-break:break-word;max-height:320px;overflow-y:auto;color:var(--txt);opacity:.9;}
 #memo-tooltip .mtt-img-preview{margin-top:7px;display:flex;gap:4px;flex-wrap:wrap;}
 #memo-tooltip .mtt-img-preview img{width:48px;height:48px;object-fit:cover;border-radius:5px;border:1px solid var(--bdr);}
+#memo-tooltip .mtt-title{cursor:move!important;}
+#memo-tooltip .mtt-body::-webkit-scrollbar{width:4px;}
+#memo-tooltip .mtt-body::-webkit-scrollbar-thumb{background:rgba(56,178,255,.4);border-radius:2px;}
+#memo-tooltip .mtt-body::-webkit-scrollbar-track{background:transparent;}
 
 /* ══ FLOATING PANEL ══ */
 #node-panel{position:fixed;z-index:150;background:var(--sur);border:1px solid var(--bdr);border-radius:99px;padding:5px 10px;display:none;align-items:center;gap:7px;box-shadow:0 6px 24px rgba(0,0,0,.55);}
@@ -185,9 +189,15 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 #memo-node-name{flex:1;font-size:.9rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 #memo-close-btn{background:none;border:1.5px solid var(--bdr);border-radius:7px;padding:3px 8px;cursor:pointer;color:var(--mut);font-size:.78rem;transition:.13s;}
 #memo-close-btn:hover{border-color:#ff6b6b;color:#ff6b6b;}
-#memo-body{flex:1;display:flex;flex-direction:column;padding:12px;overflow:hidden;}
+#memo-body{flex:1;display:flex;flex-direction:column;padding:12px;overflow-y:auto;}
 #memo-lbl{font-size:.73rem;color:var(--mut);font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px;}
-#memo-ta{flex:1;background:var(--sur2);border:1.5px solid var(--bdr);border-radius:10px;color:var(--txt);font-family:inherit;font-size:.88rem;padding:12px;resize:none;outline:none;line-height:1.7;transition:border .14s;min-height:80px;max-height:200px;}
+/* ══ MEMO TOOLBAR ══ */
+#memo-toolbar{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:7px;padding:5px 6px;background:var(--sur2);border:1.5px solid var(--bdr);border-radius:8px;}
+.mtb-btn{background:none;border:1.5px solid transparent;border-radius:6px;padding:3px 7px;cursor:pointer;font-size:.78rem;color:var(--mut);transition:.13s;display:flex;align-items:center;gap:3px;white-space:nowrap;line-height:1.4;}
+.mtb-btn:hover{background:var(--bdr);color:var(--txt);border-color:var(--bdr);}
+.mtb-btn.active{background:rgba(108,99,255,.2);border-color:var(--acc);color:var(--acc);}
+.mtb-sep{width:1px;height:18px;background:var(--bdr);margin:0 2px;align-self:center;}
+#memo-ta{width:100%;box-sizing:border-box;background:var(--sur2);border:1.5px solid var(--bdr);border-radius:10px;color:var(--txt);font-family:inherit;font-size:.88rem;padding:12px;resize:vertical;outline:none;line-height:1.7;transition:border .14s;min-height:200px;height:240px;max-height:600px;}
 #memo-ta:focus{border-color:var(--acc);}
 #memo-ta::placeholder{color:var(--mut);}
 #memo-saved{font-size:.72rem;color:var(--mut);margin-top:5px;text-align:right;}
@@ -454,6 +464,18 @@ body.link-mode .link-del-btn{display:block;}
   </div>
   <div id="memo-body">
     <div id="memo-lbl">메모 내용</div>
+    <div id="memo-toolbar">
+      <button class="mtb-btn" id="mtb-check"  title="체크박스 (- [ ])">☑ 체크박스</button>
+      <div class="mtb-sep"></div>
+      <button class="mtb-btn" id="mtb-bullet" title="글머리 기호 (-)">• 글머리</button>
+      <button class="mtb-btn" id="mtb-num"    title="번호 매기기">① 번호</button>
+      <div class="mtb-sep"></div>
+      <button class="mtb-btn" id="mtb-indent"   title="들여쓰기">→ 들여쓰기</button>
+      <button class="mtb-btn" id="mtb-outdent"  title="내어쓰기">← 내어쓰기</button>
+      <div class="mtb-sep"></div>
+      <button class="mtb-btn" id="mtb-hr"    title="구분선 추가">— 구분선</button>
+      <button class="mtb-btn" id="mtb-clear" title="서식 제거" style="margin-left:auto;">✕ 서식제거</button>
+    </div>
     <textarea id="memo-ta" placeholder="이 노드에 대한 메모, 아이디어, 참고 내용을 자유롭게 작성하세요..."></textarea>
     <div id="memo-saved">자동 저장됩니다</div>
     <!-- 이미지 첨부 -->
@@ -659,6 +681,7 @@ var linkMode=false;
 var panelVisible=false;   // 연결 모드 상태
 var linkFrom=null;    // 연결 시작 노드 id
 var memoOpen=false,isLight=false;
+var mttDragging=false; // memo tooltip drag state
 var iconPickerTarget=null;
 var sbPinned=false;
 
@@ -1292,7 +1315,19 @@ function showMemoTooltip(nodeId,clientX,clientY){
   clearTimeout(mttTimer);
   mttTimer=setTimeout(function(){
     var tt=document.getElementById('memo-tooltip');
-    document.getElementById('mtt-body').textContent=n.memo||'';
+    (function(){
+    var raw=n.memo||'';
+    var html=raw.split('\n').map(function(l){
+      var esc=l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      if(/^\s*- \[x\]/.test(l)) return '<span style="color:#38b2ff;text-decoration:line-through;opacity:.7">☑ '+esc.replace(/^\s*- \[x\]\s*/,'')+'</span>';
+      if(/^\s*- \[ \]/.test(l)) return '<span>☐ '+esc.replace(/^\s*- \[\s*\]\s*/,'')+'</span>';
+      if(/^\s*- /.test(l))        return '<span>• '+esc.replace(/^\s*- /,'')+'</span>';
+      if(/^\s*\d+\.\s/.test(l)) return '<span>'+esc+'</span>';
+      if(/^────/.test(l))         return '<hr style="border:none;border-top:1px solid var(--bdr);margin:3px 0;">';
+      return '<span>'+esc+'</span>';
+    }).join('\n');
+    document.getElementById('mtt-body').innerHTML=html;
+  })();
     tt.querySelector('.mtt-title').innerHTML='📝 메모 — <span style="color:var(--txt);font-weight:600;text-transform:none;letter-spacing:0">'+n.text+'</span>';
     var imgPrev=document.getElementById('mtt-img-preview');imgPrev.innerHTML='';
     if(n.imgs&&n.imgs.length){
@@ -1300,17 +1335,54 @@ function showMemoTooltip(nodeId,clientX,clientY){
         var im=document.createElement('img');im.src=src;imgPrev.appendChild(im);
       });
     }
-    var tx=clientX+16,ty=clientY-10;
-    if(tx+270>window.innerWidth)tx=clientX-276;
-    if(ty+220>window.innerHeight)ty=window.innerHeight-230;
-    tt.style.left=Math.max(4,tx)+'px';tt.style.top=Math.max(4,ty)+'px';
     tt.style.display='block';
+    tt.style.width='';tt.style.height='';
+    var tw=tt.offsetWidth||260, th=tt.offsetHeight||120;
+    var tx=clientX+16,ty=clientY-10;
+    if(tx+tw>window.innerWidth-8)tx=clientX-tw-10;
+    if(ty+th>window.innerHeight-8)ty=window.innerHeight-th-8;
+    tt.style.left=Math.max(4,tx)+'px';tt.style.top=Math.max(4,ty)+'px';
   },300);
 }
 function hideMemoTooltip(){
+  if(mttDragging)return;
   clearTimeout(mttTimer);
   document.getElementById('memo-tooltip').style.display='none';
 }
+
+/* ── Memo Tooltip drag-to-move & corner resize ── */
+(function(){
+  var tt=null, dragSt=null;
+  document.addEventListener('DOMContentLoaded',function(){
+    tt=document.getElementById('memo-tooltip');
+    /* 타이틀 영역 드래그로 툴팁 이동 */
+    tt.addEventListener('mousedown',function(e){
+      var titleEl=tt.querySelector('.mtt-title');
+      if(!titleEl||!titleEl.contains(e.target))return;
+      e.preventDefault();e.stopPropagation();
+      mttDragging=true;
+      var startX=e.clientX,startY=e.clientY;
+      var startL=parseInt(tt.style.left)||0,startT=parseInt(tt.style.top)||0;
+      function onMove(ev){
+        tt.style.left=Math.max(0,(startL+(ev.clientX-startX)))+'px';
+        tt.style.top=Math.max(0,(startT+(ev.clientY-startY)))+'px';
+      }
+      function onUp(){
+        mttDragging=false;
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+      }
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    });
+    /* 제목 영역 커서 변경 */
+    tt.addEventListener('mousemove',function(e){
+      var titleEl=tt.querySelector('.mtt-title');
+      if(titleEl&&titleEl.contains(e.target)){tt.style.cursor='move';}
+      else{tt.style.cursor='default';}
+    });
+  });
+})();
 
 /* ════════════════ FLOATING PANEL ════════════════ */
 function updatePanel(){
@@ -1900,10 +1972,11 @@ function bindNode(el,id){
   el.addEventListener('mousemove',function(e){
     if(!movSt){
       var tt=document.getElementById('memo-tooltip');
-      if(tt.style.display==='block'){
+      if(tt.style.display==='block'&&!mttDragging){
+        var tw=tt.offsetWidth||260,th=tt.offsetHeight||120;
         var tx=e.clientX+16,ty=e.clientY-10;
-        if(tx+270>window.innerWidth)tx=e.clientX-276;
-        if(ty+220>window.innerHeight)ty=window.innerHeight-230;
+        if(tx+tw>window.innerWidth-8)tx=e.clientX-tw-10;
+        if(ty+th>window.innerHeight-8)ty=window.innerHeight-th-8;
         tt.style.left=Math.max(4,tx)+'px';tt.style.top=Math.max(4,ty)+'px';
       }
     }
@@ -2256,6 +2329,180 @@ document.getElementById('memo-ta').addEventListener('input',function(){
   document.getElementById('memo-saved').textContent='저장됨 ✓';
   setTimeout(function(){document.getElementById('memo-saved').textContent='자동 저장됩니다';},1200);
 });
+
+/* ════ MEMO TOOLBAR LOGIC ════ */
+(function(){
+  var ta=document.getElementById('memo-ta');
+
+  /* 현재 커서가 있는 줄 가져오기 */
+  function getLineInfo(){
+    var val=ta.value, pos=ta.selectionStart;
+    var lineStart=val.lastIndexOf('\n',pos-1)+1;
+    var lineEnd=val.indexOf('\n',pos); if(lineEnd===-1)lineEnd=val.length;
+    return {val:val,pos:pos,lineStart:lineStart,lineEnd:lineEnd,
+            line:val.substring(lineStart,lineEnd)};
+  }
+
+  /* 선택 영역의 모든 줄 가져오기 */
+  function getSelectedLines(){
+    var val=ta.value, s=ta.selectionStart, e=ta.selectionEnd;
+    var lineStart=val.lastIndexOf('\n',s-1)+1;
+    var lineEnd=val.indexOf('\n',e); if(lineEnd===-1)lineEnd=val.length;
+    return {val:val,selStart:s,selEnd:e,lineStart:lineStart,lineEnd:lineEnd,
+            block:val.substring(lineStart,lineEnd)};
+  }
+
+  /* textarea에 값 세팅 후 커서 위치 복원 */
+  function setVal(newVal, newCursor, newSelEnd){
+    ta.value=newVal;
+    ta.selectionStart=newCursor;
+    ta.selectionEnd=(newSelEnd!==undefined)?newSelEnd:newCursor;
+    ta.dispatchEvent(new Event('input'));
+    ta.focus();
+  }
+
+  /* 줄 앞에 prefix 토글 */
+  function togglePrefix(prefix, isCheck){
+    var li=getSelectedLines();
+    var lines=li.block.split('\n');
+    var allHave=lines.every(function(l){
+      return isCheck ? /^\s*- \[.\]/.test(l) : l.startsWith(prefix);
+    });
+    var newLines=lines.map(function(l,i){
+      if(allHave){
+        // 제거
+        if(isCheck) return l.replace(/^(\s*)- \[.\] ?/,'$1');
+        return l.startsWith(prefix)?l.slice(prefix.length):l;
+      } else {
+        // 추가: 번호 매기기면 순서 반영
+        if(isCheck) return l.replace(/^(\s*)/,'$1- [ ] ');
+        if(prefix.match(/^\d+\. $/)){
+          return (i+1)+'. '+l.replace(/^\d+\.\s*/,'');
+        }
+        return l.startsWith(prefix)?l:prefix+l;
+      }
+    });
+    var newBlock=newLines.join('\n');
+    var newVal=li.val.substring(0,li.lineStart)+newBlock+li.val.substring(li.lineEnd);
+    var diff=newBlock.length-li.block.length;
+    setVal(newVal, li.selStart+(allHave?Math.max(0,-prefix.length):prefix.length), li.selEnd+diff);
+  }
+
+  /* 들여쓰기 / 내어쓰기 */
+  function indentLines(dir){
+    var li=getSelectedLines();
+    var lines=li.block.split('\n');
+    var newLines=lines.map(function(l){
+      if(dir>0) return '  '+l;
+      return l.startsWith('  ')?l.slice(2):(l.startsWith(' ')?l.slice(1):l);
+    });
+    var newBlock=newLines.join('\n');
+    var newVal=li.val.substring(0,li.lineStart)+newBlock+li.val.substring(li.lineEnd);
+    var diff=newBlock.length-li.block.length;
+    setVal(newVal, li.selStart+diff, li.selEnd+diff);
+  }
+
+  /* 체크박스 토글 클릭 (텍스트 내 - [ ] 클릭 → - [x] ) */
+  ta.addEventListener('click',function(){
+    var li=getLineInfo();
+    // 클릭한 줄이 - [ ] 또는 - [x] 형태이면 토글
+    var m=li.line.match(/^(\s*- \[)([ x])(\].*)$/);
+    if(m){
+      var toggled=m[2]===' '?'x':' ';
+      var newLine=m[1]+toggled+m[3];
+      var newVal=li.val.substring(0,li.lineStart)+newLine+li.val.substring(li.lineEnd);
+      var cur=ta.selectionStart;
+      ta.value=newVal;
+      ta.selectionStart=cur; ta.selectionEnd=cur;
+      ta.dispatchEvent(new Event('input'));
+    }
+  });
+
+  /* Enter 키: 같은 리스트 형식 자동 연속 */
+  ta.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!e.shiftKey&&!e.ctrlKey&&!e.altKey){
+      var li=getLineInfo();
+      var line=li.line;
+      // 체크박스
+      var mCheck=line.match(/^(\s*)(- \[[ x]\] )(.*)/);
+      if(mCheck){
+        if(!mCheck[3].trim()){ // 내용 없으면 제거
+          var newVal=li.val.substring(0,li.lineStart)+mCheck[1]+li.val.substring(li.lineEnd);
+          e.preventDefault();
+          setVal(newVal, li.lineStart+mCheck[1].length);
+          return;
+        }
+        e.preventDefault();
+        var ins='\n'+mCheck[1]+'- [ ] ';
+        var newVal=li.val.substring(0,li.pos)+ins+li.val.substring(li.pos);
+        setVal(newVal, li.pos+ins.length);
+        return;
+      }
+      // 글머리 기호
+      var mBullet=line.match(/^(\s*)(- )(.*)/);
+      if(mBullet){
+        if(!mBullet[3].trim()){
+          var newVal=li.val.substring(0,li.lineStart)+mBullet[1]+li.val.substring(li.lineEnd);
+          e.preventDefault();
+          setVal(newVal, li.lineStart+mBullet[1].length);
+          return;
+        }
+        e.preventDefault();
+        var ins='\n'+mBullet[1]+'- ';
+        var newVal=li.val.substring(0,li.pos)+ins+li.val.substring(li.pos);
+        setVal(newVal, li.pos+ins.length);
+        return;
+      }
+      // 번호 매기기
+      var mNum=line.match(/^(\s*)(\d+)(\.\s)(.*)/);
+      if(mNum){
+        if(!mNum[4].trim()){
+          var newVal=li.val.substring(0,li.lineStart)+mNum[1]+li.val.substring(li.lineEnd);
+          e.preventDefault();
+          setVal(newVal, li.lineStart+mNum[1].length);
+          return;
+        }
+        e.preventDefault();
+        var nextNum=parseInt(mNum[2])+1;
+        var ins='\n'+mNum[1]+nextNum+'. ';
+        var newVal=li.val.substring(0,li.pos)+ins+li.val.substring(li.pos);
+        setVal(newVal, li.pos+ins.length);
+        return;
+      }
+    }
+    /* Tab 키: 들여쓰기 */
+    if(e.key==='Tab'&&!e.ctrlKey){
+      e.preventDefault();
+      indentLines(e.shiftKey?-1:1);
+    }
+  });
+
+  /* 구분선 삽입 */
+  document.getElementById('mtb-hr').onclick=function(){
+    var val=ta.value, pos=ta.selectionStart;
+    var ins=(pos>0&&val[pos-1]!=='\n'?'\n':'')+'────────────────────\n';
+    var newVal=val.substring(0,pos)+ins+val.substring(pos);
+    setVal(newVal, pos+ins.length);
+  };
+
+  /* 서식 제거: 현재 선택 줄들의 리스트/체크박스 prefix 제거 */
+  document.getElementById('mtb-clear').onclick=function(){
+    var li=getSelectedLines();
+    var lines=li.block.split('\n');
+    var newLines=lines.map(function(l){
+      return l.replace(/^\s*(- \[[ x]\] |- |\d+\.\s)/,'');
+    });
+    var newBlock=newLines.join('\n');
+    var newVal=li.val.substring(0,li.lineStart)+newBlock+li.val.substring(li.lineEnd);
+    setVal(newVal, li.selStart, li.selEnd+(newBlock.length-li.block.length));
+  };
+
+  document.getElementById('mtb-check').onclick =function(){ togglePrefix('- [ ] ',true); };
+  document.getElementById('mtb-bullet').onclick=function(){ togglePrefix('- ',false); };
+  document.getElementById('mtb-num').onclick   =function(){ togglePrefix('1. ',false); };
+  document.getElementById('mtb-indent').onclick =function(){ indentLines(1); };
+  document.getElementById('mtb-outdent').onclick=function(){ indentLines(-1); };
+})();
 
 /* 이미지 첨부 */
 document.getElementById('memo-img-add').onclick=function(){document.getElementById('memo-img-input').click();};
