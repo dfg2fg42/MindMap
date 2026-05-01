@@ -225,6 +225,12 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
   white-space:nowrap;
 }
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ══ DIR MENU ══ */
+.dir-opt{padding:8px 16px;cursor:pointer;font-size:.83rem;color:var(--txt);transition:background .12s;display:flex;align-items:center;gap:6px;}
+.dir-opt:hover{background:var(--sur2);}
+.dir-opt.active{color:var(--acc);font-weight:700;}
+#btn-dir.on{border-color:var(--acc);color:var(--acc);}
 </style>
 </head>
 <body>
@@ -253,6 +259,18 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
   <div id="cur-chip" class="cur-chip"><span id="cur-icon">🗂</span><span id="cur-name">기본</span></div>
   <div class="sep"></div>
   <button class="tbtn prim" id="btn-child">＋ 자식 <span style="opacity:.6;font-size:.72rem">(Tab)</span></button>
+  <div id="dir-wrap" style="position:relative;display:inline-flex;">
+    <button class="tbtn" id="btn-dir" title="자식 노드 생성 방향 선택" style="padding:5px 8px;gap:3px;">
+      <span id="dir-icon">⇄</span><span id="dir-label" style="font-size:.75rem;">자동</span><span style="font-size:.6rem;opacity:.6;">▼</span>
+    </button>
+    <div id="dir-menu" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;
+      background:var(--sur);border:1.5px solid var(--bdr);border-radius:10px;
+      padding:4px 0;min-width:130px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:200;">
+      <div class="dir-opt" data-val="auto"  data-icon="⇄" data-lbl="자동">⇄ &nbsp;자동 (좌우 균형)</div>
+      <div class="dir-opt" data-val="right" data-icon="→" data-lbl="오른쪽">→ &nbsp;오른쪽</div>
+      <div class="dir-opt" data-val="left"  data-icon="←" data-lbl="왼쪽">← &nbsp;왼쪽</div>
+    </div>
+  </div>
   <button class="tbtn" id="btn-sibling">＋ 형제 <span style="opacity:.6;font-size:.72rem">(Enter)</span></button>
   <div class="sep"></div>
   <button class="tbtn" id="btn-layout">⟳ 정렬</button>
@@ -370,6 +388,7 @@ var nodes=[],nid=1;
 var cam={x:0,y:0,z:1};
 var sel=null,panSt=null,movSt=null;
 var undoStack=[];
+var childDir='auto'; // 'auto','right','left'
 var memoOpen=false,isLight=false;
 var iconPickerTarget=null;
 var sbPinned=false;
@@ -644,8 +663,19 @@ function layoutBranch(kids,par,dir){
 function autoLayout(){
   var root=gr();if(!root)return;
   root.x=0;root.y=0;
-  var k=gc(root.id),half=Math.ceil(k.length/2);
-  layoutBranch(k.slice(0,half),root,1);layoutBranch(k.slice(half),root,-1);
+  var k=gc(root.id);
+  if(childDir==='right'){
+    /* 모두 오른쪽 */
+    layoutBranch(k,root,1);
+  } else if(childDir==='left'){
+    /* 모두 왼쪽 */
+    layoutBranch(k,root,-1);
+  } else {
+    /* 자동: 좌우 균형 분배 */
+    var half=Math.ceil(k.length/2);
+    layoutBranch(k.slice(0,half),root,1);
+    layoutBranch(k.slice(half),root,-1);
+  }
   renderAll();saveAll();
 }
 
@@ -854,10 +884,54 @@ function startEdit(id){
 /* ════════════════ ADD/DELETE ════════════════ */
 function addChild(pid){
   var par=gn(pid);if(!par)return;
-  var dir=par.pid===null?1:(par.x>=gr().x?1:-1);
-  var newN={id:nid++,text:'새 아이디어',x:par.x+dir*HGAP,y:par.y,pid:pid,star:false,customColor:null,memo:'',imgs:[]};
+  var dir;
+  if(childDir==='right') dir=1;
+  else if(childDir==='left') dir=-1;
+  else dir=(par.pid===null?1:(par.x>=gr().x?1:-1));
+  var newN={id:nid++,text:'새 아이디어',x:par.x,y:par.y,pid:pid,star:false,customColor:null,memo:'',imgs:[]}; /* X는 layoutSiblings에서 설정 */
   nodes.push(newN);sel=newN.id;
-  autoLayout();setTimeout(function(){startEdit(newN.id);},80);
+  /* 기존 노드 위치 유지 — 부모의 형제 그룹만 Y축 재정렬 */
+  layoutSiblings(pid, dir);
+  renderAll();saveAll();
+  setTimeout(function(){startEdit(newN.id);},80);
+}
+
+/* 새 노드 추가 시 Y축만 균등 재배치 — 기존 노드 X위치 절대 변경 안 함 */
+function layoutSiblings(pid, dir){
+  var par=gn(pid);if(!par)return;
+  var kids=gc(pid);if(!kids.length)return;
+  /* 새로 추가된 노드(X=0인 노드)만 X 위치 지정 */
+  for(var i=0;i<kids.length;i++){
+    if(kids[i].x===par.x){ kids[i].x=par.x+dir*HGAP; }
+  }
+  /* Y축만 균등 재배치 */
+  var total=0;for(var i=0;i<kids.length;i++)total+=subH(kids[i].id);
+  var y=par.y-total/2;
+  for(var i=0;i<kids.length;i++){
+    var h=subH(kids[i].id);
+    kids[i].y=y+h/2;
+    y+=h;
+    /* 손자 이하도 Y축만 재배치 */
+    var grandKids=gc(kids[i].id);
+    if(grandKids.length){
+      var subDir=kids[i].x>=par.x?1:-1;
+      layoutSiblingsDeep(kids[i].id, subDir);
+    }
+  }
+}
+function layoutSiblingsDeep(pid, dir){
+  var par=gn(pid);if(!par)return;
+  var kids=gc(pid);if(!kids.length)return;
+  var total=0;for(var i=0;i<kids.length;i++)total+=subH(kids[i].id);
+  var y=par.y-total/2;
+  for(var i=0;i<kids.length;i++){
+    var h=subH(kids[i].id);
+    /* X는 기존 위치 유지, Y만 재배치 */
+    if(kids[i].x===par.x) kids[i].x=par.x+dir*HGAP;
+    kids[i].y=y+h/2;
+    y+=h;
+    layoutSiblingsDeep(kids[i].id, dir);
+  }
 }
 function addSibling(id){var n=gn(id);if(!n||n.pid===null)return;addChild(n.pid);}
 function delNode(id){
@@ -1083,6 +1157,28 @@ document.addEventListener('keydown',function(e){
 
 /* toolbar */
 document.getElementById('btn-new-cat').onclick=function(){newCat(null);};
+
+/* 방향 메뉴 */
+document.getElementById('btn-dir').onclick=function(e){
+  e.stopPropagation();
+  var m=document.getElementById('dir-menu');
+  m.style.display=m.style.display==='block'?'none':'block';
+};
+document.querySelectorAll('.dir-opt').forEach(function(opt){
+  opt.addEventListener('click',function(e){
+    e.stopPropagation();
+    childDir=opt.dataset.val;
+    document.getElementById('dir-icon').textContent=opt.dataset.icon;
+    document.getElementById('dir-label').textContent=opt.dataset.lbl;
+    document.getElementById('dir-menu').style.display='none';
+    document.getElementById('btn-dir').classList.toggle('on', childDir!=='auto');
+    document.querySelectorAll('.dir-opt').forEach(function(o){o.classList.toggle('active',o.dataset.val===childDir);});
+  });
+});
+/* 메뉴 외부 클릭 시 닫기 */
+document.addEventListener('click',function(){
+  var m=document.getElementById('dir-menu');if(m)m.style.display='none';
+});
 document.getElementById('btn-child').onclick=function(){if(sel)addChild(sel);};
 document.getElementById('btn-sibling').onclick=function(){if(sel)addSibling(sel);};
 document.getElementById('btn-layout').onclick=autoLayout;
