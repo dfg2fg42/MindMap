@@ -1100,89 +1100,63 @@ function renderCurves(){
   var svg=document.getElementById('svg-layer');
   svg.style.pointerEvents = linkMode ? 'all' : 'none';
   while(svg.firstChild)svg.removeChild(svg.firstChild);
-  /* ── SVG marker 정의 (화살촉) ── */
+
+  /* ── SVG defs: 화살촉 marker ── */
   var defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
-  /* 색상별 marker를 동적으로 생성하는 함수 */
-  /* forward(→): marker-end용, orient=auto → 선 끝에서 진행방향 */
-  function mkMarker(id,color){
-    var m=document.createElementNS('http://www.w3.org/2000/svg','marker');
-    m.setAttribute('id',id);
-    m.setAttribute('markerWidth','10');m.setAttribute('markerHeight','10');
-    m.setAttribute('refX','9');m.setAttribute('refY','5');
-    m.setAttribute('orient','auto');
-    m.setAttribute('markerUnits','userSpaceOnUse');
-    var p=document.createElementNS('http://www.w3.org/2000/svg','path');
-    p.setAttribute('d','M0,1 C3,2 7,4 9,5 C7,6 3,8 0,9 C2,7 3,6 3,5 C3,4 2,3 0,1 Z');
-    p.setAttribute('fill',color);p.setAttribute('opacity','0.95');
-    m.appendChild(p);defs.appendChild(m);
-  }
-  /* 화살촉 직접 그리기: tip이 (0,0), 오른쪽 방향 기준, angle로 회전 */
-  function addArrowHead(svgEl, x, y, angle, color){
-    var g=document.createElementNS('http://www.w3.org/2000/svg','path');
-    /* tip=(0,0), 꼬리 왼쪽으로 뻗음. 오른쪽(→) 방향 기준 */
-    var d='M0,0 L-11,-5 L-8,0 L-11,5 Z';
-    g.setAttribute('d',d);
-    g.setAttribute('fill',color);g.setAttribute('opacity','0.95');
-    g.setAttribute('transform','translate('+x+','+y+') rotate('+angle+')');
-    svgEl.appendChild(g);
+  var _mids={};
+  function getMarker(color){
+    var key=color.replace(/[^a-fA-F0-9]/g,'');
+    if(!_mids[key]){
+      var m=document.createElementNS('http://www.w3.org/2000/svg','marker');
+      m.setAttribute('id','mk'+key);
+      m.setAttribute('markerWidth','10');m.setAttribute('markerHeight','8');
+      m.setAttribute('refX','9');m.setAttribute('refY','4');
+      m.setAttribute('orient','auto-start-reverse');
+      m.setAttribute('markerUnits','userSpaceOnUse');
+      var mp=document.createElementNS('http://www.w3.org/2000/svg','path');
+      mp.setAttribute('d','M0,0 L9,4 L0,8 L2,4 Z');
+      mp.setAttribute('fill',color);
+      m.appendChild(mp); defs.appendChild(m);
+      _mids[key]=true;
+    }
+    return 'url(#mk'+key+')';
   }
   svg.appendChild(defs);
-  var _markerIds={};
-  function getMarker(color){
-    var key='f'+color.replace(/[^a-fA-F0-9]/g,'');
-    if(!_markerIds[key]){ mkMarker('mk_'+key,color); _markerIds[key]=true; }
-    return 'url(#mk_'+key+')';
-  }
-  /* 화살촉 길이만큼 끝점 당기기 (marker-end가 선 위에 깔끔하게 얹히도록) */
-  function arrowOffset(x1,y1,x2,y2,dist){
-    var dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
-    if(len<1)return{x:x2,y:y2};
-    return{x:x2-dx/len*dist,y:y2-dy/len*dist};
-  }
+
+  /* ── 트리 연결선 ── */
   for(var i=0;i<nodes.length;i++){
-    var c=nodes[i];if(c.pid===null)continue;
-    var p=gn(c.pid);if(!p)continue;
+    var c=nodes[i]; if(c.pid===null)continue;
+    var p=gn(c.pid); if(!p)continue;
     var color=getColor(c.id);
-    /* DOM 실측 우선, 없으면 계산값 */
     var pelEl=document.getElementById('n'+p.id);
     var celEl=document.getElementById('n'+c.id);
     var pw=pelEl?pelEl.offsetWidth:nwFull(p);
     var cw=celEl?celEl.offsetWidth:nwFull(c);
-    var ph=pelEl?pelEl.offsetHeight:nhFull(p);
-    var ch=celEl?celEl.offsetHeight:nhFull(c);
     var pwx,pwy,cwx,cwy;
     if(c.x>=p.x){pwx=p.x+pw/2;cwx=c.x-cw/2;}else{pwx=p.x-pw/2;cwx=c.x+cw/2;}
-    pwy=p.y;cwy=c.y;
+    pwy=p.y; cwy=c.y;
     var ps=w2s(pwx,pwy),cs=w2s(cwx,cwy),mx=(ps.x+cs.x)/2;
-    /* 화살촉 오프셋 적용 */
-    var psx=ps.x,psy=ps.y,csx=cs.x,csy=cs.y;
     var path=document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d','M'+psx+','+psy+' C'+mx+','+psy+' '+mx+','+csy+' '+csx+','+csy);
-    path.setAttribute('fill','none');path.setAttribute('stroke',color);
+    path.setAttribute('d','M'+ps.x+','+ps.y+' C'+mx+','+ps.y+' '+mx+','+cs.y+' '+cs.x+','+cs.y);
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke',color);
     path.setAttribute('stroke-width',(p.pid===null)?'3':'2');
-    path.setAttribute('stroke-linecap','round');path.setAttribute('opacity','0.9');
-    /* 화살표 방향 적용
-       → = 오른쪽 노드 방향, ← = 왼쪽 노드 방향 (화면 절대 기준)
-       leftX = 실제 화면상 왼쪽 노드 좌표, rightX = 오른쪽 노드 좌표 */
+    path.setAttribute('stroke-linecap','round');
+    path.setAttribute('opacity','0.9');
+    /* 화살표: → = 오른쪽 방향, ← = 왼쪽 방향 (화면 절대 기준) */
     var arr=c.arrow||'none';
     if(arr!=='none'){
-      /* 어느 쪽이 왼쪽/오른쪽인지 판별 */
-      var leftPt  = (psx <= csx) ? {x:psx,y:psy} : {x:csx,y:csy};
-      var rightPt = (psx <= csx) ? {x:csx,y:csy} : {x:psx,y:psy};
-      /* → = 오른쪽 끝에 화살촉, ← = 왼쪽 끝에 화살촉 */
-      if(arr==='forward'||arr==='both'){
-        /* 오른쪽 노드 방향 화살촉: rightPt에서 leftPt→rightPt 방향 */
-        var angFwd=Math.atan2(rightPt.y-leftPt.y, rightPt.x-leftPt.x)*180/Math.PI;
-        addArrowHead(svg, rightPt.x, rightPt.y, angFwd, color);
-      }
-      if(arr==='backward'||arr==='both'){
-        /* 왼쪽 노드 방향 화살촉: leftPt에서 rightPt→leftPt 방향 */
-        var angBwd=Math.atan2(leftPt.y-rightPt.y, leftPt.x-rightPt.x)*180/Math.PI;
-        addArrowHead(svg, leftPt.x, leftPt.y, angBwd, color);
+      var rightward=(ps.x<=cs.x);
+      if(arr==='forward'){
+        path.setAttribute(rightward?'marker-end':'marker-start', getMarker(color));
+      } else if(arr==='backward'){
+        path.setAttribute(rightward?'marker-start':'marker-end', getMarker(color));
+      } else if(arr==='both'){
+        path.setAttribute('marker-end',getMarker(color));
+        path.setAttribute('marker-start',getMarker(color));
       }
     }
-    /* 선 클릭 → 방향 선택 팝업 */
-    path.style.pointerEvents='stroke';path.style.cursor='pointer';
+    path.style.pointerEvents='stroke'; path.style.cursor='pointer';
     (function(cid){
       path.addEventListener('click',function(e){
         e.stopPropagation();
@@ -1191,26 +1165,22 @@ function renderCurves(){
     })(c.id);
     svg.appendChild(path);
   }
-  /* ── 참조 연결선 (평상시: 노드 색상 실선 / 연결모드: 점선) ── */
+
+  /* ── 참조 연결선 ── */
   for(var li=0;li<links.length;li++){
     var lk=links[li];
     var fa=gn(lk.from),ta=gn(lk.to);
     if(!fa||!ta)continue;
     var faEl=document.getElementById('n'+fa.id),taEl=document.getElementById('n'+ta.id);
     var fw=faEl?faEl.offsetWidth:nwFull(fa),tw=taEl?taEl.offsetWidth:nwFull(ta);
-    var fh=fa.pid===null?RH:NH, th=ta.pid===null?RH:NH;
-    /* 가장 가까운 엣지 포인트 계산 */
     var fx,fy,tx2,ty2;
-    if(fa.x<=ta.x){fx=fa.x+fw/2;tx2=ta.x-tw/2;}
-    else{fx=fa.x-fw/2;tx2=ta.x+tw/2;}
-    fy=fa.y;ty2=ta.y;
+    if(fa.x<=ta.x){fx=fa.x+fw/2;tx2=ta.x-tw/2;}else{fx=fa.x-fw/2;tx2=ta.x+tw/2;}
+    fy=fa.y; ty2=ta.y;
     var sc1=w2s(fx,fy),sc2=w2s(tx2,ty2);
-    var mx=(sc1.x+sc2.x)/2;
-    var lx1=sc1.x,ly1=sc1.y,lx2=sc2.x,ly2=sc2.y;
-    /* from 노드 색상 사용 */
+    var lmx=(sc1.x+sc2.x)/2;
     var linkColor=getColor(lk.from);
     var lpath=document.createElementNS('http://www.w3.org/2000/svg','path');
-    lpath.setAttribute('d','M'+lx1+','+ly1+' C'+mx+','+ly1+' '+mx+','+ly2+' '+lx2+','+ly2);
+    lpath.setAttribute('d','M'+sc1.x+','+sc1.y+' C'+lmx+','+sc1.y+' '+lmx+','+sc2.y+' '+sc2.x+','+sc2.y);
     lpath.setAttribute('fill','none');
     lpath.setAttribute('stroke',linkColor);
     lpath.setAttribute('stroke-width','2');
@@ -1218,21 +1188,20 @@ function renderCurves(){
     lpath.setAttribute('stroke-linecap','round');
     lpath.setAttribute('opacity','0.9');
     lpath.setAttribute('data-link',lk.from+'-'+lk.to);
-    /* 참조선 화살표 (→=오른쪽, ←=왼쪽 절대 기준) */
+    /* 참조선 화살표 */
     var larr=lk.arrow||'none';
     if(larr!=='none'){
-      var lleftPt  = (lx1 <= lx2) ? {x:lx1,y:ly1} : {x:lx2,y:ly2};
-      var lrightPt = (lx1 <= lx2) ? {x:lx2,y:ly2} : {x:lx1,y:ly1};
-      if(larr==='forward'||larr==='both'){
-        var langFwd=Math.atan2(lrightPt.y-lleftPt.y, lrightPt.x-lleftPt.x)*180/Math.PI;
-        addArrowHead(svg, lrightPt.x, lrightPt.y, langFwd, linkColor);
-      }
-      if(larr==='backward'||larr==='both'){
-        var langBwd=Math.atan2(lleftPt.y-lrightPt.y, lleftPt.x-lrightPt.x)*180/Math.PI;
-        addArrowHead(svg, lleftPt.x, lleftPt.y, langBwd, linkColor);
+      var lrightward=(sc1.x<=sc2.x);
+      if(larr==='forward'){
+        lpath.setAttribute(lrightward?'marker-end':'marker-start', getMarker(linkColor));
+      } else if(larr==='backward'){
+        lpath.setAttribute(lrightward?'marker-start':'marker-end', getMarker(linkColor));
+      } else if(larr==='both'){
+        lpath.setAttribute('marker-end',getMarker(linkColor));
+        lpath.setAttribute('marker-start',getMarker(linkColor));
       }
     }
-    lpath.style.pointerEvents='stroke';lpath.style.cursor='pointer';
+    lpath.style.pointerEvents='stroke'; lpath.style.cursor='pointer';
     (function(lkref){
       lpath.addEventListener('click',function(e){
         if(linkMode)return;
@@ -1241,8 +1210,8 @@ function renderCurves(){
       });
     })(lk);
     svg.appendChild(lpath);
-    /* 연결선 중간에 × 삭제 버튼 (SVG circle+text) */
-    var bmx=(lx1+lx2)/2,bmy=(ly1+ly2)/2;
+    /* 연결선 중간 × 삭제 버튼 */
+    var bmx=(sc1.x+sc2.x)/2,bmy=(sc1.y+sc2.y)/2;
     var g=document.createElementNS('http://www.w3.org/2000/svg','g');
     g.setAttribute('class','link-del-btn');
     g.style.cursor='pointer';
@@ -1255,15 +1224,14 @@ function renderCurves(){
     circ.setAttribute('stroke','#38b2ff');circ.setAttribute('stroke-width','1.5');
     var txt=document.createElementNS('http://www.w3.org/2000/svg','text');
     txt.setAttribute('x',bmx);txt.setAttribute('y',bmy+4);
-    txt.setAttribute('text-anchor','middle');txt.setAttribute('font-size','10');
-    txt.setAttribute('fill','#ff6b6b');txt.setAttribute('pointer-events','none');
+    txt.setAttribute('text-anchor','middle');txt.setAttribute('font-size','11');
+    txt.setAttribute('fill','#38b2ff');txt.setAttribute('pointer-events','none');
     txt.textContent='×';
     g.appendChild(circ);g.appendChild(txt);
     svg.appendChild(g);
   }
 }
 
-/* ════════════════ RENDER NODES ════════════════ */
 function renderNodes(){
   var world=document.getElementById('world');
   var ex={};var els=world.querySelectorAll('.node');
