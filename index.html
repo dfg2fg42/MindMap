@@ -148,7 +148,16 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 #np-star.on{border-color:#ffd700;background:rgba(255,215,0,.18);}
 #np-memo.on{border-color:#38b2ff;background:rgba(56,178,255,.15);color:#38b2ff;}
 .np-sep{width:1px;height:22px;background:var(--bdr);}
-#np-colors{display:flex;gap:5px;align-items:center;}
+#np-colors{
+  display:flex;gap:5px;align-items:center;
+  max-width:0;overflow:hidden;
+  transition:max-width .25s cubic-bezier(.4,0,.2,1), opacity .2s;
+  opacity:0;
+}
+#np-colors.open{
+  max-width:400px;
+  opacity:1;
+}
 .npc{width:21px;height:21px;border-radius:50%;cursor:pointer;flex-shrink:0;border:2.5px solid transparent;transition:.13s;}
 .npc:hover{transform:scale(1.2);}
 .npc.on{border-color:#fff;transform:scale(1.18);}
@@ -374,7 +383,8 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
   <button class="npbtn" id="np-star" title="중요표시 (S)">☆</button>
   <button class="npbtn" id="np-memo" title="메모 (M)">📝</button>
   <div class="np-sep"></div>
-  <div id="np-colors"></div>
+  <button class="npbtn" id="np-color-toggle" title="색상 선택">🎨</button>
+  <div id="np-colors" class="np-colors-hidden"></div>
 </div>
 
 <!-- MEMO TOOLTIP -->
@@ -947,7 +957,11 @@ function updatePanel(){
   var sb=document.getElementById('np-star');
   sb.textContent=n.star?'⭐':'☆';sb.classList.toggle('on',!!n.star);
   document.getElementById('np-memo').classList.toggle('on',memoOpen);
-  var cp=document.getElementById('np-colors');cp.innerHTML='';
+  var cp=document.getElementById('np-colors');
+  cp.innerHTML='';
+  cp.classList.remove('open');
+  var ctBtn=document.getElementById('np-color-toggle');
+  if(ctBtn) ctBtn.classList.remove('on');
   PALETTE.forEach(function(c){
     var d=document.createElement('div');d.className='npc'+(n.customColor===c.v?' on':'');
     d.style.background=c.v;d.title=c.n;
@@ -1601,6 +1615,12 @@ document.getElementById('btn-reset').onclick=function(){
 /* node panel */
 document.getElementById('np-up').onclick=function(e){e.stopPropagation();if(sel)moveSibling(sel,-1);};
 document.getElementById('np-down').onclick=function(e){e.stopPropagation();if(sel)moveSibling(sel,1);};
+document.getElementById('np-color-toggle').onclick=function(e){
+  e.stopPropagation();
+  var cp=document.getElementById('np-colors');
+  cp.classList.toggle('open');
+  this.classList.toggle('on', cp.classList.contains('open'));
+};
 document.getElementById('np-star').onclick=function(e){e.stopPropagation();if(sel)toggleStar(sel);};
 document.getElementById('np-memo').onclick=function(e){e.stopPropagation();if(sel){if(memoOpen)closeMemo();else openMemo(sel);}};
 
