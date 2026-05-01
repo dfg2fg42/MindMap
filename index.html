@@ -231,6 +231,51 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 .dir-opt:hover{background:var(--sur2);}
 .dir-opt.active{color:var(--acc);font-weight:700;}
 #btn-dir.on{border-color:var(--acc);color:var(--acc);}
+
+/* ══ SEARCH BAR ══ */
+#search-bar{
+  position:fixed;top:calc(var(--tb) + 10px);left:50%;transform:translateX(-50%);
+  z-index:500;display:none;
+}
+#search-bar.open{display:block;}
+#search-inner{
+  display:flex;align-items:center;gap:7px;
+  background:var(--sur);border:1.5px solid var(--acc);
+  border-radius:12px;padding:7px 12px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6), 0 0 0 3px rgba(108,99,255,.15);
+  min-width:320px;
+}
+#search-icon{font-size:1rem;flex-shrink:0;}
+#search-inp{
+  flex:1;background:transparent;border:none;outline:none;
+  font-family:inherit;font-size:.9rem;color:var(--txt);
+  min-width:180px;
+}
+#search-inp::placeholder{color:var(--mut);}
+#search-count{font-size:.75rem;color:var(--mut);white-space:nowrap;min-width:40px;text-align:center;}
+#search-prev,#search-next{
+  background:var(--sur2);border:1.5px solid var(--bdr);border-radius:6px;
+  color:var(--txt);cursor:pointer;width:24px;height:24px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.8rem;transition:.13s;flex-shrink:0;
+}
+#search-prev:hover,#search-next:hover{border-color:var(--acc);color:var(--acc);}
+#search-close{
+  background:none;border:none;color:var(--mut);cursor:pointer;
+  font-size:.85rem;padding:2px 4px;transition:.13s;flex-shrink:0;
+}
+#search-close:hover{color:#ff6b6b;}
+/* 검색 매칭 노드 하이라이트 */
+.node.search-match{
+  outline:2.5px solid #ffdd57!important;
+  outline-offset:2px;
+  filter:brightness(1.15);
+}
+.node.search-current{
+  outline:3px solid #ff9900!important;
+  outline-offset:3px;
+  filter:brightness(1.25);
+}
 </style>
 </head>
 <body>
@@ -327,6 +372,19 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
       <input type="file" id="memo-img-input" accept="image/*" multiple>
       <div id="memo-img-grid"></div>
     </div>
+  </div>
+</div>
+
+
+<!-- SEARCH BAR -->
+<div id="search-bar">
+  <div id="search-inner">
+    <span id="search-icon">🔍</span>
+    <input id="search-inp" type="text" placeholder="노드 검색..." autocomplete="off" spellcheck="false">
+    <span id="search-count"></span>
+    <button id="search-prev" title="이전 (Shift+Enter)">&#8743;</button>
+    <button id="search-next" title="다음 (Enter)">&#8744;</button>
+    <button id="search-close" title="닫기 (Esc)">✕</button>
   </div>
 </div>
 
@@ -962,6 +1020,66 @@ function showToast(msg){
   clearTimeout(t._timer);
   t._timer=setTimeout(function(){t.classList.remove('show');},2200);
 }
+
+/* ════════════════ SEARCH ════════════════ */
+var searchResults=[], searchIdx=0;
+
+function openSearch(){
+  document.getElementById('search-bar').classList.add('open');
+  document.getElementById('search-inp').focus();
+  document.getElementById('search-inp').select();
+}
+function closeSearch(){
+  document.getElementById('search-bar').classList.remove('open');
+  document.getElementById('search-inp').value='';
+  searchResults=[];searchIdx=0;
+  clearSearchHL();
+}
+function clearSearchHL(){
+  document.querySelectorAll('.node.search-match,.node.search-current').forEach(function(el){
+    el.classList.remove('search-match','search-current');
+  });
+}
+function doSearch(){
+  var q=document.getElementById('search-inp').value.trim().toLowerCase();
+  clearSearchHL();
+  searchResults=[];searchIdx=0;
+  if(!q){document.getElementById('search-count').textContent='';return;}
+  nodes.forEach(function(n){
+    if(n.text.toLowerCase().indexOf(q)>=0) searchResults.push(n.id);
+  });
+  var cnt=document.getElementById('search-count');
+  if(!searchResults.length){cnt.textContent='없음';return;}
+  cnt.textContent='1 / '+searchResults.length;
+  searchResults.forEach(function(id){
+    var el=document.querySelector('.node[data-id="'+id+'"]');
+    if(el) el.classList.add('search-match');
+  });
+  jumpToSearch(0);
+}
+function jumpToSearch(idx){
+  if(!searchResults.length)return;
+  searchIdx=((idx%searchResults.length)+searchResults.length)%searchResults.length;
+  document.getElementById('search-count').textContent=(searchIdx+1)+' / '+searchResults.length;
+  clearSearchHL();
+  searchResults.forEach(function(id){
+    var el=document.querySelector('.node[data-id="'+id+'"]');
+    if(el) el.classList.add('search-match');
+  });
+  var curId=searchResults[searchIdx];
+  var curEl=document.querySelector('.node[data-id="'+curId+'"]');
+  if(curEl) curEl.classList.add('search-current');
+  /* 해당 노드로 카메라 이동 */
+  var n=gn(curId);if(!n)return;
+  var vp=document.getElementById('viewport');
+  var vw=vp.clientWidth,vh=vp.clientHeight;
+  cam.x=vw/2 - n.x*cam.z;
+  cam.y=vh/2 - n.y*cam.z;
+  applyCamera();renderCurves();updatePanel();drawMM();
+}
+function searchNext(){jumpToSearch(searchIdx+1);}
+function searchPrev(){jumpToSearch(searchIdx-1);}
+
 function toggleStar(id){var n=gn(id);if(!n)return;n.star=!n.star;saveAll();renderAll();}
 
 /* ════════════════ BIND NODE ════════════════ */
@@ -1149,6 +1267,7 @@ document.addEventListener('keydown',function(e){
   else if(e.key==='Enter'){if(sel)addSibling(sel);}
   else if(e.key==='Delete'||e.key==='Backspace'){if(sel)delNode(sel);}
   else if((e.ctrlKey||e.metaKey)&&(e.key==='z'||e.key==='Z')){e.preventDefault();undoDelete();}
+  else if((e.ctrlKey||e.metaKey)&&(e.key==='f'||e.key==='F')){e.preventDefault();openSearch();}
   else if(e.key==='s'||e.key==='S'){if(sel)toggleStar(sel);}
   else if(e.key==='m'||e.key==='M'){if(sel){if(memoOpen)closeMemo();else openMemo(sel);}}
   else if(e.key==='Escape'){sel=null;renderAll();if(memoOpen)closeMemo();}
@@ -1186,6 +1305,17 @@ document.getElementById('btn-fit').onclick=fitView;
 document.getElementById('btn-zi').onclick=function(){zoomAt(window.innerWidth/2,window.innerHeight/2,true);};
 document.getElementById('btn-zo').onclick=function(){zoomAt(window.innerWidth/2,window.innerHeight/2,false);};
 document.getElementById('btn-theme').onclick=toggleTheme;
+/* 검색 이벤트 */
+document.getElementById('search-inp').addEventListener('input', doSearch);
+document.getElementById('search-inp').addEventListener('keydown',function(e){
+  if(e.key==='Enter'){e.preventDefault();if(e.shiftKey)searchPrev();else searchNext();}
+  if(e.key==='Escape'){e.preventDefault();closeSearch();}
+  e.stopPropagation();
+});
+document.getElementById('search-next').onclick=searchNext;
+document.getElementById('search-prev').onclick=searchPrev;
+document.getElementById('search-close').onclick=closeSearch;
+
 document.getElementById('btn-backup').onclick=openBackupModal;
 document.getElementById('btn-reset').onclick=function(){
   if(!confirm('현재 카테고리의 모든 노드를 초기화할까요?'))return;
