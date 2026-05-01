@@ -908,13 +908,16 @@ function s2w(sx,sy){
 }
 
 /* ════════════════ LAYOUT ════════════════ */
-function subH(id){var k=gc(id);if(!k.length)return NH+VGAP;var t=0;for(var i=0;i<k.length;i++)t+=subH(k[i].id);return Math.max(t, NH+VGAP);}
+function nodeH(id){var n=gn(id);var sc=n?n.scale||1:1;return (NH+VGAP)*sc;}
+function subH(id){var k=gc(id);if(!k.length)return nodeH(id);var t=0;for(var i=0;i<k.length;i++)t+=subH(k[i].id);return Math.max(t, nodeH(id));}
 function layoutBranch(kids,par,dir){
   if(!kids.length)return;
+  var parSc=par.scale||1;
+  var hgap=Math.round(HGAP*Math.max(1,parSc));
   var total=0;for(var i=0;i<kids.length;i++)total+=subH(kids[i].id);
   var y=par.y-total/2;
   for(var i=0;i<kids.length;i++){
-    var h=subH(kids[i].id);kids[i].x=par.x+dir*HGAP;kids[i].y=y+h/2;y+=h;
+    var h=subH(kids[i].id);kids[i].x=par.x+dir*hgap;kids[i].y=y+h/2;y+=h;
     var g=gc(kids[i].id);if(g.length)layoutBranch(g,kids[i],dir);
   }
 }
@@ -1269,6 +1272,7 @@ function resolveOverlaps(){
         var aRoot=(a.pid===null), bRoot=(b.pid===null);
         var aw=nw(a.text,a.scale||1), ah=(aRoot?RH:NH)*(a.scale||1);
         var bw=nw(b.text,b.scale||1), bh=(bRoot?RH:NH)*(b.scale||1);
+        var PAD_Y=Math.max(14,((a.scale||1)+(b.scale||1))*7);
         var minDx=(aw+bw)/2+PAD_X;
         var minDy=(ah+bh)/2+PAD_Y;
         var dx=Math.abs(a.x-b.x);
@@ -1409,7 +1413,7 @@ function layoutSiblings(pid, dir){
   var kids=gc(pid);if(!kids.length)return;
   /* 새로 추가된 노드(X=0인 노드)만 X 위치 지정 */
   for(var i=0;i<kids.length;i++){
-    if(kids[i].x===par.x){ kids[i].x=par.x+dir*HGAP; }
+    if(kids[i].x===par.x){ kids[i].x=par.x+dir*Math.round(HGAP*(par.scale||1)); }
   }
   /* Y축만 균등 재배치 */
   var total=0;for(var i=0;i<kids.length;i++)total+=subH(kids[i].id);
@@ -1920,17 +1924,30 @@ document.getElementById('btn-reset').onclick=function(){
 /* node panel */
 document.getElementById('np-up').onclick=function(e){e.stopPropagation();if(sel)moveSibling(sel,-1);};
 document.getElementById('np-down').onclick=function(e){e.stopPropagation();if(sel)moveSibling(sel,1);};
+function applyScaleChange(n){
+  /* 크기 변경 후 해당 노드가 루트이면 전체 재배치, 아니면 부모 기준 재배치 */
+  if(n.pid===null){
+    autoLayout();
+  } else {
+    /* 부모의 자식 전체 Y 재배치 */
+    repositionBranch(n.pid, getBranchDir(n.pid));
+    /* 자신의 자식도 X 간격 재계산 */
+    if(gc(n.id).length) repositionBranch(n.id, getBranchDir(n.id));
+    resolveOverlaps();
+    renderAll();saveAll();
+  }
+}
 document.getElementById('np-size-up').onclick=function(e){
   e.stopPropagation();
   var n=gn(sel);if(!n)return;
   n.scale=Math.min(3.0, Math.round(((n.scale||1)+0.1)*10)/10);
-  saveAll();renderAll();
+  applyScaleChange(n);
 };
 document.getElementById('np-size-down').onclick=function(e){
   e.stopPropagation();
   var n=gn(sel);if(!n)return;
   n.scale=Math.max(0.5, Math.round(((n.scale||1)-0.1)*10)/10);
-  saveAll();renderAll();
+  applyScaleChange(n);
 };
 document.getElementById('np-color-toggle').onclick=function(e){
   e.stopPropagation();
