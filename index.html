@@ -86,8 +86,16 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 .cat-count-badge{font-size:.68rem;color:var(--mut);background:var(--sur2);border-radius:99px;padding:1px 6px;flex-shrink:0;}
 
 /* ══ ICON PICKER ══ */
-#icon-picker{position:fixed;z-index:500;display:none;background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:10px;box-shadow:0 12px 40px rgba(0,0,0,.65);width:236px;}
-#ip-title{font-size:.75rem;color:var(--mut);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
+#icon-picker{position:fixed;z-index:500;display:none;background:var(--sur);border:1px solid var(--bdr);border-radius:14px;padding:10px;box-shadow:0 12px 40px rgba(0,0,0,.65);width:280px;}
+#ip-search-wrap{margin-bottom:7px;}
+#ip-search{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;padding:5px 10px;color:var(--txt);font-size:.82rem;outline:none;}
+#ip-search:focus{border-color:var(--acc);}
+#ip-tabs{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:7px;padding-bottom:7px;border-bottom:1px solid var(--bdr);}
+.ip-tab{background:none;border:1px solid var(--bdr);border-radius:6px;padding:3px 5px;cursor:pointer;font-size:.95rem;line-height:1;transition:background .12s;}
+.ip-tab:hover{background:var(--hov);}
+.ip-tab.active{background:var(--acc);border-color:var(--acc);}
+#ip-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;max-height:240px;overflow-y:auto;}
+
 #ip-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;}
 .ip-btn{width:100%;aspect-ratio:1;background:var(--sur2);border:1.5px solid transparent;border-radius:8px;cursor:pointer;font-size:1.2rem;display:flex;align-items:center;justify-content:center;transition:.13s;}
 .ip-btn:hover{border-color:var(--acc);background:rgba(108,99,255,.15);transform:scale(1.08);}
@@ -350,7 +358,8 @@ body.link-mode .link-del-btn{display:block;}
 
 <!-- ICON PICKER -->
 <div id="icon-picker">
-  <div id="ip-title">아이콘 선택</div>
+  <div id="ip-search-wrap"><input id="ip-search" placeholder="🔍 검색..." autocomplete="off"></div>
+  <div id="ip-tabs"></div>
   <div id="ip-grid"></div>
 </div>
 
@@ -616,7 +625,19 @@ body.link-mode .link-del-btn{display:block;}
 
 <script>
 /* ════════════════ ICONS ════════════════ */
-var ICONS=['🗂','📁','📂','💡','🔥','⚡','🎯','🚀','💎','🌟','✨','🎨','🧠','💻','📱','🎮','🏆','🔑','🌈','🎭','🧩','🔬','🌱','💪','🎵','📚','🔧','⚙️','🏃','📊','✍️','🧪','🎲','⭐','🔮','🌸','🏠','🌍','❤️','🦁','🐉','🍀'];
+var ICON_CATS=[
+  {name:'😀 표정', icons:['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😎','🤓','🧐','😏','😒','😔','😢','😭','😤','😠','😡','🤬','😱','😨','🤯','🥳','😴','🤔','🤗','😬','🤐','😷','🤒','👻','💀','🤖']},
+  {name:'💼 업무', icons:['📁','📂','🗂','📊','📈','📉','📋','📌','📍','📎','🖇','✂️','🗃','🗄','🗑','🖊','✏️','📝','📄','📃','📑','🗒','📅','📆','🗓','📇','📒','📓','📔','📕','📗','📘','📙','📚','🔖','💡','🔍','🔎','💼','🏢']},
+  {name:'🔬 과학', icons:['🔬','🧬','🧪','🧫','🧲','⚗️','🔭','💊','🩺','🩻','🧠','🦷','🦴','👁','💉','🩸','🧯','⚙️','🔩','🔧','🪛','🔨','⚒️','🛠','🪚','🔑','🗝','🪤','💣','🧨','⚡','🔋','💡','🔌','📡','🖥','💻','🖨','⌨️','🖱']},
+  {name:'🎮 취미', icons:['🎮','🕹','🎲','🎯','🎳','🎰','🃏','🀄','♟','🧩','🎭','🎨','🖼','🎪','🎠','🎡','🎢','🎤','🎧','🎼','🎵','🎶','🎹','🥁','🪘','🎸','🎺','🎻','🪕','🎬','🎥','📽','🎞','📺','📻','🏆','🥇','🥈','🥉','🏅']},
+  {name:'⚽ 스포츠', icons:['⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🎱','🏓','🏸','🥊','🥋','⛳','🏹','🎣','🤿','🎽','🛹','🛼','🛷','⛸','🥌','🏒','🏑','🏏','🪃','🏋️','🤸','🤼','🤺','🏇','🧗','🚵','🚴','🤾','🏊','🧘','🏄']},
+  {name:'🍎 음식', icons:['🍎','🍊','🍋','🍇','🍓','🫐','🍒','🍑','🥭','🍍','🥥','🍆','🥑','🥦','🥕','🌽','🍄','🧅','🧄','🥔','🍞','🥐','🍕','🍔','🍟','🌮','🌯','🥗','🍜','🍛','🍣','🍱','🍤','🍩','🍪','🎂','🍫','🍬','🍭','☕']},
+  {name:'🌍 자연', icons:['🌍','🌎','🌏','🗺','🏔','⛰','🌋','🗻','🏕','🏖','🏜','🏝','🌅','🌄','🌠','🎇','🎆','🌈','☀️','🌤','⛅','🌧','⛈','🌩','🌨','❄️','🌊','🌀','🌪','🌫','🌸','🌺','🌻','🌹','🍁','🍂','🍃','🌿','🌱','🪴']},
+  {name:'🏠 장소', icons:['🏠','🏡','🏢','🏣','🏤','🏥','🏦','🏧','🏨','🏩','🏪','🏫','🏬','🏭','🏯','🏰','💒','🗼','🗽','⛪','🕌','🛕','🕍','⛩','🕋','⛲','⛺','🏗','🧱','🛖','🪵','🏟','🎡','🎢','🎠','⛽','🚏','🗺','🚦','🚥']},
+  {name:'🚗 교통', icons:['🚗','🚕','🚙','🚌','🚎','🏎','🚓','🚑','🚒','🚐','🚚','🚛','🚜','🏍','🛵','🚲','🛴','🛺','🚨','🚔','🚍','🚘','🚖','🚡','🚠','🚟','🚃','🚋','🚞','🚝','🚄','🚅','🚆','🚇','🚈','🚉','✈️','🚀','🛸','⛵']},
+  {name:'💎 기호', icons:['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','✨','⭐','🌟','💫','⚡','🔥','💥','❄️','🌈','☯','☮️','✝️','☪️','🔯','☸️','🕉','✡️','☦️','♾','⚜️','🏳','🚩']}
+];
+var ICONS=ICON_CATS.reduce(function(a,c){return a.concat(c.icons);},[]);
 var BCOLORS=['#7c6fcd','#e8567a','#1a9e6b','#d9873d','#2878c5','#b84fa3','#3aaa5a','#c0392b','#16a085','#c7a417'];
 var PALETTE=[{v:'#7c6fcd',n:'보라'},{v:'#e8567a',n:'핑크'},{v:'#1a9e6b',n:'초록'},{v:'#d9873d',n:'주황'},{v:'#2878c5',n:'파랑'},{v:'#b84fa3',n:'마젠타'},{v:'#3aaa5a',n:'연초록'},{v:'#c0392b',n:'빨강'},{v:'#16a085',n:'청록'},{v:'#c7a417',n:'황금'},{v:'#555e85',n:'슬레이트'},{v:'#e05c97',n:'로즈'}];
 var HGAP=220,VGAP=70,NH=40,RH=50;
@@ -847,9 +868,11 @@ function openIconPicker(catId,btnEl){
   closeIconPicker();iconPickerTarget=catId;
   var picker=document.getElementById('icon-picker');
   var rect=btnEl.getBoundingClientRect();
-  var left=rect.right+6;if(left+240>window.innerWidth)left=rect.left-244;
-  picker.style.left=Math.max(4,left)+'px';picker.style.top=Math.max(60,rect.top-10)+'px';
+  var left=rect.right+6;if(left+280>window.innerWidth)left=rect.left-284;
+  var top=rect.top-10;if(top+420>window.innerHeight)top=window.innerHeight-425;
+  picker.style.left=Math.max(4,left)+'px';picker.style.top=Math.max(60,top)+'px';
   picker.style.display='block';
+  ipInit();
 }
 function closeIconPicker(){document.getElementById('icon-picker').style.display='none';iconPickerTarget=null;}
 
@@ -2177,16 +2200,52 @@ document.getElementById('backup-close').onclick=closeBackupModal;
 document.getElementById('backup-modal').addEventListener('click',function(e){if(e.target===this)closeBackupModal();});
 
 /* icon picker */
-var ipGrid=document.getElementById('ip-grid');
-ICONS.forEach(function(ic){
-  var b=document.createElement('button');b.className='ip-btn';b.textContent=ic;
-  b.onclick=function(e){
-    e.stopPropagation();
-    if(iconPickerTarget){getCat(iconPickerTarget).icon=ic;saveAll();buildCatTree();updateToolbarChip();}
-    closeIconPicker();
+var _ipCurTab=0;
+function ipSelectIcon(ic){
+  if(iconPickerTarget){getCat(iconPickerTarget).icon=ic;saveAll();buildCatTree();updateToolbarChip();}
+  closeIconPicker();
+}
+function ipRenderGrid(icons){
+  var ipGrid=document.getElementById('ip-grid');
+  ipGrid.innerHTML='';
+  icons.forEach(function(ic){
+    var b=document.createElement('button');b.className='ip-btn';b.textContent=ic;
+    b.onclick=function(e){e.stopPropagation();ipSelectIcon(ic);};
+    ipGrid.appendChild(b);
+  });
+}
+function ipRenderTabs(activeIdx){
+  var tabsEl=document.getElementById('ip-tabs');
+  tabsEl.innerHTML='';
+  ICON_CATS.forEach(function(cat,i){
+    var t=document.createElement('button');
+    t.className='ip-tab'+(i===activeIdx?' active':'');
+    t.title=cat.name;
+    /* 탭엔 이모지만 표시 */
+    t.textContent=cat.icons[0];
+    t.onclick=function(e){
+      e.stopPropagation();
+      _ipCurTab=i;
+      document.getElementById('ip-search').value='';
+      ipRenderTabs(i);
+      ipRenderGrid(ICON_CATS[i].icons);
+    };
+    tabsEl.appendChild(t);
+  });
+}
+function ipInit(){
+  ipRenderTabs(_ipCurTab);
+  ipRenderGrid(ICON_CATS[_ipCurTab].icons);
+  var srch=document.getElementById('ip-search');
+  srch.oninput=function(){
+    var q=srch.value.trim();
+    if(!q){ipRenderGrid(ICON_CATS[_ipCurTab].icons);return;}
+    var res=ICONS.filter(function(ic){return ic.includes(q);});
+    ipRenderGrid(res.length?res:ICONS.filter(function(ic){return true;}).slice(0,40));
   };
-  ipGrid.appendChild(b);
-});
+  srch.addEventListener('click',function(e){e.stopPropagation();});
+}
+/* openIconPicker 호출 시 초기화 */
 
 /* ════════════════ EMBEDDED DATA HOOK ════════════════ */
 /* __EMBEDDED_DATA__ */
