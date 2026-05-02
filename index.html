@@ -1410,6 +1410,19 @@ function getLinksOf(id){
 }
 
 /* ════════════════ RENDER CURVES ════════════════ */
+/* ── 노드의 4방향 중 target에 가장 가까운 면의 연결점 반환 ── */
+function getEdgePoint(nx, ny, nw, nh, tx, ty){
+  var dx=tx-nx, dy=ty-ny;
+  /* 노드 비율로 정규화: |dx/(w/2)| vs |dy/(h/2)| */
+  var rx=Math.abs(dx)/(nw/2||1), ry=Math.abs(dy)/(nh/2||1);
+  if(rx>=ry){
+    /* 좌/우 면 */
+    return {x: nx+(dx>=0?nw/2:-nw/2), y: ny};
+  } else {
+    /* 상/하 면 */
+    return {x: nx, y: ny+(dy>=0?nh/2:-nh/2)};
+  }
+}
 function renderCurves(){
   var svg=document.getElementById('svg-layer');
   svg.style.pointerEvents = linkMode ? 'all' : 'none';
@@ -1449,30 +1462,21 @@ function renderCurves(){
     var pwx,pwy,cwx,cwy;
     var ph=nhFull(p), ch=nhFull(c);
     /* 수직 연결 판정: X 차이가 노드 너비의 절반 이하이면 상/하 연결 */
-    /* 각도 기반 연결 방향 판정: |dy|>|dx| 이면 상/하 연결 */
-    var adx=Math.abs(c.x-p.x), ady=Math.abs(c.y-p.y);
-    var isVert=ady>adx;
-    if(isVert){
-      pwx=p.x; cwx=c.x;
-      if(c.y>=p.y){pwy=p.y+ph/2; cwy=c.y-ch/2;}
-      else{pwy=p.y-ph/2; cwy=c.y+ch/2;}
-    } else {
-      if(c.x>=p.x){pwx=p.x+pw/2;cwx=c.x-cw/2;}else{pwx=p.x-pw/2;cwx=c.x+cw/2;}
-      pwy=p.y; cwy=c.y;
-    }
+    /* 4방향 스마트 연결: 각 노드에서 상대방에 가장 가까운 면 선택 */
+    var pEp=getEdgePoint(p.x,p.y,pw,ph,c.x,c.y);
+    var cEp=getEdgePoint(c.x,c.y,cw,ch,p.x,p.y);
+    pwx=pEp.x; pwy=pEp.y; cwx=cEp.x; cwy=cEp.y;
     var ps=w2s(pwx,pwy),cs=w2s(cwx,cwy);
     var cpOff=c.cp||{dx:0,dy:0};
-    var mx,cp1x,cp1y,cp2x,cp2y;
-    if(isVert){
-      var my=(ps.y+cs.y)/2;
-      mx=(ps.x+cs.x)/2;
-      cp1x=ps.x+cpOff.dx*cam.z; cp1y=my+cpOff.dy*cam.z;
-      cp2x=cs.x+cpOff.dx*cam.z; cp2y=my+cpOff.dy*cam.z;
-    } else {
-      mx=(ps.x+cs.x)/2;
-      cp1x=mx+cpOff.dx*cam.z; cp1y=ps.y+cpOff.dy*cam.z;
-      cp2x=mx+cpOff.dx*cam.z; cp2y=cs.y+cpOff.dy*cam.z;
-    }
+    var cp1x,cp1y,cp2x,cp2y;
+    /* 베지어 컨트롤포인트: 출발/도착 면의 법선 방향으로 */
+    var pdx=pwx-p.x, pdy=pwy-p.y; /* 출발 법선 방향 */
+    var cdx=cwx-c.x, cdy=cwy-c.y; /* 도착 법선 방향 */
+    var dist=Math.max(Math.abs(ps.x-cs.x),Math.abs(ps.y-cs.y))*0.5;
+    cp1x=ps.x+(pdx!==0?(pdx>0?1:-1):0)*dist*cam.z+cpOff.dx*cam.z;
+    cp1y=ps.y+(pdy!==0?(pdy>0?1:-1):0)*dist*cam.z+cpOff.dy*cam.z;
+    cp2x=cs.x+(cdx!==0?(cdx>0?1:-1):0)*dist*cam.z+cpOff.dx*cam.z;
+    cp2y=cs.y+(cdy!==0?(cdy>0?1:-1):0)*dist*cam.z+cpOff.dy*cam.z;
     var path=document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('d','M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y);
     path.setAttribute('fill','none');
@@ -1573,27 +1577,16 @@ function renderCurves(){
             var pw2=pelEl2?pelEl2.offsetWidth:80,cw2=celEl2?celEl2.offsetWidth:80;
             var pn=gn(gn(cid2).pid),cn=gn(cid2);
             var ph2=nhFull(pn),ch2=nhFull(cn);
-            var tadx2=Math.abs(cn.x-pn.x), tady2=Math.abs(cn.y-pn.y);
-            var isVert2=tady2>tadx2;
-            var pwx2,pwy2,cwx2,cwy2;
-            if(isVert2){
-              pwx2=pn.x;cwx2=cn.x;
-              if(cn.y>=pn.y){pwy2=pn.y+ph2/2;cwy2=cn.y-ch2/2;}
-              else{pwy2=pn.y-ph2/2;cwy2=cn.y+ch2/2;}
-            } else {
-              if(cn.x>=pn.x){pwx2=pn.x+pw2/2;cwx2=cn.x-cw2/2;}else{pwx2=pn.x-pw2/2;cwx2=cn.x+cw2/2;}
-              pwy2=pn.y;cwy2=cn.y;
-            }
-            var ps2=w2s(pwx2,pwy2),cs2=w2s(cwx2,cwy2);
-            var mx2=(ps2.x+cs2.x)/2,my2=(ps2.y+cs2.y)/2;
-            var ncp1x,ncp1y,ncp2x,ncp2y;
-            if(isVert2){
-              ncp1x=ps2.x+ddx*cam.z;ncp1y=my2+ddy*cam.z;
-              ncp2x=cs2.x+ddx*cam.z;ncp2y=my2+ddy*cam.z;
-            } else {
-              ncp1x=mx2+ddx*cam.z;ncp1y=ps2.y+ddy*cam.z;
-              ncp2x=mx2+ddx*cam.z;ncp2y=cs2.y+ddy*cam.z;
-            }
+            var pEp2=getEdgePoint(pn.x,pn.y,pw2,ph2,cn.x,cn.y);
+            var cEp2=getEdgePoint(cn.x,cn.y,cw2,ch2,pn.x,pn.y);
+            var ps2=w2s(pEp2.x,pEp2.y),cs2=w2s(cEp2.x,cEp2.y);
+            var pndx2=pEp2.x-pn.x, pndy2=pEp2.y-pn.y;
+            var cndx2=cEp2.x-cn.x, cndy2=cEp2.y-cn.y;
+            var tdist2=Math.max(Math.abs(ps2.x-cs2.x),Math.abs(ps2.y-cs2.y))*0.5;
+            var ncp1x=ps2.x+(pndx2!==0?(pndx2>0?1:-1):0)*tdist2*cam.z+ddx*cam.z;
+            var ncp1y=ps2.y+(pndy2!==0?(pndy2>0?1:-1):0)*tdist2*cam.z+ddy*cam.z;
+            var ncp2x=cs2.x+(cndx2!==0?(cndx2>0?1:-1):0)*tdist2*cam.z+ddx*cam.z;
+            var ncp2y=cs2.y+(cndy2!==0?(cndy2>0?1:-1):0)*tdist2*cam.z+ddy*cam.z;
             /* 경로 업데이트 */
             pathEl2.setAttribute('d','M'+ps2.x+','+ps2.y+' C'+ncp1x+','+ncp1y+' '+ncp2x+','+ncp2y+' '+cs2.x+','+cs2.y);
             var nhx=(ncp1x+ncp2x)/2, nhy=(ncp1y+ncp2y)/2;
@@ -1634,28 +1627,19 @@ function renderCurves(){
     var fw=faEl?faEl.offsetWidth:nwFull(fa),tw=taEl?taEl.offsetWidth:nwFull(ta);
     var fh=nhFull(fa), th=nhFull(ta);
     var fx,fy,tx2,ty2;
-    var ladx=Math.abs(fa.x-ta.x), lady=Math.abs(fa.y-ta.y);
-    var isLVert=lady>ladx;
-    if(isLVert){
-      fx=fa.x; tx2=ta.x;
-      if(ta.y>=fa.y){fy=fa.y+fh/2; ty2=ta.y-th/2;}
-      else{fy=fa.y-fh/2; ty2=ta.y+th/2;}
-    } else {
-      if(fa.x<=ta.x){fx=fa.x+fw/2;tx2=ta.x-tw/2;}else{fx=fa.x-fw/2;tx2=ta.x+tw/2;}
-      fy=fa.y; ty2=ta.y;
-    }
+    var faEp=getEdgePoint(fa.x,fa.y,fw,fh,ta.x,ta.y);
+    var taEp=getEdgePoint(ta.x,ta.y,tw,th,fa.x,fa.y);
+    fx=faEp.x; fy=faEp.y; tx2=taEp.x; ty2=taEp.y;
     var sc1=w2s(fx,fy),sc2=w2s(tx2,ty2);
     var lcpOff=lk.cp||{dx:0,dy:0};
     var lcp1x,lcp1y,lcp2x,lcp2y;
-    if(isLVert){
-      var lmy=(sc1.y+sc2.y)/2;
-      lcp1x=sc1.x+lcpOff.dx*cam.z; lcp1y=lmy+lcpOff.dy*cam.z;
-      lcp2x=sc2.x+lcpOff.dx*cam.z; lcp2y=lmy+lcpOff.dy*cam.z;
-    } else {
-      var lmx=(sc1.x+sc2.x)/2;
-      lcp1x=lmx+lcpOff.dx*cam.z; lcp1y=sc1.y+lcpOff.dy*cam.z;
-      lcp2x=lmx+lcpOff.dx*cam.z; lcp2y=sc2.y+lcpOff.dy*cam.z;
-    }
+    var lpdx=fx-fa.x, lpdy=fy-fa.y;
+    var ltdx=tx2-ta.x, ltdy=ty2-ta.y;
+    var ldist=Math.max(Math.abs(sc1.x-sc2.x),Math.abs(sc1.y-sc2.y))*0.5;
+    lcp1x=sc1.x+(lpdx!==0?(lpdx>0?1:-1):0)*ldist*cam.z+lcpOff.dx*cam.z;
+    lcp1y=sc1.y+(lpdy!==0?(lpdy>0?1:-1):0)*ldist*cam.z+lcpOff.dy*cam.z;
+    lcp2x=sc2.x+(ltdx!==0?(ltdx>0?1:-1):0)*ldist*cam.z+lcpOff.dx*cam.z;
+    lcp2y=sc2.y+(ltdy!==0?(ltdy>0?1:-1):0)*ldist*cam.z+lcpOff.dy*cam.z;
     var linkColor=getColor(lk.from);
     var lpath=document.createElementNS('http://www.w3.org/2000/svg','path');
     lpath.setAttribute('d','M'+sc1.x+','+sc1.y+' C'+lcp1x+','+lcp1y+' '+lcp2x+','+lcp2y+' '+sc2.x+','+sc2.y);
@@ -1748,28 +1732,16 @@ function renderCurves(){
             var faEl2=document.getElementById('n'+fan.id),taEl2=document.getElementById('n'+tan.id);
             var fw2=faEl2?faEl2.offsetWidth:80,tw2=taEl2?taEl2.offsetWidth:80;
             var fh2=nhFull(fan),th2=nhFull(tan);
-            var ladx2=Math.abs(fan.x-tan.x), lady2=Math.abs(fan.y-tan.y);
-            var isLVert2=lady2>ladx2;
-            var fx2,fy2,tx22,ty22;
-            if(isLVert2){
-              fx2=fan.x;tx22=tan.x;
-              if(tan.y>=fan.y){fy2=fan.y+fh2/2;ty22=tan.y-th2/2;}
-              else{fy2=fan.y-fh2/2;ty22=tan.y+th2/2;}
-            } else {
-              if(fan.x<=tan.x){fx2=fan.x+fw2/2;tx22=tan.x-tw2/2;}else{fx2=fan.x-fw2/2;tx22=tan.x+tw2/2;}
-              fy2=fan.y;ty22=tan.y;
-            }
-            var lsc1=w2s(fx2,fy2),lsc2=w2s(tx22,ty22);
-            var nlcp1x,nlcp1y,nlcp2x,nlcp2y;
-            if(isLVert2){
-              var lmy2=(lsc1.y+lsc2.y)/2;
-              nlcp1x=lsc1.x+ddx*cam.z;nlcp1y=lmy2+ddy*cam.z;
-              nlcp2x=lsc2.x+ddx*cam.z;nlcp2y=lmy2+ddy*cam.z;
-            } else {
-              var lmx2=(lsc1.x+lsc2.x)/2;
-              nlcp1x=lmx2+ddx*cam.z;nlcp1y=lsc1.y+ddy*cam.z;
-              nlcp2x=lmx2+ddx*cam.z;nlcp2y=lsc2.y+ddy*cam.z;
-            }
+            var faEp2=getEdgePoint(fan.x,fan.y,fw2,fh2,tan.x,tan.y);
+            var taEp2=getEdgePoint(tan.x,tan.y,tw2,th2,fan.x,fan.y);
+            var lsc1=w2s(faEp2.x,faEp2.y),lsc2=w2s(taEp2.x,taEp2.y);
+            var flpdx2=faEp2.x-fan.x, flpdy2=faEp2.y-fan.y;
+            var tltdx2=taEp2.x-tan.x, tltdy2=taEp2.y-tan.y;
+            var ldist2=Math.max(Math.abs(lsc1.x-lsc2.x),Math.abs(lsc1.y-lsc2.y))*0.5;
+            var nlcp1x=lsc1.x+(flpdx2!==0?(flpdx2>0?1:-1):0)*ldist2*cam.z+ddx*cam.z;
+            var nlcp1y=lsc1.y+(flpdy2!==0?(flpdy2>0?1:-1):0)*ldist2*cam.z+ddy*cam.z;
+            var nlcp2x=lsc2.x+(tltdx2!==0?(tltdx2>0?1:-1):0)*ldist2*cam.z+ddx*cam.z;
+            var nlcp2y=lsc2.y+(tltdy2!==0?(tltdy2>0?1:-1):0)*ldist2*cam.z+ddy*cam.z;
             lpathEl2.setAttribute('d','M'+lsc1.x+','+lsc1.y+' C'+nlcp1x+','+nlcp1y+' '+nlcp2x+','+nlcp2y+' '+lsc2.x+','+lsc2.y);
             var lnhx=(nlcp1x+nlcp2x)/2,lnhy=(nlcp1y+nlcp2y)/2;
             lhEl2.setAttribute('cx',lnhx);lhEl2.setAttribute('cy',lnhy);
