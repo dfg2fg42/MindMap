@@ -2166,20 +2166,47 @@ function searchPrev(){jumpToSearch(searchIdx-1);}
 function moveSibling(id, dir){
   var n=gn(id);
   if(!n||n.pid===null)return;
-  /* 같은 부모의 자식 배열에서 순서 교환 */
   var siblings=nodes.filter(function(x){return x.pid===n.pid;});
   var idx=-1;
   for(var i=0;i<siblings.length;i++)if(siblings[i].id===id){idx=i;break;}
   var targetIdx=idx+dir;
   if(targetIdx<0||targetIdx>=siblings.length)return;
-  /* nodes 배열 순서 교환 */
+
+  var target=siblings[targetIdx];
+
+  /* ── nodes 배열 순서 교환 (논리적 순서) ── */
   var ni=nodes.indexOf(n);
-  var ti=nodes.indexOf(siblings[targetIdx]);
+  var ti=nodes.indexOf(target);
   var tmp=nodes[ni];nodes[ni]=nodes[ti];nodes[ti]=tmp;
-  /* 부모 기준으로 형제 전체 Y 재배치 (자식 트리 포함) */
-  var par=gn(n.pid);
-  var parDir=par.pid===null?(n.x>=par.x?1:-1):(n.x>=par.x?1:-1);
-  repositionBranch(par.id, parDir);
+
+  /* ── Y 좌표만 교환: 두 서브트리 전체를 각자의 Y 차이만큼 이동 ── */
+  /* 각 서브트리에 속한 모든 노드 id 수집 */
+  function collectSubtree(rootId){
+    var result=[];
+    var stack=[rootId];
+    while(stack.length){
+      var cur=stack.pop();
+      result.push(cur);
+      var kids=gc(cur);
+      for(var k=0;k<kids.length;k++)stack.push(kids[k].id);
+    }
+    return result;
+  }
+  var nIds=collectSubtree(n.id);
+  var tIds=collectSubtree(target.id);
+
+  /* 두 서브트리의 루트 Y 차이 계산 */
+  var dy=target.y - n.y;
+
+  /* n 서브트리 전체 +dy 이동 */
+  for(var i=0;i<nIds.length;i++){
+    var nd=gn(nIds[i]);if(nd)nd.y+=dy;
+  }
+  /* target 서브트리 전체 -dy 이동 */
+  for(var i=0;i<tIds.length;i++){
+    var nd=gn(tIds[i]);if(nd)nd.y-=dy;
+  }
+
   saveAll();renderAll();
 }
 
