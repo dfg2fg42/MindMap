@@ -1485,9 +1485,9 @@ function renderCurves(){
     var ncEl2=document.getElementById('n'+nc2.id);
     var npw2=npEl2?npEl2.offsetWidth:nwFull(np2);
     var nph2=nhFull(np2), nch2=nhFull(nc2);
-    /* 방향 판정 */
-    var adxB=Math.abs(nc2.x-np2.x), adyB=Math.abs(nc2.y-np2.y);
-    var dirB=adyB>adxB?'v':(nc2.x>=np2.x?'r':'l');
+    /* 방향 판정: X 차이가 부모 너비의 절반 이내일 때만 수직, 나머지는 x위치 기준 */
+    var adxB=Math.abs(nc2.x-np2.x);
+    var dirB=(adxB<npw2/2)?'v':(nc2.x>np2.x?'r':'l');
     var key=np2.id+'_'+dirB;
     if(!busMap[key]) busMap[key]={pid:np2.id,dir:dirB,children:[]};
     busMap[key].children.push(nc2.id);
@@ -1506,9 +1506,9 @@ function renderCurves(){
     var cpOff=c.cp||{dx:0,dy:0};
     var cp1x,cp1y,cp2x,cp2y;
 
-    /* 방향 판정 */
-    var adxC=Math.abs(c.x-p.x), adyC=Math.abs(c.y-p.y);
-    var dirC=adyC>adxC?'v':(c.x>=p.x?'r':'l');
+    /* 방향 판정: X 차이가 부모 너비의 절반 이내일 때만 수직 */
+    var adxC=Math.abs(c.x-p.x);
+    var dirC=(adxC<pw/2)?'v':(c.x>p.x?'r':'l');
     var busKey=p.id+'_'+dirC;
     var busGrp=busMap[busKey];
     var useBus=(busGrp&&busGrp.children.length>=2&&dirC!=='v'
