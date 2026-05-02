@@ -3056,35 +3056,13 @@ document.getElementById('btn-group').onclick=function(){
   var ids=multiSel.length>=2?multiSel:(sel?[sel]:[]);
   if(ids.length<2){showToast('⚠️ 2개 이상의 노드를 선택하세요 (Shift+클릭 또는 드래그 선택)');return;}
 
-  /* 그룹 중심 X 계산 */
-  var sumX=0, validCnt=0;
-  for(var i=0;i<ids.length;i++){var nd=gn(ids[i]);if(nd){sumX+=nd.x;validCnt++;}}
-  var centerX=validCnt>0?sumX/validCnt:0;
-
-  /* 모든 노드를 중심 X에 정렬하고 Y는 위/아래로 균등 배치 */
-  var grpNodes=[];
-  for(var i=0;i<ids.length;i++){var nd=gn(ids[i]);if(nd)grpNodes.push(nd);}
-  grpNodes.sort(function(a,b){return a.y-b.y;});
-
-  var VGAP2=60;
-  /* 전체 높이 계산 */
-  var totalH=0;
-  for(var i=0;i<grpNodes.length;i++) totalH+=nhFull(grpNodes[i])+(i>0?VGAP2:0);
-  var startY=grpNodes.length>0? (grpNodes.reduce(function(s,n){return s+n.y;},0)/grpNodes.length) - totalH/2 : 0;
-
-  var curY=startY;
-  for(var i=0;i<grpNodes.length;i++){
-    grpNodes[i].x=centerX;
-    grpNodes[i].y=curY+nhFull(grpNodes[i])/2;
-    curY+=nhFull(grpNodes[i])+VGAP2;
-  }
-
+  /* 현재 위치 그대로 유지 — 노드 위치 변경 없이 바운딩 박스만 생성 */
   var gc3=getColor(ids[0]);
   var grpName='그룹 '+(nextGid);
   var grp={id:nextGid++,name:grpName,nodeIds:ids.slice(),color:gc3};
   groups.push(grp);
   saveAll();renderAll();
-  showToast('📦 그룹이 생성되었습니다. 라벨을 더블클릭하면 이름 변경 가능');
+  showToast('📦 그룹이 생성되었습니다. 라벨을 클릭해 이름 변경 가능');
 };
 document.getElementById('btn-fit').onclick=fitView;
 document.getElementById('btn-zi').onclick=function(){zoomAt(window.innerWidth/2,window.innerHeight/2,true);};
