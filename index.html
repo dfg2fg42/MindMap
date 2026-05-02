@@ -1516,14 +1516,17 @@ function renderCurves(){
     path.setAttribute('opacity','0.9');
     var arr=c.arrow||'none';
     if(arr!=='none'){
-      var rightward=(ps.x<=cs.x);
+      /* 화살표 방향: 경로는 항상 부모→자식(M=부모ep, 끝=자식ep)
+         forward(부모→자식): marker-end(자식쪽) 고정
+         backward(자식→부모): marker-start(부모쪽) 고정
+         위치 변경에 무관하게 방향 유지 */
       if(arr==='forward'){
-        path.setAttribute(rightward?'marker-end':'marker-start', getMarker(color));
+        path.setAttribute('marker-end', getMarker(color));
       } else if(arr==='backward'){
-        path.setAttribute(rightward?'marker-start':'marker-end', getMarker(color));
+        path.setAttribute('marker-start', getMarker(color));
       } else if(arr==='both'){
-        path.setAttribute('marker-end',getMarker(color));
-        path.setAttribute('marker-start',getMarker(color));
+        path.setAttribute('marker-end', getMarker(color));
+        path.setAttribute('marker-start', getMarker(color));
       }
     }
     /* 활성 선 강조 */
@@ -1692,14 +1695,17 @@ function renderCurves(){
     lpath.setAttribute('data-link',lk.from+'-'+lk.to);
     var larr=lk.arrow||'none';
     if(larr!=='none'){
-      var lrightward=(sc1.x<=sc2.x);
+      /* 화살표 방향: 경로는 항상 from→to(M=from ep, 끝=to ep)
+         forward(from→to): marker-end(to쪽) 고정
+         backward(to→from): marker-start(from쪽) 고정
+         위치 변경에 무관하게 방향 유지 */
       if(larr==='forward'){
-        lpath.setAttribute(lrightward?'marker-end':'marker-start', getMarker(linkColor));
+        lpath.setAttribute('marker-end', getMarker(linkColor));
       } else if(larr==='backward'){
-        lpath.setAttribute(lrightward?'marker-start':'marker-end', getMarker(linkColor));
+        lpath.setAttribute('marker-start', getMarker(linkColor));
       } else if(larr==='both'){
-        lpath.setAttribute('marker-end',getMarker(linkColor));
-        lpath.setAttribute('marker-start',getMarker(linkColor));
+        lpath.setAttribute('marker-end', getMarker(linkColor));
+        lpath.setAttribute('marker-start', getMarker(linkColor));
       }
     }
     /* 활성 참조선 강조 */
