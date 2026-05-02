@@ -222,6 +222,7 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 .ctx-row{padding:8px 16px;cursor:pointer;font-size:.83rem;display:flex;align-items:center;gap:8px;transition:background .12s;}
 .ctx-row:hover{background:var(--sur2);}
 .ctx-row.red{color:#ff6b6b;}
+.ctx-row.ctx-sep{height:1px;background:var(--bdr);padding:0;margin:2px 0;pointer-events:none;}
 .ctx-row.red:hover{background:rgba(255,80,80,.1);}
 
 /* ══ MISC ══ */
@@ -567,6 +568,8 @@ body.link-mode .link-del-btn{display:block;}
 
 <!-- CONTEXT MENU -->
 <div id="ctx">
+  <div class="ctx-row" id="ctx-new-independent" style="display:none;">＋ 독립 노드 생성</div>
+  <div class="ctx-row ctx-sep" id="ctx-sep-top" style="display:none;"></div>
   <div class="ctx-row" id="ctx-child">＋ 자식 노드 추가</div>
   <div class="ctx-row" id="ctx-sib">＋ 형제 노드 추가</div>
   <div class="ctx-row" id="ctx-edit">✏️ 텍스트 편집</div>
@@ -2549,17 +2552,7 @@ function delNode(id){
   nodes=nodes.filter(function(n){return del.indexOf(n.id)<0;});
   links=links.filter(function(l){return del.indexOf(l.from)<0&&del.indexOf(l.to)<0;});
   if(del.indexOf(sel)>=0){sel=null;if(memoOpen)closeMemo();}
-  /* 기존 노드 위치 유지 — 삭제된 노드의 부모 자식 그룹만 Y 재배치 */
-  var parId = n.pid;
-  if(parId!==null && gn(parId)){
-    var parDir2 = (function(){
-      var par=gn(parId);
-      if(!par)return 1;
-      if(par.pid===null) return n.x>=par.x?1:-1;
-      return n.x>=par.x?1:-1;
-    })();
-    repositionBranch(parId, parDir2);
-  }
+  /* 위치 재정렬 없이 그냥 삭제 — 남은 노드 위치 그대로 유지 */
   renderAll();saveAll();
 }
 function undoDelete(){
@@ -2791,22 +2784,33 @@ function bindNode(el,id){
     sel=id;panelVisible=true;
     renderAll();
   });
-  el.addEventListener('contextmenu',function(e){e.preventDefault();e.stopPropagation();sel=id;renderAll();showCtx(e.clientX,e.clientY,id);});
+  el.addEventListener('contextmenu',function(e){e.preventDefault();e.stopPropagation();sel=id;renderAll();showCtx(e.clientX,e.clientY,id,false,0,0);});
 }
 
 /* ════════════════ CONTEXT MENU ════════════════ */
-function showCtx(x,y,id){
+function showCtx(x,y,id,emptySpace,wx,wy){
   var m=document.getElementById('ctx');
-  m.style.left=x+'px';m.style.top=y+'px';m.style.display='block';m.dataset.nid=id;
+  m.style.left=x+'px';m.style.top=y+'px';m.style.display='block';
+  m.dataset.nid=id||'';
+  m.dataset.wx=wx||0; m.dataset.wy=wy||0;
+  m.dataset.empty=emptySpace?'1':'';
+  var isEmptySpace=!!emptySpace;
   var n=gn(id),isRoot=n&&n.pid===null;
-  document.getElementById('ctx-sib').style.display=isRoot?'none':'flex';
-  document.getElementById('ctx-del').style.display=isRoot?'none':'flex';
-  document.getElementById('ctx-star').textContent=(n&&n.star)?'☆ 중요 표시 해제':'⭐ 중요 표시 추가';
-  /* 묶기 메뉴: 다중선택이 있고 현재 노드가 선택 목록에 없을 때만 표시 */
-  var hasMulti = multiSel.length>0 && multiSel.indexOf(id)<0;
-  document.getElementById('ctx-group').style.display = hasMulti?'flex':'none';
-  /* 새 부모로 묶기: 다중선택이 2개 이상 */
-  document.getElementById('ctx-reparent').style.display = multiSel.length>=2?'flex':'none';
+  /* 독립 노드 생성: 빈 공간 우클릭 시만 표시 */
+  document.getElementById('ctx-new-independent').style.display=isEmptySpace?'flex':'none';
+  document.getElementById('ctx-sep-top').style.display=isEmptySpace?'flex':'none';
+  /* 노드 전용 메뉴들 */
+  document.getElementById('ctx-child').style.display=isEmptySpace?'none':'flex';
+  document.getElementById('ctx-sib').style.display=(isEmptySpace||isRoot)?'none':'flex';
+  document.getElementById('ctx-edit').style.display=isEmptySpace?'none':'flex';
+  document.getElementById('ctx-star').style.display=isEmptySpace?'none':'flex';
+  document.getElementById('ctx-memo').style.display=isEmptySpace?'none':'flex';
+  /* 삭제: 루트 포함 모든 노드 삭제 가능 (빈공간은 숨김) */
+  document.getElementById('ctx-del').style.display=isEmptySpace?'none':'flex';
+  if(!isEmptySpace) document.getElementById('ctx-star').textContent=(n&&n.star)?'☆ 중요 표시 해제':'⭐ 중요 표시 추가';
+  var hasMulti=multiSel.length>0&&multiSel.indexOf(id)<0;
+  document.getElementById('ctx-group').style.display=(!isEmptySpace&&hasMulti)?'flex':'none';
+  document.getElementById('ctx-reparent').style.display=(!isEmptySpace&&multiSel.length>=2)?'flex':'none';
 }
 function hideCtx(){document.getElementById('ctx').style.display='none';}
 
@@ -2925,6 +2929,11 @@ function toggleTheme(){
 }
 
 /* ════════════════ EVENTS ════════════════ */
+document.getElementById('viewport').addEventListener('contextmenu',function(e){
+  e.preventDefault();
+  var wp=s2w(e.clientX,e.clientY);
+  showCtx(e.clientX,e.clientY,null,true,wp.x,wp.y);
+});
 document.getElementById('viewport').addEventListener('mousedown',function(e){
   if(e.button!==0)return;hideCtx();closeIconPicker();
   panelVisible=false;
@@ -3396,7 +3405,37 @@ document.getElementById('ctx-group').onclick=function(){
 document.getElementById('ctx-reparent').onclick=function(){
   hideCtx();reparentToNew();
 };
-document.getElementById('ctx-del').onclick=function(){var id=parseInt(document.getElementById('ctx').dataset.nid);hideCtx();delNode(id);};
+document.getElementById('ctx-del').onclick=function(){
+  var m=document.getElementById('ctx');
+  var id=parseInt(m.dataset.nid);
+  hideCtx();
+  var n=gn(id);if(!n)return;
+  if(n.pid===null){
+    /* 독립/루트 노드 삭제 */
+    var del=[];
+    function collectR(x){del.push(x);gc(x).forEach(function(c){collectR(c.id);});}
+    collectR(id);
+    var msg=del.length>1?'"'+n.text+'" 및 하위 '+(del.length-1)+'개 노드를 삭제할까요?':'"'+n.text+'" 노드를 삭제할까요?';
+    if(!confirm('🗑 '+msg))return;
+    undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),nid:nid,sel:sel});
+    if(undoStack.length>30)undoStack.shift();
+    nodes=nodes.filter(function(x){return del.indexOf(x.id)<0;});
+    links=links.filter(function(l){return del.indexOf(l.from)<0&&del.indexOf(l.to)<0;});
+    if(del.indexOf(sel)>=0){sel=null;}
+    renderAll();saveAll();
+  } else {
+    delNode(id);
+  }
+};
+document.getElementById('ctx-new-independent').onclick=function(){
+  var m=document.getElementById('ctx');
+  var wx=parseFloat(m.dataset.wx)||0, wy=parseFloat(m.dataset.wy)||0;
+  hideCtx();
+  var newN={id:nid++,text:'새 아이디어',x:wx,y:wy,pid:null,star:false,customColor:null,memo:'',imgs:[],scale:1};
+  nodes.push(newN);sel=newN.id;
+  renderAll();saveAll();
+  setTimeout(function(){startEdit(newN.id);},80);
+};
 
 /* backup modal */
 document.getElementById('bk-export').onclick=exportJSON;
