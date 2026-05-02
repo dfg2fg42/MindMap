@@ -380,6 +380,10 @@ body.reconnect-mode #reconnect-toast{display:flex!important;}
   color:var(--txt);white-space:nowrap;}
 .hd{font-size:.83rem;color:var(--mut);}
 
+/* ══ ACTIVE EDGE ══ */
+.edge-active{
+  filter: drop-shadow(0 0 4px rgba(255,220,80,0.9)) drop-shadow(0 0 8px rgba(255,180,0,0.6));
+}
 /* ══ LINK MODE ══ */
 #btn-link-mode.link-active{
   background:rgba(56,178,255,.18)!important;
@@ -778,6 +782,7 @@ var groups=[];        // 노드 그룹 [{id, name, nodeIds:[], color}]
 var nextGid=1;        // 그룹 id 카운터
 var linkMode=false;
 var linkFromPort=null;  // 연결 시작 포트 방향
+var selEdge=null;       // 선택된 선 {type:'tree'|'ref', id}
 var panelVisible=false;   // 연결 모드 상태
 var linkFrom=null;    // 연결 시작 노드 id
 var memoOpen=false,isLight=false;
@@ -1521,10 +1526,17 @@ function renderCurves(){
         path.setAttribute('marker-start',getMarker(color));
       }
     }
+    /* 활성 선 강조 */
+    var isSelTree=(selEdge&&selEdge.type==='tree'&&selEdge.id===c.id);
+    path.setAttribute('stroke-width', isSelTree ? ((p.pid===null)?'5':'4') : ((p.pid===null)?'3':'2'));
+    path.setAttribute('opacity', isSelTree ? '1' : '0.9');
+    if(isSelTree) path.classList.add('edge-active');
     path.style.pointerEvents='stroke'; path.style.cursor='pointer';
     (function(cid){
       path.addEventListener('click',function(e){
         e.stopPropagation();
+        selEdge={type:'tree',id:cid};
+        renderCurves();
         showArrowMenu(cid,e.clientX,e.clientY,'tree');
       });
     })(c.id);
@@ -1596,14 +1608,17 @@ function renderCurves(){
           nc.cp={dx:ddx,dy:ddy};
           if(rafId)cancelAnimationFrame(rafId);
           rafId=requestAnimationFrame(function(){
-            /* 현재 엔드포인트 재계산 */
+            /* 핸들 현재 world 좌표 → 스마트 연결점 재계산 */
             var pelEl2=document.getElementById('n'+gn(cid2).pid);
             var celEl2=document.getElementById('n'+cid2);
             var pw2=pelEl2?pelEl2.offsetWidth:80,cw2=celEl2?celEl2.offsetWidth:80;
             var pn=gn(gn(cid2).pid),cn=gn(cid2);
             var ph2=nhFull(pn),ch2=nhFull(cn);
-            var pEp2=getEdgePoint(pn.x,pn.y,pw2,ph2,cn.x,cn.y);
-            var cEp2=getEdgePoint(cn.x,cn.y,cw2,ch2,pn.x,pn.y);
+            var hmxCur=(psx+csx)/2+(ev.clientX-startX);
+            var hmyCur=(psy+csy)/2+(ev.clientY-startY);
+            var hw=s2w(hmxCur,hmyCur);
+            var pEp2=getEdgePoint(pn.x,pn.y,pw2,ph2,hw.x,hw.y);
+            var cEp2=getEdgePoint(cn.x,cn.y,cw2,ch2,hw.x,hw.y);
             var ps2=w2s(pEp2.x,pEp2.y),cs2=w2s(cEp2.x,cEp2.y);
             var pndx2=pEp2.x-pn.x, pndy2=pEp2.y-pn.y;
             var cndx2=cEp2.x-cn.x, cndy2=cEp2.y-cn.y;
@@ -1687,11 +1702,18 @@ function renderCurves(){
         lpath.setAttribute('marker-start',getMarker(linkColor));
       }
     }
+    /* 활성 참조선 강조 */
+    var isSelRef=(selEdge&&selEdge.type==='ref'&&selEdge.id===(lk.from+'_'+lk.to));
+    lpath.setAttribute('stroke-width', isSelRef ? '4' : '2');
+    lpath.setAttribute('opacity', isSelRef ? '1' : '0.85');
+    if(isSelRef) lpath.classList.add('edge-active');
     lpath.style.pointerEvents='stroke'; lpath.style.cursor='pointer';
     (function(lkref){
       lpath.addEventListener('click',function(e){
         if(linkMode)return;
         e.stopPropagation();
+        selEdge={type:'ref',id:lkref.from+'_'+lkref.to};
+        renderCurves();
         showArrowMenu(lkref,e.clientX,e.clientY,'link');
       });
     })(lk);
@@ -1713,7 +1735,7 @@ function renderCurves(){
       lhEl.addEventListener('mouseenter',function(){lhEl.setAttribute('opacity','1');});
       lhEl.addEventListener('mouseleave',function(){if(!lhEl._dragging)lhEl.setAttribute('opacity','0');});
     })(lhandle,lpath);
-    (function(lkref2,lhEl2,lpathEl2){
+    (function(lkref2,lhEl2,lpathEl2,initHmx,initHmy){
       lhEl2.addEventListener('dblclick',function(e){
         e.stopPropagation();
         lkref2.cp={dx:0,dy:0};saveAll();renderCurves();drawMM();
@@ -1757,8 +1779,16 @@ function renderCurves(){
             var faEl2=document.getElementById('n'+fan.id),taEl2=document.getElementById('n'+tan.id);
             var fw2=faEl2?faEl2.offsetWidth:80,tw2=taEl2?taEl2.offsetWidth:80;
             var fh2=nhFull(fan),th2=nhFull(tan);
-            var faEp2=resolveEp(fan.x,fan.y,fw2,fh2,lkref2.fromPort,tan.x,tan.y);
-            var taEp2=resolveEp(tan.x,tan.y,tw2,th2,lkref2.toPort,fan.x,fan.y);
+            /* 포트 미지정 시 핸들 위치 기준 스마트 연결점 */
+            var lhmxCur=initHmx+(ev.clientX-startX);
+            var lhmyCur=initHmy+(ev.clientY-startY);
+            var lhw=s2w(lhmxCur,lhmyCur);
+            var faEp2=lkref2.fromPort
+              ? getPortPoint(fan.x,fan.y,fw2,fh2,lkref2.fromPort)
+              : getEdgePoint(fan.x,fan.y,fw2,fh2,lhw.x,lhw.y);
+            var taEp2=lkref2.toPort
+              ? getPortPoint(tan.x,tan.y,tw2,th2,lkref2.toPort)
+              : getEdgePoint(tan.x,tan.y,tw2,th2,lhw.x,lhw.y);
             var lsc1=w2s(faEp2.x,faEp2.y),lsc2=w2s(taEp2.x,taEp2.y);
             var flpdx2=faEp2.x-fan.x, flpdy2=faEp2.y-fan.y;
             var tltdx2=taEp2.x-tan.x, tltdy2=taEp2.y-tan.y;
@@ -1792,7 +1822,7 @@ function renderCurves(){
         document.addEventListener('mousemove',onMove);
         document.addEventListener('mouseup',onUp);
       });
-    })(lk,lhandle,lpath);
+    })(lk,lhandle,lpath,lhmx,lhmy);
     svg.appendChild(lhandle);
     /* 연결선 중간 × 삭제 버튼 */
     var bmx=(sc1.x+sc2.x)/2,bmy=(sc1.y+sc2.y)/2;
@@ -2977,6 +3007,7 @@ document.getElementById('viewport').addEventListener('mousedown',function(e){
   if(e.button!==0)return;hideCtx();closeIconPicker();
   panelVisible=false;
   deselectGroup();
+  if(selEdge){selEdge=null;renderCurves();}
   if(e.shiftKey){
     /* Shift+드래그 → 영역선택 모드 */
     var wp=s2w(e.clientX,e.clientY);
