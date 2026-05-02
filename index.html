@@ -1139,22 +1139,92 @@ function layoutBranch(kids,par,dir){
   }
 }
 function autoLayout(){
-  var root=gr();if(!root)return;
-  root.x=0;root.y=0;
-  var k=gc(root.id);
-  if(childDir==='right'){
-    /* 모두 오른쪽 */
-    layoutBranch(k,root,1);
-  } else if(childDir==='left'){
-    /* 모두 왼쪽 */
-    layoutBranch(k,root,-1);
-  } else {
-    /* 자동: 좌우 균형 분배 */
-    var half=Math.ceil(k.length/2);
-    layoutBranch(k.slice(0,half),root,1);
-    layoutBranch(k.slice(half),root,-1);
+  var root=gr(); if(!root)return;
+
+  /* ── 1단계: X축 정렬 — 현재 좌/우 방향 유지하며 최소 간격 확보 ── */
+  function fixX(nodeId, parNode){
+    var n=gn(nodeId); if(!n||!parNode)return;
+    var pw=nwFull(parNode), nw2=nwFull(n);
+    var minDist=pw/2+60+nw2/2;
+    var curDist=n.x-parNode.x;
+    /* 방향 유지: 현재 방향이 없으면 오른쪽 기본 */
+    if(Math.abs(curDist)<10) curDist=minDist;
+    var dir=curDist>=0?1:-1;
+    if(Math.abs(curDist)<minDist) n.x=parNode.x+dir*minDist;
+    var kids=gc(nodeId);
+    for(var i=0;i<kids.length;i++) fixX(kids[i].id, n);
   }
-  renderAll();saveAll();
+  var rootKids=gc(root.id);
+  for(var i=0;i<rootKids.length;i++) fixX(rootKids[i].id, root);
+
+  /* ── 2단계: Y축 정렬 — 같은 부모 자식들 현재 Y순서 유지, 겹침만 해소 ── */
+  function fixY(pid){
+    var par=gn(pid); if(!par)return;
+    var kids=gc(pid); if(!kids.length)return;
+    /* 현재 Y 기준으로 정렬 (순서 보존) */
+    kids.sort(function(a,b){return a.y-b.y;});
+    var PAD=14;
+    /* 아래쪽으로 겹침 해소: 앞 노드의 끝Y보다 뒷 노드의 시작Y가 작으면 밀어냄 */
+    for(var i=1;i<kids.length;i++){
+      var prev=kids[i-1], cur=kids[i];
+      var prevSubH=subH(prev.id);
+      var curSubH=subH(cur.id);
+      var prevBottomY=prev.y+prevSubH/2+PAD;
+      var curTopY=cur.y-curSubH/2;
+      if(curTopY<prevBottomY){
+        var shift=prevBottomY-curTopY;
+        shiftSubtreeY(cur.id, shift);
+      }
+    }
+    /* 위쪽으로 겹침 해소: 역방향도 체크 */
+    for(var i=kids.length-2;i>=0;i--){
+      var next=kids[i+1], cur2=kids[i];
+      var nextSubH=subH(next.id);
+      var cur2SubH=subH(cur2.id);
+      var nextTopY=next.y-nextSubH/2-PAD;
+      var cur2BottomY=cur2.y+cur2SubH/2;
+      if(cur2BottomY>nextTopY){
+        var shift2=cur2BottomY-nextTopY;
+        shiftSubtreeY(cur2.id, -shift2/2);
+        shiftSubtreeY(next.id, shift2/2);
+      }
+    }
+    /* 재귀: 자식들의 자식도 처리 */
+    for(var i=0;i<kids.length;i++) fixY(kids[i].id);
+  }
+  fixY(root.id);
+
+  /* ── 3단계: 연결선 겹침 해소 — X방향 겹치는 형제 노드 X 약간 조정 ── */
+  var PAD_X=18, PAD_Y=14, MAX_ITER=40;
+  for(var iter=0;iter<MAX_ITER;iter++){
+    var moved=false;
+    for(var i=0;i<nodes.length;i++){
+      for(var j=i+1;j<nodes.length;j++){
+        var a=nodes[i], b=nodes[j];
+        if(a.pid===null||b.pid===null)continue;
+        var aw=nwFull(a),ah=nhFull(a),bw=nwFull(b),bh=nhFull(b);
+        var minDx=(aw+bw)/2+PAD_X, minDy=(ah+bh)/2+PAD_Y;
+        var dx=Math.abs(a.x-b.x), dy=Math.abs(a.y-b.y);
+        if(dx<minDx&&dy<minDy){
+          var oy=minDy-dy, ox=minDx-dx;
+          /* Y가 더 가까우면 Y로, X가 더 가까우면 X로 밀기 */
+          if(oy<=ox){
+            var py=(oy/2)+1;
+            if(b.y>=a.y)b.y+=py; else b.y-=py;
+          } else {
+            /* X방향 (부모 방향 유지) */
+            var pxa=(ox/2)+1;
+            if(a.x>0)a.x+=pxa; else if(a.x<0)a.x-=pxa;
+            if(b.x>0)b.x+=pxa; else if(b.x<0)b.x-=pxa;
+          }
+          moved=true;
+        }
+      }
+    }
+    if(!moved)break;
+  }
+
+  renderAll(); saveAll();
 }
 
 
