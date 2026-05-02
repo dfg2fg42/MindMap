@@ -406,6 +406,8 @@ body.link-mode .node.link-from{
 }
 .link-del-btn{display:none;pointer-events:all;}
 body.link-mode .link-del-btn{display:block;}
+/* 선택된 참조선의 삭제 버튼은 항상 표시 */
+.link-del-btn.edge-selected{display:block;}
 </style>
 </head>
 <body>
@@ -1088,14 +1090,29 @@ function showArrowMenu(target, cx, cy, type){
       e.stopPropagation();
       closeArrowMenu();
       var n=gn(target);if(!n)return;
-      if(!confirm('✂️ "'+n.text+'" 노드의 부모 연결을 끊고 독립 노드로 분리할까요?\n\n하위 노드들은 함께 분리됩니다.'))return;
-      /* pid를 null로 — 현재 위치 유지하며 독립 노드로 분리 */
+      /* pid를 null로 — 현재 위치 유지하며 독립 노드로 분리 (Ctrl+Z로 복구 가능) */
       undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
       if(undoStack.length>30)undoStack.shift();
       n.pid=null;
       saveAll();renderAll();
     };
     menu.appendChild(discBtn);
+  }
+
+  /* ── 참조선: 삭제 버튼 ── */
+  if(type==='link'){
+    var lsep=document.createElement('div');
+    lsep.style.cssText='width:1px;background:var(--bdr);margin:2px 2px;';
+    menu.appendChild(lsep);
+    var delBtn=document.createElement('button');
+    delBtn.textContent='🗑️';delBtn.title='이 참조선 삭제';
+    delBtn.style.cssText='background:var(--sur2);border:1px solid #ff6b6b;border-radius:7px;width:34px;height:34px;font-size:.95rem;cursor:pointer;color:#ff6b6b;';
+    delBtn.onclick=function(e){
+      e.stopPropagation();
+      closeArrowMenu();
+      removeLink(target.from,target.to);
+    };
+    menu.appendChild(delBtn);
   }
 
   document.body.appendChild(menu);
@@ -1712,7 +1729,7 @@ function renderCurves(){
     var isSelRef=(selEdge&&selEdge.type==='ref'&&selEdge.id===(lk.from+'_'+lk.to));
     lpath.setAttribute('stroke-width', isSelRef ? '4' : '2');
     lpath.setAttribute('opacity', isSelRef ? '1' : '0.85');
-    if(isSelRef) lpath.classList.add('edge-active');
+    if(isSelRef){ lpath.classList.add('edge-active'); }
     lpath.style.pointerEvents='stroke'; lpath.style.cursor='pointer';
     (function(lkref){
       lpath.addEventListener('click',function(e){
@@ -1833,7 +1850,8 @@ function renderCurves(){
     /* 연결선 중간 × 삭제 버튼 */
     var bmx=(sc1.x+sc2.x)/2,bmy=(sc1.y+sc2.y)/2;
     var g=document.createElementNS('http://www.w3.org/2000/svg','g');
-    g.setAttribute('class','link-del-btn');
+    var isSelRefDel=(selEdge&&selEdge.type==='ref'&&selEdge.id===(lk.from+'_'+lk.to));
+    g.setAttribute('class','link-del-btn'+(isSelRefDel?' edge-selected':''));
     g.style.cursor='pointer';
     (function(f,t){
       g.addEventListener('click',function(e){e.stopPropagation();removeLink(f,t);});
@@ -3098,7 +3116,24 @@ document.addEventListener('keydown',function(e){
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
   if(e.key==='Tab'){e.preventDefault();if(sel)addChild(sel);}
   else if(e.key==='Enter'){if(sel)addSibling(sel);}
-  else if(e.key==='Delete'||e.key==='Backspace'){if(sel)delNode(sel);}
+  else if(e.key==='Delete'||e.key==='Backspace'){
+    if(selEdge){
+      /* 선택된 선 삭제 */
+      if(selEdge.type==='ref'){
+        var ids=selEdge.id.split('_');
+        removeLink(parseInt(ids[0]),parseInt(ids[1]));
+      } else if(selEdge.type==='tree'){
+        var dn=gn(selEdge.id);
+        if(dn&&dn.pid!==null){
+          undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
+          if(undoStack.length>30)undoStack.shift();
+          dn.pid=null; saveAll(); renderAll();
+          showToast('✂️ 연결선 삭제됨 (Ctrl+Z로 복구)');
+        }
+      }
+      selEdge=null;
+    } else if(sel){ delNode(sel); }
+  }
   else if((e.ctrlKey||e.metaKey)&&(e.key==='z'||e.key==='Z')){e.preventDefault();undoDelete();}
   else if((e.ctrlKey||e.metaKey)&&(e.key==='f'||e.key==='F')){e.preventDefault();openSearch();}
   else if(e.key==='s'||e.key==='S'){if(sel)toggleStar(sel);}
