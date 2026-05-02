@@ -451,7 +451,7 @@ body.link-mode .link-del-btn{display:block;}
   </div>
   <button class="tbtn" id="btn-sibling">＋ 형제 <span style="opacity:.6;font-size:.72rem">(Enter)</span></button>
   <div class="sep"></div>
-  <button class="tbtn" id="btn-layout">⟳ 정렬</button>
+  <button class="tbtn" id="btn-layout" title="노드 선택 시: 선택 노드 수직 정렬 | 미선택 시: 전체 자동 재배치">⟳ 정렬</button>
   <button class="tbtn" id="btn-fit">⊡ 맞춤</button>
   <div class="sep"></div>
   <button class="tbtn" id="btn-zi">＋</button>
@@ -2358,15 +2358,18 @@ function blendColors(colors){
 /* ════════════════ OVERLAP RESOLVER ════════════════ */
 function resolveOverlaps(){
   var PAD_X=18, PAD_Y=14;
-  var MAX_ITER=60;
+  var MAX_ITER=80;
   var dragId=movSt?movSt.id:null;
+  /* 고정 노드: 드래그 중인 노드 */
+  function isFixed(n){ return n.id===dragId; }
   for(var iter=0;iter<MAX_ITER;iter++){
     var moved=false;
     for(var i=0;i<nodes.length;i++){
       for(var j=i+1;j<nodes.length;j++){
         var a=nodes[i], b=nodes[j];
-        var aRoot=(a.pid===null), bRoot=(b.pid===null);
-        var aDrag=(a.id===dragId), bDrag=(b.id===dragId);
+        var aFix=isFixed(a), bFix=isFixed(b);
+        /* 둘 다 고정이면 건너뜀 */
+        if(aFix&&bFix) continue;
         var aw=nwFull(a), ah=nhFull(a);
         var bw=nwFull(b), bh=nhFull(b);
         var minDx=(aw+bw)/2+PAD_X;
@@ -2374,33 +2377,19 @@ function resolveOverlaps(){
         var dx=Math.abs(a.x-b.x);
         var dy=Math.abs(a.y-b.y);
         if(dx<minDx && dy<minDy){
-          var overlapX=minDx-dx, overlapY=minDy-dy;
-          /* 독립 노드끼리 또는 독립+트리 겹침: 더 작은 축 방향으로 밀기 */
-          if(aRoot||bRoot){
-            if(overlapX<overlapY){
-              /* X축으로 밀기 */
-              var pushX=overlapX/2+1;
-              if(!bDrag&&(bRoot||!aRoot)){
-                if(b.x>=a.x){ b.x+=pushX; } else { b.x-=pushX; }
-              }
-              if(!aDrag&&(aRoot||!bRoot)){
-                if(a.x>=b.x){ a.x+=pushX; } else { a.x-=pushX; }
-              }
-            } else {
-              /* Y축으로 밀기 */
-              var pushY2=overlapY/2+1;
-              if(!bDrag&&(bRoot||!aRoot)){
-                if(b.y>=a.y){ b.y+=pushY2; } else { b.y-=pushY2; }
-              }
-              if(!aDrag&&(aRoot||!bRoot)){
-                if(a.y>=b.y){ a.y+=pushY2; } else { a.y-=pushY2; }
-              }
-            }
+          var overlapX=minDx-dx;
+          var overlapY=minDy-dy;
+          /* 겹침이 적은 축 방향으로 밀기 (최소 이동) */
+          if(overlapX < overlapY){
+            /* X축으로 밀기 */
+            var pushX = aFix ? overlapX+1 : (bFix ? overlapX+1 : overlapX/2+1);
+            if(!aFix){ if(a.x<=b.x){ a.x-=pushX; }else{ a.x+=pushX; } }
+            if(!bFix){ if(b.x<=a.x){ b.x-=pushX; }else{ b.x+=pushX; } }
           } else {
-            /* 트리 노드끼리: 기존 Y축 밀기 */
-            var pushY=overlapY/2+1;
-            if(!bDrag){ if(b.y>=a.y){ b.y+=pushY; } else { b.y-=pushY; } }
-            if(!aDrag){ if(a.y>=b.y){ a.y+=pushY; } else { a.y-=pushY; } }
+            /* Y축으로 밀기 */
+            var pushY = aFix ? overlapY+1 : (bFix ? overlapY+1 : overlapY/2+1);
+            if(!aFix){ if(a.y<=b.y){ a.y-=pushY; }else{ a.y+=pushY; } }
+            if(!bFix){ if(b.y<=a.y){ b.y-=pushY; }else{ b.y+=pushY; } }
           }
           moved=true;
         }
@@ -3147,10 +3136,39 @@ document.addEventListener('click',function(){
 document.getElementById('btn-child').onclick=function(){if(sel)addChild(sel);};
 document.getElementById('btn-sibling').onclick=function(){if(sel)addSibling(sel);};
 document.getElementById('btn-layout').onclick=function(){
+  /* 다중 선택된 노드가 있으면 선택 노드만 수직 정렬 */
+  if(multiSel.length>=2){
+    alignSelectedVertical();
+    return;
+  }
   if(confirm('⚠️ 정렬을 실행하면 모든 노드의 위치가 자동으로 재배치됩니다.\n\n직접 조정한 위치가 초기화될 수 있습니다.\n\n정렬을 실행하시겠습니까?')){
     autoLayout();
   }
 };
+/* ── 선택 노드 수직 정렬 ── */
+function alignSelectedVertical(){
+  if(multiSel.length<2) return;
+  undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
+  if(undoStack.length>30) undoStack.shift();
+  /* 선택된 노드 객체 수집 */
+  var selNodes=multiSel.map(function(id){return gn(id);}).filter(Boolean);
+  /* 현재 Y 순서 기준으로 정렬 */
+  selNodes.sort(function(a,b){return a.y-b.y;});
+  /* X 중심: 선택 노드들의 평균 X */
+  var avgX=selNodes.reduce(function(s,n){return s+n.x;},0)/selNodes.length;
+  /* 전체 높이 계산하여 시작 Y 결정 (첫 노드 Y 기준 유지) */
+  var PAD=20;
+  var startY=selNodes[0].y;
+  var curY=startY;
+  for(var i=0;i<selNodes.length;i++){
+    var n=selNodes[i];
+    n.x=avgX;
+    n.y=curY;
+    curY+=nhFull(n)+PAD;
+  }
+  saveAll(); renderAll();
+  showToast('✅ '+selNodes.length+'개 노드 수직 정렬 완료');
+}
 document.getElementById('btn-group').onclick=function(){
   var ids=multiSel.length>=2?multiSel:(sel?[sel]:[]);
   if(ids.length<2){showToast('⚠️ 2개 이상의 노드를 선택하세요 (Shift+클릭 또는 드래그 선택)');return;}
