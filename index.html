@@ -1628,14 +1628,29 @@ function renderCurves(){
     if(!fa||!ta)continue;
     var faEl=document.getElementById('n'+fa.id),taEl=document.getElementById('n'+ta.id);
     var fw=faEl?faEl.offsetWidth:nwFull(fa),tw=taEl?taEl.offsetWidth:nwFull(ta);
+    var fh=nhFull(fa), th=nhFull(ta);
     var fx,fy,tx2,ty2;
-    if(fa.x<=ta.x){fx=fa.x+fw/2;tx2=ta.x-tw/2;}else{fx=fa.x-fw/2;tx2=ta.x+tw/2;}
-    fy=fa.y; ty2=ta.y;
+    var isLVert=Math.abs(fa.x-ta.x)<(fw/2+tw/2)*0.5;
+    if(isLVert){
+      fx=fa.x; tx2=ta.x;
+      if(ta.y>=fa.y){fy=fa.y+fh/2; ty2=ta.y-th/2;}
+      else{fy=fa.y-fh/2; ty2=ta.y+th/2;}
+    } else {
+      if(fa.x<=ta.x){fx=fa.x+fw/2;tx2=ta.x-tw/2;}else{fx=fa.x-fw/2;tx2=ta.x+tw/2;}
+      fy=fa.y; ty2=ta.y;
+    }
     var sc1=w2s(fx,fy),sc2=w2s(tx2,ty2);
-    var lmx=(sc1.x+sc2.x)/2;
     var lcpOff=lk.cp||{dx:0,dy:0};
-    var lcp1x=lmx+lcpOff.dx*cam.z, lcp1y=sc1.y+lcpOff.dy*cam.z;
-    var lcp2x=lmx+lcpOff.dx*cam.z, lcp2y=sc2.y+lcpOff.dy*cam.z;
+    var lcp1x,lcp1y,lcp2x,lcp2y;
+    if(isLVert){
+      var lmy=(sc1.y+sc2.y)/2;
+      lcp1x=sc1.x+lcpOff.dx*cam.z; lcp1y=lmy+lcpOff.dy*cam.z;
+      lcp2x=sc2.x+lcpOff.dx*cam.z; lcp2y=lmy+lcpOff.dy*cam.z;
+    } else {
+      var lmx=(sc1.x+sc2.x)/2;
+      lcp1x=lmx+lcpOff.dx*cam.z; lcp1y=sc1.y+lcpOff.dy*cam.z;
+      lcp2x=lmx+lcpOff.dx*cam.z; lcp2y=sc2.y+lcpOff.dy*cam.z;
+    }
     var linkColor=getColor(lk.from);
     var lpath=document.createElementNS('http://www.w3.org/2000/svg','path');
     lpath.setAttribute('d','M'+sc1.x+','+sc1.y+' C'+lcp1x+','+lcp1y+' '+lcp2x+','+lcp2y+' '+sc2.x+','+sc2.y);
@@ -1727,12 +1742,28 @@ function renderCurves(){
             var fan=gn(lkref2.from),tan=gn(lkref2.to);if(!fan||!tan)return;
             var faEl2=document.getElementById('n'+fan.id),taEl2=document.getElementById('n'+tan.id);
             var fw2=faEl2?faEl2.offsetWidth:80,tw2=taEl2?taEl2.offsetWidth:80;
-            var fx2,tx22;
-            if(fan.x<=tan.x){fx2=fan.x+fw2/2;tx22=tan.x-tw2/2;}else{fx2=fan.x-fw2/2;tx22=tan.x+tw2/2;}
-            var lsc1=w2s(fx2,fan.y),lsc2=w2s(tx22,tan.y);
-            var lmx2=(lsc1.x+lsc2.x)/2;
-            var nlcp1x=lmx2+ddx*cam.z,nlcp1y=lsc1.y+ddy*cam.z;
-            var nlcp2x=lmx2+ddx*cam.z,nlcp2y=lsc2.y+ddy*cam.z;
+            var fh2=nhFull(fan),th2=nhFull(tan);
+            var isLVert2=Math.abs(fan.x-tan.x)<(fw2/2+tw2/2)*0.5;
+            var fx2,fy2,tx22,ty22;
+            if(isLVert2){
+              fx2=fan.x;tx22=tan.x;
+              if(tan.y>=fan.y){fy2=fan.y+fh2/2;ty22=tan.y-th2/2;}
+              else{fy2=fan.y-fh2/2;ty22=tan.y+th2/2;}
+            } else {
+              if(fan.x<=tan.x){fx2=fan.x+fw2/2;tx22=tan.x-tw2/2;}else{fx2=fan.x-fw2/2;tx22=tan.x+tw2/2;}
+              fy2=fan.y;ty22=tan.y;
+            }
+            var lsc1=w2s(fx2,fy2),lsc2=w2s(tx22,ty22);
+            var nlcp1x,nlcp1y,nlcp2x,nlcp2y;
+            if(isLVert2){
+              var lmy2=(lsc1.y+lsc2.y)/2;
+              nlcp1x=lsc1.x+ddx*cam.z;nlcp1y=lmy2+ddy*cam.z;
+              nlcp2x=lsc2.x+ddx*cam.z;nlcp2y=lmy2+ddy*cam.z;
+            } else {
+              var lmx2=(lsc1.x+lsc2.x)/2;
+              nlcp1x=lmx2+ddx*cam.z;nlcp1y=lsc1.y+ddy*cam.z;
+              nlcp2x=lmx2+ddx*cam.z;nlcp2y=lsc2.y+ddy*cam.z;
+            }
             lpathEl2.setAttribute('d','M'+lsc1.x+','+lsc1.y+' C'+nlcp1x+','+nlcp1y+' '+nlcp2x+','+nlcp2y+' '+lsc2.x+','+lsc2.y);
             var lnhx=(nlcp1x+nlcp2x)/2,lnhy=(nlcp1y+nlcp2y)/2;
             lhEl2.setAttribute('cx',lnhx);lhEl2.setAttribute('cy',lnhy);
