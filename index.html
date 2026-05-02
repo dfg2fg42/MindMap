@@ -232,6 +232,29 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 #mm{display:block;width:100%;height:100%;}
 #hint{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--sur2);border:1px solid var(--bdr);padding:6px 15px;border-radius:99px;font-size:.73rem;color:var(--mut);pointer-events:none;transition:opacity .5s;white-space:nowrap;z-index:60;}
 
+/* ══ COLOR OPT MODAL ══ */
+#color-opt-modal{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;}
+#color-opt-modal.open{display:flex;}
+#color-opt-box{background:var(--sur);border:1px solid var(--bdr);border-radius:18px;padding:24px 26px;width:420px;max-width:94vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.65);}
+#color-opt-box h2{font-size:1rem;font-weight:800;color:var(--txt);margin-bottom:20px;display:flex;align-items:center;gap:8px;}
+.co-row{margin-bottom:18px;}
+.co-label{font-size:.78rem;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.co-label span{color:var(--acc);font-size:.9rem;font-weight:800;font-family:monospace;}
+.co-slider{width:100%;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--bdr);outline:none;cursor:pointer;}
+.co-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--acc);cursor:pointer;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);}
+.co-slider::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--acc);cursor:pointer;border:2px solid #fff;}
+/* 미리보기 */
+#co-preview{margin:12px 0;padding:10px;background:var(--bg);border-radius:10px;border:1px solid var(--bdr);overflow:hidden;}
+.co-prev-node{border-radius:6px;padding:4px 2px;font-size:.72rem;font-weight:700;text-align:center;flex:1;min-width:0;transition:.2s;}
+.co-footer{display:flex;gap:8px;margin-top:6px;}
+.co-footer button{flex:1;padding:9px;border-radius:9px;border:1.5px solid var(--bdr);cursor:pointer;font-size:.83rem;font-weight:700;transition:.13s;}
+#co-apply{background:var(--acc);border-color:var(--acc);color:#fff;}
+#co-apply:hover{background:#5651d8;}
+#co-reset{background:none;color:var(--mut);}
+#co-reset:hover{border-color:#ff6b6b;color:#ff6b6b;}
+#co-close{background:none;color:var(--mut);}
+#co-close:hover{border-color:var(--bdr);color:var(--txt);}
+
 /* ══ BACKUP MODAL ══ */
 #backup-modal{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;}
 #backup-modal.open{display:flex;}
@@ -320,6 +343,9 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
   filter:brightness(1.18);
   box-shadow:0 0 10px rgba(0,230,118,.35)!important;
 }
+/* ══ CURVE DRAG FEEDBACK ══ */
+@keyframes handlePulse{0%,100%{r:6;opacity:1;}50%{r:8;opacity:.7;}}
+.edge-handle-dragging{animation:handlePulse .4s ease-in-out infinite;}
 #viewport.sel-dragging{cursor:crosshair!important;}
 
 /* ══ HELP MODAL ══ */
@@ -401,6 +427,7 @@ body.link-mode .link-del-btn{display:block;}
   <div class="sep"></div>
   <button class="tbtn" id="btn-link-mode" title="참조 연결 모드 (노드 클릭 → 연결할 노드 클릭)">🔗 연결</button>
   <button class="tbtn" id="btn-help" title="단축키 도움말 (?)">❓ 도움말</button>
+  <button class="tbtn" id="btn-color-opt" title="노드 색상 연해짐 설정">🎨 색상설정</button>
   <button class="tbtn" id="btn-theme">☀️ 라이트</button>
   <button class="tbtn danger" id="btn-reset">🗑 초기화</button>
   <div class="tinfo">노드 <b id="ncnt">1</b>개 &nbsp;|&nbsp; S:별표 M:메모 Tab:자식 Del:삭제</div>
@@ -610,6 +637,30 @@ body.link-mode .link-del-btn{display:block;}
   </div>
 </div>
 
+<!-- COLOR OPT MODAL -->
+<div id="color-opt-modal">
+  <div id="color-opt-box">
+    <h2>🎨 노드 색상 연해짐 설정</h2>
+    <div class="co-row">
+      <div class="co-label">깊이당 밝아지는 비율 <span id="co-step-val">5.5%</span></div>
+      <input type="range" class="co-slider" id="co-step" min="1" max="15" step="0.5" value="5.5">
+      <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--mut);margin-top:4px;"><span>← 거의 안 변함</span><span>많이 연해짐 →</span></div>
+    </div>
+    <div class="co-row">
+      <div class="co-label">최대 적용 깊이 <span id="co-depth-val">6단계</span></div>
+      <input type="range" class="co-slider" id="co-depth" min="2" max="12" step="1" value="6">
+      <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--mut);margin-top:4px;"><span>← 얕게 (2단계)</span><span>깊게 (12단계) →</span></div>
+    </div>
+    <div class="co-label" style="margin-bottom:6px;">실시간 미리보기 <span style="font-size:.7rem;color:var(--mut);font-weight:400;">(루트 → 하위 깊이)</span></div>
+    <div id="co-preview"></div>
+    <div class="co-footer">
+      <button id="co-apply">✅ 적용</button>
+      <button id="co-reset">↺ 기본값</button>
+      <button id="co-close">✕ 닫기</button>
+    </div>
+  </div>
+</div>
+
 <!-- BACKUP MODAL -->
 <div id="backup-modal">
   <div id="backup-box">
@@ -680,6 +731,8 @@ var panelVisible=false;   // 연결 모드 상태
 var linkFrom=null;    // 연결 시작 노드 id
 var memoOpen=false,isLight=false;
 var mttDragging=false; // memo tooltip drag state
+var lightenStep=0.055;   // 깊이당 밝아지는 비율 (0.01~0.15)
+var lightenMaxDepth=6;   // 최대 적용 깊이
 var iconPickerTarget=null;
 var sbPinned=false;
 
@@ -750,7 +803,7 @@ function getColor(id){
   if(walkerDepth===0 && n.customColor) return baseColor;
 
   /* 기준으로부터 얼마나 아래인지 = walkerDepth */
-  var lightenAmt=Math.min(walkerDepth,8)*0.09;
+  var lightenAmt=Math.min(walkerDepth,lightenMaxDepth)*lightenStep;
   return lightenHex(baseColor, lightenAmt);
 }
 
@@ -766,6 +819,22 @@ function lightenHex(hex,amount){
   g=Math.min(255,Math.round(g+(255-g)*amount));
   b=Math.min(255,Math.round(b+(255-b)*amount));
   return '#'+('0'+r.toString(16)).slice(-2)+('0'+g.toString(16)).slice(-2)+('0'+b.toString(16)).slice(-2);
+}
+
+/* 배경색 밝기 기반 폰트 색상 자동 계산 */
+function getNodeFontColor(bgHex, customFontColor){
+  if(customFontColor)return customFontColor;
+  bgHex=(bgHex||'#000000').replace('#','');
+  if(bgHex.length===3)bgHex=bgHex[0]+bgHex[0]+bgHex[1]+bgHex[1]+bgHex[2]+bgHex[2];
+  if(!/^[0-9a-fA-F]{6}$/.test(bgHex))return '#ffffff';
+  var r=parseInt(bgHex.substring(0,2),16);
+  var g=parseInt(bgHex.substring(2,4),16);
+  var b=parseInt(bgHex.substring(4,6),16);
+  /* 상대 휘도 (perceived brightness 0~255) */
+  var br=(r*299+g*587+b*114)/1000;
+  if(br>=155) return '#1c1e2e';   /* 밝은 배경 → 진한 남색 폰트 */
+  if(br>=125) return '#f0f2ff';   /* 중간 배경 → 밝은 흰색 폰트 */
+  return '#ffffff';               /* 어두운 배경 → 흰색 폰트 */
 }
 
 /* ════════════════ SIDEBAR SLIDE ════════════════ */
@@ -785,12 +854,12 @@ function toggleSbPin(){
 function saveAll(){
   var cc=getCat(curCatId);
   if(cc){cc.nodes=nodes;cc.nid=nid;cc.cam=cam;cc.links=links;}
-  try{localStorage.setItem('msp2',JSON.stringify({cats:cats,curCatId:curCatId,nextCatId:nextCatId}));}catch(e){}
+  try{localStorage.setItem('msp2',JSON.stringify({cats:cats,curCatId:curCatId,nextCatId:nextCatId,lightenStep:lightenStep,lightenMaxDepth:lightenMaxDepth}));}catch(e){}
 }
 function loadAll(){
   try{
     var d=localStorage.getItem('msp2');
-    if(d){var o=JSON.parse(d);cats=o.cats||[];curCatId=o.curCatId||1;nextCatId=o.nextCatId||1;}
+    if(d){var o=JSON.parse(d);cats=o.cats||[];curCatId=o.curCatId||1;nextCatId=o.nextCatId||1;if(o.lightenStep!==undefined)lightenStep=o.lightenStep;if(o.lightenMaxDepth!==undefined)lightenMaxDepth=o.lightenMaxDepth;}
   }catch(e){}
   if(!cats.length){
     cats=[{id:nextCatId++,name:'기본',icon:'🗂',parentId:null,collapsed:false,
@@ -1157,14 +1226,16 @@ function renderCurves(){
     if(c.x>=p.x){pwx=p.x+pw/2;cwx=c.x-cw/2;}else{pwx=p.x-pw/2;cwx=c.x+cw/2;}
     pwy=p.y; cwy=c.y;
     var ps=w2s(pwx,pwy),cs=w2s(cwx,cwy),mx=(ps.x+cs.x)/2;
+    var cpOff=c.cp||{dx:0,dy:0};
+    var cp1x=mx+cpOff.dx, cp1y=ps.y+cpOff.dy;
+    var cp2x=mx+cpOff.dx, cp2y=cs.y+cpOff.dy;
     var path=document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d','M'+ps.x+','+ps.y+' C'+mx+','+ps.y+' '+mx+','+cs.y+' '+cs.x+','+cs.y);
+    path.setAttribute('d','M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y);
     path.setAttribute('fill','none');
     path.setAttribute('stroke',color);
     path.setAttribute('stroke-width',(p.pid===null)?'3':'2');
     path.setAttribute('stroke-linecap','round');
     path.setAttribute('opacity','0.9');
-    /* 화살표: → = 오른쪽 방향, ← = 왼쪽 방향 (화면 절대 기준) */
     var arr=c.arrow||'none';
     if(arr!=='none'){
       var rightward=(ps.x<=cs.x);
@@ -1185,6 +1256,113 @@ function renderCurves(){
       });
     })(c.id);
     svg.appendChild(path);
+    /* ── 컨트롤 핸들 (드래그로 곡선 조절) ── */
+    var hmx=(cp1x+cp2x)/2, hmy=(cp1y+cp2y)/2;
+    var handle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    handle.setAttribute('cx',hmx); handle.setAttribute('cy',hmy);
+    handle.setAttribute('r','7');
+    handle.setAttribute('fill','rgba(56,178,255,0.22)');
+    handle.setAttribute('stroke','#38b2ff');
+    handle.setAttribute('stroke-width','2');
+    handle.setAttribute('data-handle','tree-'+c.id);
+    handle.style.cursor='grab'; handle.style.pointerEvents='all';
+    handle.setAttribute('opacity','0');
+    handle.style.transition='r .15s,opacity .15s';
+    path.setAttribute('data-edge','tree-'+c.id);
+    /* hover show/hide */
+    (function(hEl,pathEl){
+      pathEl.addEventListener('mouseenter',function(){hEl.setAttribute('opacity','1');pathEl.setAttribute('stroke-width',(p.pid===null)?'4':'3');});
+      pathEl.addEventListener('mouseleave',function(){if(!hEl._dragging){hEl.setAttribute('opacity','0');pathEl.setAttribute('stroke-width',(p.pid===null)?'3':'2');}});
+      hEl.addEventListener('mouseenter',function(){hEl.setAttribute('opacity','1');});
+      hEl.addEventListener('mouseleave',function(){if(!hEl._dragging)hEl.setAttribute('opacity','0');});
+    })(handle,path);
+    (function(cid2,hEl2,pathEl2,psx,psy,csx,csy){
+      hEl2.addEventListener('dblclick',function(e){
+        e.stopPropagation();
+        var nc=gn(cid2);if(nc){nc.cp={dx:0,dy:0};saveAll();renderCurves();drawMM();}
+      });
+      hEl2.addEventListener('mousedown',function(e){
+        if(e.button!==0)return;
+        e.stopPropagation();e.preventDefault();
+        hEl2._dragging=true;
+        hEl2.style.cursor='grabbing';
+        hEl2.setAttribute('r','9');
+        hEl2.setAttribute('fill','rgba(56,178,255,0.45)');
+        hEl2.setAttribute('stroke','#7dd8ff');
+        hEl2.setAttribute('opacity','1');
+        /* 가이드라인 생성 */
+        var guide1=document.createElementNS('http://www.w3.org/2000/svg','line');
+        var guide2=document.createElementNS('http://www.w3.org/2000/svg','line');
+        var cpDot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        var label=document.createElementNS('http://www.w3.org/2000/svg','text');
+        [guide1,guide2].forEach(function(g){
+          g.setAttribute('stroke','rgba(56,178,255,0.4)');
+          g.setAttribute('stroke-width','1');
+          g.setAttribute('stroke-dasharray','4,3');
+          g.setAttribute('pointer-events','none');
+        });
+        cpDot.setAttribute('r','4');
+        cpDot.setAttribute('fill','#38b2ff');
+        cpDot.setAttribute('stroke','#fff');
+        cpDot.setAttribute('stroke-width','1.5');
+        cpDot.setAttribute('pointer-events','none');
+        label.setAttribute('font-size','10');
+        label.setAttribute('fill','#38b2ff');
+        label.setAttribute('pointer-events','none');
+        label.setAttribute('font-family','monospace');
+        var svgEl=document.getElementById('svg-layer');
+        svgEl.appendChild(guide1);svgEl.appendChild(guide2);
+        svgEl.appendChild(cpDot);svgEl.appendChild(label);
+        var startX=e.clientX,startY=e.clientY;
+        var nc=gn(cid2);if(!nc)return;
+        var origCp=nc.cp?{dx:nc.cp.dx,dy:nc.cp.dy}:{dx:0,dy:0};
+        var rafId=null;
+        function onMove(ev){
+          var ddx=origCp.dx+(ev.clientX-startX)/cam.z;
+          var ddy=origCp.dy+(ev.clientY-startY)/cam.z;
+          nc.cp={dx:ddx,dy:ddy};
+          if(rafId)cancelAnimationFrame(rafId);
+          rafId=requestAnimationFrame(function(){
+            /* 현재 엔드포인트 재계산 */
+            var pelEl2=document.getElementById('n'+gn(cid2).pid);
+            var celEl2=document.getElementById('n'+cid2);
+            var pw2=pelEl2?pelEl2.offsetWidth:80,cw2=celEl2?celEl2.offsetWidth:80;
+            var pn=gn(gn(cid2).pid),cn=gn(cid2);
+            var pwx2,cwx2;
+            if(cn.x>=pn.x){pwx2=pn.x+pw2/2;cwx2=cn.x-cw2/2;}else{pwx2=pn.x-pw2/2;cwx2=cn.x+cw2/2;}
+            var ps2=w2s(pwx2,pn.y),cs2=w2s(cwx2,cn.y);
+            var mx2=(ps2.x+cs2.x)/2;
+            var ncp1x=mx2+ddx*cam.z,ncp1y=ps2.y+ddy*cam.z;
+            var ncp2x=mx2+ddx*cam.z,ncp2y=cs2.y+ddy*cam.z;
+            /* 경로 업데이트 */
+            pathEl2.setAttribute('d','M'+ps2.x+','+ps2.y+' C'+ncp1x+','+ncp1y+' '+ncp2x+','+ncp2y+' '+cs2.x+','+cs2.y);
+            var nhx=(ncp1x+ncp2x)/2, nhy=(ncp1y+ncp2y)/2;
+            hEl2.setAttribute('cx',nhx);hEl2.setAttribute('cy',nhy);
+            /* 가이드라인 업데이트 */
+            guide1.setAttribute('x1',ps2.x);guide1.setAttribute('y1',ps2.y);guide1.setAttribute('x2',ncp1x);guide1.setAttribute('y2',ncp1y);
+            guide2.setAttribute('x1',cs2.x);guide2.setAttribute('y1',cs2.y);guide2.setAttribute('x2',ncp2x);guide2.setAttribute('y2',ncp2y);
+            cpDot.setAttribute('cx',nhx);cpDot.setAttribute('cy',nhy-14);
+            label.setAttribute('x',nhx+10);label.setAttribute('y',nhy-10);
+            label.textContent='dx:'+Math.round(ddx)+' dy:'+Math.round(ddy);
+          });
+        }
+        function onUp(){
+          hEl2._dragging=false;
+          if(rafId)cancelAnimationFrame(rafId);
+          hEl2.style.cursor='grab';
+          hEl2.setAttribute('r','7');
+          hEl2.setAttribute('fill','rgba(56,178,255,0.22)');
+          hEl2.setAttribute('stroke','#38b2ff');
+          [guide1,guide2,cpDot,label].forEach(function(el){if(el.parentNode)el.parentNode.removeChild(el);});
+          saveAll();renderCurves();drawMM();
+          document.removeEventListener('mousemove',onMove);
+          document.removeEventListener('mouseup',onUp);
+        }
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+      });
+    })(c.id,handle,path,ps.x,ps.y,cs.x,cs.y);
+    svg.appendChild(handle);
   }
 
   /* ── 참조 연결선 ── */
@@ -1199,9 +1377,12 @@ function renderCurves(){
     fy=fa.y; ty2=ta.y;
     var sc1=w2s(fx,fy),sc2=w2s(tx2,ty2);
     var lmx=(sc1.x+sc2.x)/2;
+    var lcpOff=lk.cp||{dx:0,dy:0};
+    var lcp1x=lmx+lcpOff.dx, lcp1y=sc1.y+lcpOff.dy;
+    var lcp2x=lmx+lcpOff.dx, lcp2y=sc2.y+lcpOff.dy;
     var linkColor=getColor(lk.from);
     var lpath=document.createElementNS('http://www.w3.org/2000/svg','path');
-    lpath.setAttribute('d','M'+sc1.x+','+sc1.y+' C'+lmx+','+sc1.y+' '+lmx+','+sc2.y+' '+sc2.x+','+sc2.y);
+    lpath.setAttribute('d','M'+sc1.x+','+sc1.y+' C'+lcp1x+','+lcp1y+' '+lcp2x+','+lcp2y+' '+sc2.x+','+sc2.y);
     lpath.setAttribute('fill','none');
     lpath.setAttribute('stroke',linkColor);
     lpath.setAttribute('stroke-width','2');
@@ -1209,7 +1390,6 @@ function renderCurves(){
     lpath.setAttribute('stroke-linecap','round');
     lpath.setAttribute('opacity','0.9');
     lpath.setAttribute('data-link',lk.from+'-'+lk.to);
-    /* 참조선 화살표 */
     var larr=lk.arrow||'none';
     if(larr!=='none'){
       var lrightward=(sc1.x<=sc2.x);
@@ -1231,6 +1411,99 @@ function renderCurves(){
       });
     })(lk);
     svg.appendChild(lpath);
+    /* ── 참조선 컨트롤 핸들 ── */
+    var lhmx=(lcp1x+lcp2x)/2, lhmy=(lcp1y+lcp2y)/2;
+    var lhandle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    lhandle.setAttribute('cx',lhmx); lhandle.setAttribute('cy',lhmy);
+    lhandle.setAttribute('r','7');
+    lhandle.setAttribute('fill','rgba(56,178,255,0.22)');
+    lhandle.setAttribute('stroke','#38b2ff');
+    lhandle.setAttribute('stroke-width','2');
+    lhandle.style.cursor='grab'; lhandle.style.pointerEvents='all';
+    lhandle.setAttribute('opacity','0');
+    lpath.setAttribute('data-edge','link-'+lk.from+'-'+lk.to);
+    (function(lhEl,lpathEl){
+      lpathEl.addEventListener('mouseenter',function(){lhEl.setAttribute('opacity','1');lpathEl.setAttribute('stroke-width','3');});
+      lpathEl.addEventListener('mouseleave',function(){if(!lhEl._dragging){lhEl.setAttribute('opacity','0');lpathEl.setAttribute('stroke-width','2');}});
+      lhEl.addEventListener('mouseenter',function(){lhEl.setAttribute('opacity','1');});
+      lhEl.addEventListener('mouseleave',function(){if(!lhEl._dragging)lhEl.setAttribute('opacity','0');});
+    })(lhandle,lpath);
+    (function(lkref2,lhEl2,lpathEl2){
+      lhEl2.addEventListener('dblclick',function(e){
+        e.stopPropagation();
+        lkref2.cp={dx:0,dy:0};saveAll();renderCurves();drawMM();
+      });
+      lhEl2.addEventListener('mousedown',function(e){
+        if(e.button!==0)return;
+        e.stopPropagation();e.preventDefault();
+        lhEl2._dragging=true;
+        lhEl2.style.cursor='grabbing';
+        lhEl2.setAttribute('r','9');
+        lhEl2.setAttribute('fill','rgba(56,178,255,0.45)');
+        lhEl2.setAttribute('stroke','#7dd8ff');
+        lhEl2.setAttribute('opacity','1');
+        var lg1=document.createElementNS('http://www.w3.org/2000/svg','line');
+        var lg2=document.createElementNS('http://www.w3.org/2000/svg','line');
+        var lcpDot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        var llabel=document.createElementNS('http://www.w3.org/2000/svg','text');
+        [lg1,lg2].forEach(function(g){
+          g.setAttribute('stroke','rgba(56,178,255,0.4)');
+          g.setAttribute('stroke-width','1');
+          g.setAttribute('stroke-dasharray','4,3');
+          g.setAttribute('pointer-events','none');
+        });
+        lcpDot.setAttribute('r','4');lcpDot.setAttribute('fill','#38b2ff');
+        lcpDot.setAttribute('stroke','#fff');lcpDot.setAttribute('stroke-width','1.5');
+        lcpDot.setAttribute('pointer-events','none');
+        llabel.setAttribute('font-size','10');llabel.setAttribute('fill','#38b2ff');
+        llabel.setAttribute('pointer-events','none');llabel.setAttribute('font-family','monospace');
+        var svgEl=document.getElementById('svg-layer');
+        svgEl.appendChild(lg1);svgEl.appendChild(lg2);svgEl.appendChild(lcpDot);svgEl.appendChild(llabel);
+        var startX=e.clientX,startY=e.clientY;
+        var origCp=lkref2.cp?{dx:lkref2.cp.dx,dy:lkref2.cp.dy}:{dx:0,dy:0};
+        var rafId=null;
+        function onMove(ev){
+          var ddx=origCp.dx+(ev.clientX-startX)/cam.z;
+          var ddy=origCp.dy+(ev.clientY-startY)/cam.z;
+          lkref2.cp={dx:ddx,dy:ddy};
+          if(rafId)cancelAnimationFrame(rafId);
+          rafId=requestAnimationFrame(function(){
+            var fan=gn(lkref2.from),tan=gn(lkref2.to);if(!fan||!tan)return;
+            var faEl2=document.getElementById('n'+fan.id),taEl2=document.getElementById('n'+tan.id);
+            var fw2=faEl2?faEl2.offsetWidth:80,tw2=taEl2?taEl2.offsetWidth:80;
+            var fx2,tx22;
+            if(fan.x<=tan.x){fx2=fan.x+fw2/2;tx22=tan.x-tw2/2;}else{fx2=fan.x-fw2/2;tx22=tan.x+tw2/2;}
+            var lsc1=w2s(fx2,fan.y),lsc2=w2s(tx22,tan.y);
+            var lmx2=(lsc1.x+lsc2.x)/2;
+            var nlcp1x=lmx2+ddx*cam.z,nlcp1y=lsc1.y+ddy*cam.z;
+            var nlcp2x=lmx2+ddx*cam.z,nlcp2y=lsc2.y+ddy*cam.z;
+            lpathEl2.setAttribute('d','M'+lsc1.x+','+lsc1.y+' C'+nlcp1x+','+nlcp1y+' '+nlcp2x+','+nlcp2y+' '+lsc2.x+','+lsc2.y);
+            var lnhx=(nlcp1x+nlcp2x)/2,lnhy=(nlcp1y+nlcp2y)/2;
+            lhEl2.setAttribute('cx',lnhx);lhEl2.setAttribute('cy',lnhy);
+            lg1.setAttribute('x1',lsc1.x);lg1.setAttribute('y1',lsc1.y);lg1.setAttribute('x2',nlcp1x);lg1.setAttribute('y2',nlcp1y);
+            lg2.setAttribute('x1',lsc2.x);lg2.setAttribute('y1',lsc2.y);lg2.setAttribute('x2',nlcp2x);lg2.setAttribute('y2',nlcp2y);
+            lcpDot.setAttribute('cx',lnhx);lcpDot.setAttribute('cy',lnhy-14);
+            llabel.setAttribute('x',lnhx+10);llabel.setAttribute('y',lnhy-10);
+            llabel.textContent='dx:'+Math.round(ddx)+' dy:'+Math.round(ddy);
+          });
+        }
+        function onUp(){
+          lhEl2._dragging=false;
+          if(rafId)cancelAnimationFrame(rafId);
+          lhEl2.style.cursor='grab';
+          lhEl2.setAttribute('r','7');
+          lhEl2.setAttribute('fill','rgba(56,178,255,0.22)');
+          lhEl2.setAttribute('stroke','#38b2ff');
+          [lg1,lg2,lcpDot,llabel].forEach(function(el){if(el.parentNode)el.parentNode.removeChild(el);});
+          saveAll();renderCurves();drawMM();
+          document.removeEventListener('mousemove',onMove);
+          document.removeEventListener('mouseup',onUp);
+        }
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+      });
+    })(lk,lhandle,lpath);
+    svg.appendChild(lhandle);
     /* 연결선 중간 × 삭제 버튼 */
     var bmx=(sc1.x+sc2.x)/2,bmy=(sc1.y+sc2.y)/2;
     var g=document.createElementNS('http://www.w3.org/2000/svg','g');
@@ -1293,7 +1566,7 @@ function renderNodes(){
     } else {
       el.style.background=getColor(n.id);
     }
-    el.style.color=n.fontColor||'#fff';
+    el.style.color=getNodeFontColor(el.style.background||getColor(n.id), n.fontColor);
     el.classList.toggle('selected',sel===n.id);el.classList.toggle('starred',!!n.star);el.classList.toggle('multi-sel',multiSel.indexOf(n.id)>=0&&n.id!==sel);
     var sb=el.querySelector('.star-badge');
     if(n.star){if(!sb){sb=document.createElement('span');sb.className='star-badge';el.appendChild(sb);}sb.textContent='⭐';}
@@ -2540,6 +2813,102 @@ document.getElementById('bk-import').onclick=importJSON;
 document.getElementById('bk-html').onclick=exportHTML;
 document.getElementById('backup-close').onclick=closeBackupModal;
 document.getElementById('backup-modal').addEventListener('click',function(e){if(e.target===this)closeBackupModal();});
+
+/* ════════════════ COLOR OPT MODAL ════════════════ */
+(function(){
+  var modal=document.getElementById('color-opt-modal');
+  var stepSlider=document.getElementById('co-step');
+  var depthSlider=document.getElementById('co-depth');
+  var stepVal=document.getElementById('co-step-val');
+  var depthVal=document.getElementById('co-depth-val');
+  var preview=document.getElementById('co-preview');
+
+  var PREV_COLORS=['#7c6fcd','#e8567a','#1a9e6b','#d9873d','#2878c5'];
+
+  function lightenPreview(hex,amount){
+    hex=hex.replace('#','');
+    if(hex.length===3)hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    var r=parseInt(hex.substring(0,2),16);
+    var g=parseInt(hex.substring(2,4),16);
+    var b=parseInt(hex.substring(4,6),16);
+    r=Math.min(255,Math.round(r+(255-r)*amount));
+    g=Math.min(255,Math.round(g+(255-g)*amount));
+    b=Math.min(255,Math.round(b+(255-b)*amount));
+    return '#'+('0'+r.toString(16)).slice(-2)+('0'+g.toString(16)).slice(-2)+('0'+b.toString(16)).slice(-2);
+  }
+  function fontForBg(hex){
+    hex=hex.replace('#','');
+    if(!/^[0-9a-fA-F]{6}$/.test(hex))return '#fff';
+    var r=parseInt(hex.substring(0,2),16);
+    var g=parseInt(hex.substring(2,4),16);
+    var b=parseInt(hex.substring(4,6),16);
+    var br=(r*299+g*587+b*114)/1000;
+    if(br>=155)return '#1c1e2e';
+    if(br>=125)return '#f0f2ff';
+    return '#ffffff';
+  }
+
+  function updatePreview(){
+    var step=parseFloat(stepSlider.value)/100;
+    var maxD=parseInt(depthSlider.value);
+    stepVal.textContent=(parseFloat(stepSlider.value)).toFixed(1)+'%';
+    depthVal.textContent=maxD+'단계';
+    preview.innerHTML='';
+    /* 각 기준 색상별로 깊이 0~maxD 미리보기 */
+    PREV_COLORS.forEach(function(base){
+      var row=document.createElement('div');
+      var colCount=Math.min(maxD+1,9); row.style.cssText='display:grid;grid-template-columns:repeat('+colCount+',1fr);gap:3px;margin-bottom:3px;';
+      var colCount2=Math.min(maxD+1,9);
+      for(var d=0;d<colCount2;d++){
+        var amt=Math.min(d,maxD)*step;
+        var bg=lightenPreview(base,amt);
+        var fc=fontForBg(bg);
+        var node=document.createElement('div');
+        node.className='co-prev-node';
+        node.style.background=bg;
+        node.style.color=fc;
+        node.textContent='L'+d;
+        node.title='깊이 '+d+' | 밝기+'+Math.round(amt*100)+'%';
+        row.appendChild(node);
+      }
+      preview.appendChild(row);
+    });
+  }
+
+  stepSlider.addEventListener('input',updatePreview);
+  depthSlider.addEventListener('input',updatePreview);
+
+  document.getElementById('btn-color-opt').onclick=function(){
+    /* 현재 설정값으로 슬라이더 초기화 */
+    stepSlider.value=(lightenStep*100).toFixed(1);
+    depthSlider.value=lightenMaxDepth;
+    updatePreview();
+    modal.classList.add('open');
+  };
+
+  document.getElementById('co-apply').onclick=function(){
+    lightenStep=parseFloat(stepSlider.value)/100;
+    lightenMaxDepth=parseInt(depthSlider.value);
+    saveAll();
+    renderNodes();
+    drawMM();
+    modal.classList.remove('open');
+  };
+
+  document.getElementById('co-reset').onclick=function(){
+    stepSlider.value='5.5';
+    depthSlider.value='6';
+    updatePreview();
+  };
+
+  document.getElementById('co-close').onclick=function(){
+    modal.classList.remove('open');
+  };
+
+  modal.addEventListener('click',function(e){
+    if(e.target===modal)modal.classList.remove('open');
+  });
+})();
 
 /* icon picker */
 var _ipCurTab=0;
