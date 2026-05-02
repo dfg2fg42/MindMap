@@ -1449,9 +1449,10 @@ function renderCurves(){
     var pwx,pwy,cwx,cwy;
     var ph=nhFull(p), ch=nhFull(c);
     /* 수직 연결 판정: X 차이가 노드 너비의 절반 이하이면 상/하 연결 */
-    var isVert=Math.abs(c.x-p.x)<(pw/2+cw/2)*0.5;
+    /* 각도 기반 연결 방향 판정: |dy|>|dx| 이면 상/하 연결 */
+    var adx=Math.abs(c.x-p.x), ady=Math.abs(c.y-p.y);
+    var isVert=ady>adx;
     if(isVert){
-      /* 상/하 방향: 노드 상단/하단 중앙에 연결 */
       pwx=p.x; cwx=c.x;
       if(c.y>=p.y){pwy=p.y+ph/2; cwy=c.y-ch/2;}
       else{pwy=p.y-ph/2; cwy=c.y+ch/2;}
@@ -1463,7 +1464,6 @@ function renderCurves(){
     var cpOff=c.cp||{dx:0,dy:0};
     var mx,cp1x,cp1y,cp2x,cp2y;
     if(isVert){
-      /* 수직 베지어: 컨트롤포인트를 Y축 중간에 배치 */
       var my=(ps.y+cs.y)/2;
       mx=(ps.x+cs.x)/2;
       cp1x=ps.x+cpOff.dx*cam.z; cp1y=my+cpOff.dy*cam.z;
@@ -1573,7 +1573,8 @@ function renderCurves(){
             var pw2=pelEl2?pelEl2.offsetWidth:80,cw2=celEl2?celEl2.offsetWidth:80;
             var pn=gn(gn(cid2).pid),cn=gn(cid2);
             var ph2=nhFull(pn),ch2=nhFull(cn);
-            var isVert2=Math.abs(cn.x-pn.x)<(pw2/2+cw2/2)*0.5;
+            var tadx2=Math.abs(cn.x-pn.x), tady2=Math.abs(cn.y-pn.y);
+            var isVert2=tady2>tadx2;
             var pwx2,pwy2,cwx2,cwy2;
             if(isVert2){
               pwx2=pn.x;cwx2=cn.x;
@@ -1633,7 +1634,8 @@ function renderCurves(){
     var fw=faEl?faEl.offsetWidth:nwFull(fa),tw=taEl?taEl.offsetWidth:nwFull(ta);
     var fh=nhFull(fa), th=nhFull(ta);
     var fx,fy,tx2,ty2;
-    var isLVert=Math.abs(fa.x-ta.x)<(fw/2+tw/2)*0.5;
+    var ladx=Math.abs(fa.x-ta.x), lady=Math.abs(fa.y-ta.y);
+    var isLVert=lady>ladx;
     if(isLVert){
       fx=fa.x; tx2=ta.x;
       if(ta.y>=fa.y){fy=fa.y+fh/2; ty2=ta.y-th/2;}
@@ -1746,7 +1748,8 @@ function renderCurves(){
             var faEl2=document.getElementById('n'+fan.id),taEl2=document.getElementById('n'+tan.id);
             var fw2=faEl2?faEl2.offsetWidth:80,tw2=taEl2?taEl2.offsetWidth:80;
             var fh2=nhFull(fan),th2=nhFull(tan);
-            var isLVert2=Math.abs(fan.x-tan.x)<(fw2/2+tw2/2)*0.5;
+            var ladx2=Math.abs(fan.x-tan.x), lady2=Math.abs(fan.y-tan.y);
+            var isLVert2=lady2>ladx2;
             var fx2,fy2,tx22,ty22;
             if(isLVert2){
               fx2=fan.x;tx22=tan.x;
