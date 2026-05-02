@@ -347,6 +347,21 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 body.reconnect-mode #viewport{cursor:crosshair!important;}
 body.reconnect-mode .node{cursor:crosshair!important;outline:2px dashed rgba(56,178,255,0.5);outline-offset:3px;}
 body.reconnect-mode #reconnect-toast{display:flex!important;}
+/* ══ GROUP BOX ══ */
+.group-box-label{position:absolute;font-size:.75rem;font-weight:800;letter-spacing:.04em;
+  padding:3px 14px;border-radius:7px 7px 0 0;cursor:pointer;user-select:none;
+  white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.5);text-align:center;}
+.group-box-del{position:absolute;width:22px;height:22px;border-radius:50%;
+  background:rgba(0,0,0,.45);border:1.5px solid rgba(255,255,255,.3);
+  color:#fff;font-size:.75rem;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;opacity:0;transition:opacity .15s;line-height:1;}
+.group-box-wrap:hover .group-box-del{opacity:1;}
+.group-box-wrap.grp-selected .group-box-bg{
+  outline:2.5px solid var(--neon);outline-offset:0px;
+  animation:selPulse 1.4s ease-in-out infinite;}
+.group-box-label.grp-selected-lbl{
+  outline:2px solid var(--neon);outline-offset:2px;border-radius:7px 7px 0 0;}
+
 /* ══ CURVE DRAG FEEDBACK ══ */
 @keyframes handlePulse{0%,100%{r:6;opacity:1;}50%{r:8;opacity:.7;}}
 .edge-handle-dragging{animation:handlePulse .4s ease-in-out infinite;}
@@ -432,6 +447,7 @@ body.link-mode .link-del-btn{display:block;}
   <button class="tbtn" id="btn-backup">💾 백업</button>
   <div class="sep"></div>
   <button class="tbtn" id="btn-link-mode" title="참조 연결 모드 (노드 클릭 → 연결할 노드 클릭)">🔗 연결</button>
+  <button class="tbtn" id="btn-group" title="선택한 노드들을 그룹으로 묶기 (노드 2개 이상 선택 후)">📦 그룹</button>
   <button class="tbtn" id="btn-help" title="단축키 도움말 (?)">❓ 도움말</button>
   <button class="tbtn" id="btn-color-opt" title="노드 색상 연해짐 설정">🎨 색상설정</button>
   <button class="tbtn" id="btn-theme">☀️ 라이트</button>
@@ -477,6 +493,21 @@ body.link-mode .link-del-btn{display:block;}
     <div class="np-sep"></div>
     <input type="color" id="np-font-color" title="글자 색상" style="width:28px;height:28px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none;" value="#ffffff">
   </div>
+</div>
+
+<!-- GROUP PANEL -->
+<div id="group-panel" style="display:none;position:fixed;z-index:151;background:var(--sur);
+  border:1px solid var(--bdr);border-radius:16px;padding:8px 12px;
+  align-items:center;gap:8px;box-shadow:0 6px 24px rgba(0,0,0,.55);flex-wrap:wrap;max-width:340px;">
+  <span style="font-size:.75rem;color:var(--mut);font-weight:700;">📦 그룹</span>
+  <input class="gp-name" type="text" placeholder="그룹명"
+    style="background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;
+    color:var(--txt);font-size:.8rem;padding:3px 8px;width:100px;outline:none;">
+  <div class="np-sep"></div>
+  <div class="gp-colors" style="display:flex;gap:4px;flex-wrap:wrap;max-width:160px;"></div>
+  <div class="np-sep"></div>
+  <button class="npbtn" id="gp-del" title="그룹 삭제" style="color:#ff6b6b;border-color:#ff6b6b;">🗑</button>
+  <button class="npbtn" id="gp-close" title="닫기" style="font-size:.8rem;opacity:.6;">✕</button>
 </div>
 
 <!-- MEMO TOOLTIP -->
@@ -732,6 +763,8 @@ var selBox=null;      // 영역 선택 드래그 상태
 var multiSel=[];      // 다중 선택 노드 id 배열
 var multiDrag=null;   // 다중 선택 노드 드래그 상태
 var links=[];         // 참조 연결 [{from:id, to:id}, ...]
+var groups=[];        // 노드 그룹 [{id, name, nodeIds:[], color}]
+var nextGid=1;        // 그룹 id 카운터
 var linkMode=false;
 var panelVisible=false;   // 연결 모드 상태
 var linkFrom=null;    // 연결 시작 노드 id
@@ -739,6 +772,7 @@ var memoOpen=false,isLight=false;
 var mttDragging=false; // memo tooltip drag state
 var reconnectMode=false;  // 연결 변경 모드
 var reconnectNodeId=null; // 변경할 노드 id
+var selGroup=null;        // 선택된 그룹 id
 var lightenStep=0.055;   // 깊이당 밝아지는 비율 (0.01~0.15)
 var lightenMaxDepth=6;   // 최대 적용 깊이
 var iconPickerTarget=null;
@@ -861,7 +895,7 @@ function toggleSbPin(){
 /* ════════════════ SAVE / LOAD ════════════════ */
 function saveAll(){
   var cc=getCat(curCatId);
-  if(cc){cc.nodes=nodes;cc.nid=nid;cc.cam=cam;cc.links=links;}
+  if(cc){cc.nodes=nodes;cc.nid=nid;cc.cam=cam;cc.links=links;cc.groups=groups;cc.nextGid=nextGid;}
   try{localStorage.setItem('msp2',JSON.stringify({cats:cats,curCatId:curCatId,nextCatId:nextCatId,lightenStep:lightenStep,lightenMaxDepth:lightenMaxDepth}));}catch(e){}
 }
 function loadAll(){
@@ -888,16 +922,16 @@ function loadAll(){
   });
   var cc=getCat(curCatId);
   if(!cc){curCatId=cats[0].id;cc=cats[0];}
-  nodes=cc.nodes;nid=cc.nid;cam=cc.cam||{x:0,y:0,z:1};links=cc.links||[];
+  nodes=cc.nodes;nid=cc.nid;cam=cc.cam||{x:0,y:0,z:1};links=cc.links||[];groups=cc.groups||[];nextGid=cc.nextGid||1;
 }
 
 /* ════════════════ LOAD CATEGORY ════════════════ */
 function loadCat(id,doFit){
   var old=getCat(curCatId);
-  if(old){old.nodes=nodes;old.nid=nid;old.cam=cam;old.links=links;}
+  if(old){old.nodes=nodes;old.nid=nid;old.cam=cam;old.links=links;old.groups=groups;old.nextGid=nextGid;}
   curCatId=id;
   var cc=getCat(id);
-  nodes=cc.nodes;nid=cc.nid;cam=cc.cam||{x:0,y:0,z:1};links=cc.links||[];
+  nodes=cc.nodes;nid=cc.nid;cam=cc.cam||{x:0,y:0,z:1};links=cc.links||[];groups=cc.groups||[];nextGid=cc.nextGid||1;
   sel=null;closeMemo();
   applyCamera();renderAll();
   if(doFit)setTimeout(fitView,80);
@@ -1279,6 +1313,69 @@ function autoLayout(){
   }
 
   renderAll(); saveAll();
+}
+
+
+/* ════════════════ GROUP PANEL ════════════════ */
+function selectGroup(gid){
+  selGroup=gid;
+  sel=null;
+  /* 모든 그룹 selected 클래스 제거 */
+  document.querySelectorAll('.group-box-wrap').forEach(function(w){
+    w.classList.remove('grp-selected');
+    w.querySelector('.group-box-label').classList.remove('grp-selected-lbl');
+  });
+  /* 선택된 그룹 강조 */
+  var wEl=document.querySelector('.group-box-wrap[data-gid="'+gid+'"]');
+  if(wEl){
+    wEl.classList.add('grp-selected');
+    wEl.querySelector('.group-box-label').classList.add('grp-selected-lbl');
+  }
+  showGroupPanel(gid);
+}
+function deselectGroup(){
+  selGroup=null;
+  document.querySelectorAll('.group-box-wrap').forEach(function(w){
+    w.classList.remove('grp-selected');
+    var lbl=w.querySelector('.group-box-label');
+    if(lbl) lbl.classList.remove('grp-selected-lbl');
+  });
+  var gp=document.getElementById('group-panel');
+  if(gp) gp.style.display='none';
+}
+function showGroupPanel(gid){
+  var grp=groups.filter(function(g){return g.id===gid;})[0];
+  if(!grp)return;
+  var gp=document.getElementById('group-panel');
+  if(!gp)return;
+  /* 위치: 화면 중앙 하단 */
+  gp.style.display='flex';
+  /* 색상 팔레트 업데이트 */
+  var colorRow=gp.querySelector('.gp-colors');
+  colorRow.innerHTML='';
+  PALETTE.forEach(function(pc){
+    var dot=document.createElement('div');
+    dot.style.cssText='width:20px;height:20px;border-radius:50%;background:'+pc.v+';cursor:pointer;border:2px solid '+(grp.color===pc.v?'#fff':'transparent')+';transition:.1s;flex-shrink:0;';
+    dot.title=pc.n;
+    dot.addEventListener('click',function(e){
+      e.stopPropagation();
+      grp.color=pc.v;
+      saveAll();renderNodes();showGroupPanel(gid);
+    });
+    colorRow.appendChild(dot);
+  });
+  /* 그룹명 입력 */
+  var nameInput=gp.querySelector('.gp-name');
+  nameInput.value=grp.name||'그룹';
+  nameInput.onchange=function(){grp.name=this.value.trim()||'그룹';saveAll();renderNodes();};
+  nameInput.oninput=function(){grp.name=this.value;saveAll();renderNodes();};
+  /* 패널 위치 계산 */
+  var wEl=document.querySelector('.group-box-wrap[data-gid="'+gid+'"]');
+  if(wEl){
+    var rect=wEl.getBoundingClientRect();
+    gp.style.left=Math.max(10,rect.left+rect.width/2-gp.offsetWidth/2)+'px';
+    gp.style.top=Math.max(60,rect.top-70)+'px';
+  }
 }
 
 
@@ -1687,6 +1784,150 @@ function renderCurves(){
 
 function renderNodes(){
   var world=document.getElementById('world');
+
+  /* ── 그룹 박스 렌더링 ── */
+  var exG={};var gEls=world.querySelectorAll('.group-box-wrap');
+  for(var gi=0;gi<gEls.length;gi++)exG[gEls[gi].dataset.gid]=gEls[gi];
+  var aliveG={};
+  for(var gi=0;gi<groups.length;gi++){
+    var grp=groups[gi];
+    aliveG[grp.id]=true;
+    /* 그룹에 속한 노드들의 월드 바운딩 박스 계산 */
+    var PAD=28;
+    var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    var validNodes=0;
+    for(var ni=0;ni<grp.nodeIds.length;ni++){
+      var gn2=gn(grp.nodeIds[ni]);if(!gn2)continue;
+      var nEl=document.getElementById('n'+gn2.id);
+      var nw2=nEl?nEl.offsetWidth:nwFull(gn2);
+      var nh2=nEl?nEl.offsetHeight:nhFull(gn2);
+      if(gn2.x-nw2/2<minX)minX=gn2.x-nw2/2;
+      if(gn2.y-nh2/2<minY)minY=gn2.y-nh2/2;
+      if(gn2.x+nw2/2>maxX)maxX=gn2.x+nw2/2;
+      if(gn2.y+nh2/2>maxY)maxY=gn2.y+nh2/2;
+      validNodes++;
+    }
+    if(validNodes===0)continue;
+    /* 패딩 적용 */
+    minX-=PAD;minY-=PAD+18;maxX+=PAD;maxY+=PAD;
+    /* #world는 이미 cam 변환이 적용되어 있으므로 월드 좌표 그대로 사용 */
+    var bw=maxX-minX, bh=maxY-minY;
+    var bsx=minX, bsy=minY;
+    var gc2=grp.color||'#7c6fcd';
+    var wrap=exG[grp.id];
+    if(!wrap){
+      wrap=document.createElement('div');
+      wrap.className='group-box-wrap';
+      wrap.dataset.gid=grp.id;
+      wrap.style.cssText='position:absolute;pointer-events:none;z-index:1;';
+      /* 배경 박스 */
+      var box=document.createElement('div');
+      box.className='group-box-bg';
+      box.style.cssText='position:absolute;inset:0;border-radius:22px;pointer-events:all;cursor:default;z-index:1;';
+      /* 우클릭 → 색상 변경 미니 팝업 */
+      box.addEventListener('contextmenu',function(e){
+        e.preventDefault();e.stopPropagation();
+        var gidStr2=wrap.dataset.gid;
+        var existing=document.getElementById('grp-color-pop');
+        if(existing)existing.remove();
+        var pop=document.createElement('div');
+        pop.id='grp-color-pop';
+        pop.style.cssText='position:fixed;z-index:700;background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:10px;display:flex;flex-wrap:wrap;gap:6px;width:180px;box-shadow:0 8px 28px rgba(0,0,0,.6);';
+        pop.style.left=e.clientX+'px';pop.style.top=e.clientY+'px';
+        PALETTE.forEach(function(pc){
+          var dot=document.createElement('div');
+          dot.style.cssText='width:26px;height:26px;border-radius:50%;background:'+pc.v+';cursor:pointer;border:2px solid transparent;transition:.1s;';
+          dot.title=pc.n;
+          dot.addEventListener('mouseenter',function(){dot.style.border='2px solid #fff';});
+          dot.addEventListener('mouseleave',function(){dot.style.border='2px solid transparent';});
+          dot.addEventListener('click',function(ev){
+            ev.stopPropagation();
+            var grpObj=groups.filter(function(g){return String(g.id)===gidStr2;})[0];
+            if(grpObj)grpObj.color=pc.v;
+            pop.remove();saveAll();renderNodes();
+          });
+          pop.appendChild(dot);
+        });
+        document.body.appendChild(pop);
+        setTimeout(function(){document.addEventListener('click',function rm(){pop.remove();document.removeEventListener('click',rm);},{once:true});},0);
+      });
+      wrap.appendChild(box);
+      /* 라벨 */
+      var lbl=document.createElement('div');
+      lbl.className='group-box-label';
+      lbl.contentEditable='false';
+      lbl.style.cssText='position:absolute;top:0;left:50%;transform:translateX(-50%);pointer-events:all;z-index:5;white-space:nowrap;';
+      /* 단일 클릭: 그룹 선택 + 패널 표시 */
+      lbl.addEventListener('mousedown',function(e){
+        if(e.button!==0)return;
+        e.stopPropagation();
+        var gidStr=wrap.dataset.gid;
+        var gidNum=parseInt(gidStr);
+        /* 선택 */
+        selectGroup(gidNum);
+        /* 드래그: 그룹 내 모든 노드 이동 */
+        var wp0=s2w(e.clientX,e.clientY);
+        var initPos={};
+        var grpObj=groups.filter(function(g){return g.id===gidNum;})[0];
+        if(grpObj){grpObj.nodeIds.forEach(function(nid2){var nd=gn(nid2);if(nd)initPos[nid2]={x:nd.x,y:nd.y};});}
+        var moved=false;
+        function onMove(ev){
+          var wp1=s2w(ev.clientX,ev.clientY);
+          var dx=wp1.x-wp0.x, dy=wp1.y-wp0.y;
+          moved=true;
+          if(grpObj){grpObj.nodeIds.forEach(function(nid2){
+            var nd=gn(nid2);if(nd&&initPos[nid2]){nd.x=initPos[nid2].x+dx;nd.y=initPos[nid2].y+dy;}
+          });}
+          renderAll();
+        }
+        function onUp(){
+          document.removeEventListener('mousemove',onMove);
+          document.removeEventListener('mouseup',onUp);
+          if(moved){saveAll();}
+          /* 패널 위치 재조정 */
+          setTimeout(function(){showGroupPanel(gidNum);},30);
+        }
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+      });
+      /* 더블클릭: 이름 편집 */
+      lbl.addEventListener('dblclick',function(e){
+        e.stopPropagation();
+        var gidStr=wrap.dataset.gid;
+        var grpObj=groups.filter(function(g){return String(g.id)===gidStr;})[0];
+        var gpInput=document.querySelector('#group-panel .gp-name');
+        if(gpInput){gpInput.focus();gpInput.select();}
+      });
+      wrap.appendChild(lbl);
+      /* 삭제 버튼 */
+      var del=document.createElement('div');
+      del.className='group-box-del';
+      del.textContent='×';
+      del.style.cssText='position:absolute;top:8px;right:10px;pointer-events:all;z-index:5;width:22px;height:22px;';
+      del.addEventListener('click',function(e){
+        e.stopPropagation();
+        var gidStr=wrap.dataset.gid;
+        groups=groups.filter(function(g){return String(g.id)!==gidStr;});
+        saveAll();renderNodes();
+      });
+      wrap.appendChild(del);
+      world.insertBefore(wrap,world.firstChild);
+    }
+    /* 위치/크기 업데이트 */
+    wrap.style.left=bsx+'px'; wrap.style.top=bsy+'px';
+    wrap.style.width=bw+'px'; wrap.style.height=bh+'px';
+    var bg=wrap.querySelector('.group-box-bg');
+    var lbl2=wrap.querySelector('.group-box-label');
+    var hexAlpha=Math.round(0.13*255).toString(16).padStart(2,'0');
+    bg.style.background=gc2+hexAlpha;
+    bg.style.border='2px solid '+gc2+'88';
+    lbl2.style.background=gc2;
+    lbl2.style.color=getNodeFontColor(gc2,null);
+    lbl2.textContent=grp.name||'그룹';
+  }
+  /* 사라진 그룹 박스 제거 */
+  for(var gid in exG){if(!aliveG[gid]){var el2=exG[gid];if(el2.parentNode)el2.parentNode.removeChild(el2);}}
+
   var ex={};var els=world.querySelectorAll('.node');
   for(var i=0;i<els.length;i++)ex[els[i].dataset.id]=els[i];
   var alive={};for(var i=0;i<nodes.length;i++)alive[nodes[i].id]=true;
@@ -2656,6 +2897,7 @@ function toggleTheme(){
 document.getElementById('viewport').addEventListener('mousedown',function(e){
   if(e.button!==0)return;hideCtx();closeIconPicker();
   panelVisible=false;
+  deselectGroup();
   if(e.shiftKey){
     /* Shift+드래그 → 영역선택 모드 */
     var wp=s2w(e.clientX,e.clientY);
@@ -2778,6 +3020,40 @@ document.getElementById('btn-layout').onclick=function(){
   if(confirm('⚠️ 정렬을 실행하면 모든 노드의 위치가 자동으로 재배치됩니다.\n\n직접 조정한 위치가 초기화될 수 있습니다.\n\n정렬을 실행하시겠습니까?')){
     autoLayout();
   }
+};
+document.getElementById('btn-group').onclick=function(){
+  var ids=multiSel.length>=2?multiSel:(sel?[sel]:[]);
+  if(ids.length<2){showToast('⚠️ 2개 이상의 노드를 선택하세요 (Shift+클릭 또는 드래그 선택)');return;}
+
+  /* 그룹 중심 X 계산 */
+  var sumX=0, validCnt=0;
+  for(var i=0;i<ids.length;i++){var nd=gn(ids[i]);if(nd){sumX+=nd.x;validCnt++;}}
+  var centerX=validCnt>0?sumX/validCnt:0;
+
+  /* 모든 노드를 중심 X에 정렬하고 Y는 위/아래로 균등 배치 */
+  var grpNodes=[];
+  for(var i=0;i<ids.length;i++){var nd=gn(ids[i]);if(nd)grpNodes.push(nd);}
+  grpNodes.sort(function(a,b){return a.y-b.y;});
+
+  var VGAP2=60;
+  /* 전체 높이 계산 */
+  var totalH=0;
+  for(var i=0;i<grpNodes.length;i++) totalH+=nhFull(grpNodes[i])+(i>0?VGAP2:0);
+  var startY=grpNodes.length>0? (grpNodes.reduce(function(s,n){return s+n.y;},0)/grpNodes.length) - totalH/2 : 0;
+
+  var curY=startY;
+  for(var i=0;i<grpNodes.length;i++){
+    grpNodes[i].x=centerX;
+    grpNodes[i].y=curY+nhFull(grpNodes[i])/2;
+    curY+=nhFull(grpNodes[i])+VGAP2;
+  }
+
+  var gc3=getColor(ids[0]);
+  var grpName='그룹 '+(nextGid);
+  var grp={id:nextGid++,name:grpName,nodeIds:ids.slice(),color:gc3};
+  groups.push(grp);
+  saveAll();renderAll();
+  showToast('📦 그룹이 생성되었습니다. 라벨을 더블클릭하면 이름 변경 가능');
 };
 document.getElementById('btn-fit').onclick=fitView;
 document.getElementById('btn-zi').onclick=function(){zoomAt(window.innerWidth/2,window.innerHeight/2,true);};
@@ -3281,8 +3557,17 @@ document.getElementById('sidebar').addEventListener('mouseleave', function(){
 });
 
 /* ════════════════ INIT ════════════════ */
-loadAll();
-applyCamera();renderAll();fitView();
+loadAll();applyCamera();renderAll();fitView();
+/* Group panel buttons */
+document.getElementById('gp-del').onclick=function(){
+  if(!selGroup)return;
+  var grp=groups.filter(function(g){return g.id===selGroup;})[0];
+  var nm=grp?grp.name:'그룹';
+  if(!confirm('🗑 "'+nm+'" 그룹을 삭제할까요?\n(노드는 유지됩니다)'))return;
+  groups=groups.filter(function(g){return g.id!==selGroup;});
+  deselectGroup();saveAll();renderNodes();
+};
+document.getElementById('gp-close').onclick=function(){deselectGroup();};
 setTimeout(function(){document.getElementById('hint').style.opacity='0';},6000);
 </script>
 
