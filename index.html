@@ -521,6 +521,7 @@ body.link-mode .link-del-btn{display:block;}
   <div class="np-sep"></div>
   <div class="gp-colors" style="display:flex;gap:4px;flex-wrap:wrap;max-width:160px;"></div>
   <div class="np-sep"></div>
+  <button class="npbtn" id="gp-transparent" title="그룹 박스 비활성화 (라벨만 표시, 내부 노드 클릭 가능)" style="font-size:.8rem;">🔲</button>
   <button class="npbtn" id="gp-del" title="그룹 삭제" style="color:#ff6b6b;border-color:#ff6b6b;">🗑</button>
   <button class="npbtn" id="gp-close" title="닫기" style="font-size:.8rem;opacity:.6;">✕</button>
 </div>
@@ -1404,12 +1405,26 @@ function showGroupPanel(gid){
   nameInput.value=grp.name||'그룹';
   nameInput.onchange=function(){grp.name=this.value.trim()||'그룹';saveAll();renderNodes();};
   nameInput.oninput=function(){grp.name=this.value;saveAll();renderNodes();};
+  /* 투명화 버튼 상태 반영 */
+  var tBtn=document.getElementById('gp-transparent');
+  if(tBtn){
+    var isTr=!!grp.transparent;
+    tBtn.style.background=isTr?'var(--acc)':'';
+    tBtn.style.color=isTr?'#fff':'';
+    tBtn.textContent=isTr?'🔳':'🔲';
+    tBtn.title=isTr?'그룹 박스 활성화 (박스 표시)':'그룹 박스 비활성화 (라벨만 표시, 내부 노드 클릭 가능)';
+  }
   /* 패널 위치 계산 */
   var wEl=document.querySelector('.group-box-wrap[data-gid="'+gid+'"]');
   if(wEl){
     var rect=wEl.getBoundingClientRect();
-    gp.style.left=Math.max(10,rect.left+rect.width/2-gp.offsetWidth/2)+'px';
-    gp.style.top=Math.max(60,rect.top-70)+'px';
+    /* 패널이 그룹박스 상단(라벨 포함) 위로 나타나도록 */
+    var panelH=gp.offsetHeight||54;
+    var panelW=gp.offsetWidth||300;
+    var topPos=rect.top - panelH - 28; /* 그룹 박스 상단 기준 패널높이+여백 위 */
+    var leftPos=rect.left+rect.width/2-panelW/2;
+    gp.style.left=Math.max(10, Math.min(leftPos, window.innerWidth-panelW-10))+'px';
+    gp.style.top=Math.max(10, topPos)+'px';
   }
 }
 
@@ -1897,7 +1912,7 @@ function renderNodes(){
     }
     if(validNodes===0)continue;
     /* 패딩 적용 */
-    minX-=PAD;minY-=PAD+18;maxX+=PAD;maxY+=PAD;
+    minX-=PAD;minY-=PAD+22;maxX+=PAD;maxY+=PAD;
     /* #world는 이미 cam 변환이 적용되어 있으므로 월드 좌표 그대로 사용 */
     var bw=maxX-minX, bh=maxY-minY;
     var bsx=minX, bsy=minY;
@@ -1907,11 +1922,11 @@ function renderNodes(){
       wrap=document.createElement('div');
       wrap.className='group-box-wrap';
       wrap.dataset.gid=grp.id;
-      wrap.style.cssText='position:absolute;pointer-events:none;z-index:1;';
+      wrap.style.cssText='position:absolute;pointer-events:none;z-index:2;';
       /* 배경 박스 */
       var box=document.createElement('div');
       box.className='group-box-bg';
-      box.style.cssText='position:absolute;inset:0;border-radius:22px;pointer-events:all;cursor:default;z-index:1;';
+      box.style.cssText='position:absolute;inset:0;border-radius:26px;pointer-events:all;cursor:default;z-index:1;';
       /* 우클릭 → 색상 변경 미니 팝업 */
       box.addEventListener('contextmenu',function(e){
         e.preventDefault();e.stopPropagation();
@@ -1944,7 +1959,7 @@ function renderNodes(){
       var lbl=document.createElement('div');
       lbl.className='group-box-label';
       lbl.contentEditable='false';
-      lbl.style.cssText='position:absolute;top:0;left:50%;transform:translateX(-50%);pointer-events:all;z-index:5;white-space:nowrap;';
+      lbl.style.cssText='position:absolute;top:0;left:50%;transform:translate(-50%,-50%);pointer-events:all;z-index:6;white-space:nowrap;border-radius:20px;padding:4px 14px;font-size:.82rem;font-weight:700;letter-spacing:.04em;box-shadow:0 2px 8px rgba(0,0,0,.35);';
       /* 단일 클릭: 그룹 선택 + 패널 표시 */
       lbl.addEventListener('mousedown',function(e){
         if(e.button!==0)return;
@@ -2006,11 +2021,27 @@ function renderNodes(){
     wrap.style.width=bw+'px'; wrap.style.height=bh+'px';
     var bg=wrap.querySelector('.group-box-bg');
     var lbl2=wrap.querySelector('.group-box-label');
-    var hexAlpha=Math.round(0.13*255).toString(16).padStart(2,'0');
-    bg.style.background=gc2+hexAlpha;
-    bg.style.border='2px solid '+gc2+'88';
-    lbl2.style.background=gc2;
-    lbl2.style.color=getNodeFontColor(gc2,null);
+    var isTransparent=!!grp.transparent;
+    if(isTransparent){
+      /* 투명 모드: 박스 완전 투명, 클릭 통과 */
+      bg.style.background='transparent';
+      bg.style.border='2px dashed '+gc2+'55';
+      bg.style.pointerEvents='none';
+      lbl2.style.background=gc2+'cc';
+      lbl2.style.color=getNodeFontColor(gc2,null);
+      lbl2.style.opacity='0.85';
+      lbl2.style.boxShadow='0 2px 8px rgba(0,0,0,.35)';
+    } else {
+      /* 일반 모드: 배경색 + 클릭 차단 */
+      var hexAlpha=Math.round(0.13*255).toString(16).padStart(2,'0');
+      bg.style.background=gc2+hexAlpha;
+      bg.style.border='2px solid '+gc2+'88';
+      bg.style.pointerEvents='all';
+      lbl2.style.background=gc2;
+      lbl2.style.color=getNodeFontColor(gc2,null);
+      lbl2.style.opacity='1';
+      lbl2.style.boxShadow='0 2px 8px rgba(0,0,0,.35)';
+    }
     lbl2.textContent=grp.name||'그룹';
   }
   /* 사라진 그룹 박스 제거 */
@@ -3756,6 +3787,19 @@ document.getElementById('sidebar').addEventListener('mouseleave', function(){
 /* ════════════════ INIT ════════════════ */
 loadAll();applyCamera();renderAll();fitView();
 /* Group panel buttons */
+document.getElementById('gp-transparent').onclick=function(){
+  if(!selGroup)return;
+  var grp=groups.filter(function(g){return g.id===selGroup;})[0];
+  if(!grp)return;
+  grp.transparent=!grp.transparent;
+  saveAll(); renderNodes();
+  var tBtn=document.getElementById('gp-transparent');
+  if(tBtn){
+    tBtn.style.background=grp.transparent?'var(--acc)':'';
+    tBtn.style.color=grp.transparent?'#fff':'';
+    tBtn.title=grp.transparent?'그룹 박스 활성화 (박스 표시)':'그룹 박스 비활성화 (라벨만 표시, 내부 노드 클릭 가능)';
+  }
+};
 document.getElementById('gp-del').onclick=function(){
   if(!selGroup)return;
   var grp=groups.filter(function(g){return g.id===selGroup;})[0];
