@@ -2357,15 +2357,16 @@ function blendColors(colors){
 
 /* ════════════════ OVERLAP RESOLVER ════════════════ */
 function resolveOverlaps(){
-  var PAD_X=18, PAD_Y=14;   /* 노드 간 최소 여백 */
+  var PAD_X=18, PAD_Y=14;
   var MAX_ITER=60;
+  var dragId=movSt?movSt.id:null;
   for(var iter=0;iter<MAX_ITER;iter++){
     var moved=false;
     for(var i=0;i<nodes.length;i++){
       for(var j=i+1;j<nodes.length;j++){
         var a=nodes[i], b=nodes[j];
-        /* 루트는 고정 */
         var aRoot=(a.pid===null), bRoot=(b.pid===null);
+        var aDrag=(a.id===dragId), bDrag=(b.id===dragId);
         var aw=nwFull(a), ah=nhFull(a);
         var bw=nwFull(b), bh=nhFull(b);
         var minDx=(aw+bw)/2+PAD_X;
@@ -2373,14 +2374,33 @@ function resolveOverlaps(){
         var dx=Math.abs(a.x-b.x);
         var dy=Math.abs(a.y-b.y);
         if(dx<minDx && dy<minDy){
-          /* 겹침 발생 — Y축으로만 밀어냄 (X는 레이아웃 방향 유지) */
-          var overlap=minDy-dy;
-          var pushY=overlap/2+1;
-          if(!bRoot){
-            if(b.y>=a.y){ b.y+=pushY; } else { b.y-=pushY; }
-          }
-          if(!aRoot){
-            if(a.y>=b.y){ a.y+=pushY; } else { a.y-=pushY; }
+          var overlapX=minDx-dx, overlapY=minDy-dy;
+          /* 독립 노드끼리 또는 독립+트리 겹침: 더 작은 축 방향으로 밀기 */
+          if(aRoot||bRoot){
+            if(overlapX<overlapY){
+              /* X축으로 밀기 */
+              var pushX=overlapX/2+1;
+              if(!bDrag&&(bRoot||!aRoot)){
+                if(b.x>=a.x){ b.x+=pushX; } else { b.x-=pushX; }
+              }
+              if(!aDrag&&(aRoot||!bRoot)){
+                if(a.x>=b.x){ a.x+=pushX; } else { a.x-=pushX; }
+              }
+            } else {
+              /* Y축으로 밀기 */
+              var pushY2=overlapY/2+1;
+              if(!bDrag&&(bRoot||!aRoot)){
+                if(b.y>=a.y){ b.y+=pushY2; } else { b.y-=pushY2; }
+              }
+              if(!aDrag&&(aRoot||!bRoot)){
+                if(a.y>=b.y){ a.y+=pushY2; } else { a.y-=pushY2; }
+              }
+            }
+          } else {
+            /* 트리 노드끼리: 기존 Y축 밀기 */
+            var pushY=overlapY/2+1;
+            if(!bDrag){ if(b.y>=a.y){ b.y+=pushY; } else { b.y-=pushY; } }
+            if(!aDrag){ if(a.y>=b.y){ a.y+=pushY; } else { a.y-=pushY; } }
           }
           moved=true;
         }
