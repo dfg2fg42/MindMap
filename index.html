@@ -343,6 +343,10 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
   filter:brightness(1.18);
   box-shadow:0 0 10px rgba(0,230,118,.35)!important;
 }
+/* 연결 변경 모드 */
+body.reconnect-mode #viewport{cursor:crosshair!important;}
+body.reconnect-mode .node{cursor:crosshair!important;outline:2px dashed rgba(56,178,255,0.5);outline-offset:3px;}
+body.reconnect-mode #reconnect-toast{display:flex!important;}
 /* ══ CURVE DRAG FEEDBACK ══ */
 @keyframes handlePulse{0%,100%{r:6;opacity:1;}50%{r:8;opacity:.7;}}
 .edge-handle-dragging{animation:handlePulse .4s ease-in-out infinite;}
@@ -413,6 +417,8 @@ body.link-mode .link-del-btn{display:block;}
       <div class="dir-opt" data-val="auto"  data-icon="⇄" data-lbl="자동">⇄ &nbsp;자동 (좌우 균형)</div>
       <div class="dir-opt" data-val="right" data-icon="→" data-lbl="오른쪽">→ &nbsp;오른쪽</div>
       <div class="dir-opt" data-val="left"  data-icon="←" data-lbl="왼쪽">← &nbsp;왼쪽</div>
+      <div class="dir-opt" data-val="down"  data-icon="↓" data-lbl="아래">↓ &nbsp;아래</div>
+      <div class="dir-opt" data-val="up"    data-icon="↑" data-lbl="위">↑ &nbsp;위</div>
     </div>
   </div>
   <button class="tbtn" id="btn-sibling">＋ 형제 <span style="opacity:.6;font-size:.72rem">(Enter)</span></button>
@@ -731,6 +737,8 @@ var panelVisible=false;   // 연결 모드 상태
 var linkFrom=null;    // 연결 시작 노드 id
 var memoOpen=false,isLight=false;
 var mttDragging=false; // memo tooltip drag state
+var reconnectMode=false;  // 연결 변경 모드
+var reconnectNodeId=null; // 변경할 노드 id
 var lightenStep=0.055;   // 깊이당 밝아지는 비율 (0.01~0.15)
 var lightenMaxDepth=6;   // 최대 적용 깊이
 var iconPickerTarget=null;
@@ -992,6 +1000,52 @@ function showArrowMenu(target, cx, cy, type){
     };
     menu.appendChild(btn);
   });
+  /* ── 트리 연결선 전용: 구분선 + 연결 변경 + 연결 끊기 버튼 ── */
+  if(type==='tree'){
+    var sep=document.createElement('div');
+    sep.style.cssText='width:1px;background:var(--bdr);margin:2px 2px;';
+    menu.appendChild(sep);
+
+    /* 🔀 연결 변경 버튼 */
+    var reconnBtn=document.createElement('button');
+    reconnBtn.textContent='🔀';reconnBtn.title='다른 노드에 연결 (클릭 후 새 부모 노드 선택)';
+    reconnBtn.style.cssText='background:var(--sur2);border:1px solid var(--bdr);border-radius:7px;width:34px;height:34px;font-size:.95rem;cursor:pointer;color:var(--txt);';
+    reconnBtn.onclick=function(e){
+      e.stopPropagation();
+      closeArrowMenu();
+      reconnectMode=true;
+      reconnectNodeId=target;
+      document.body.classList.add('reconnect-mode');
+      showToast('🔀 연결할 새 부모 노드를 클릭하세요  (ESC 취소)');
+      function onEsc(ev){
+        if(ev.key==='Escape'){
+          reconnectMode=false;reconnectNodeId=null;
+          document.body.classList.remove('reconnect-mode');
+          showToast('연결 변경 취소');
+          document.removeEventListener('keydown',onEsc);
+        }
+      }
+      document.addEventListener('keydown',onEsc);
+    };
+    menu.appendChild(reconnBtn);
+
+    /* ✂️ 연결 끊기 버튼 */
+    var discBtn=document.createElement('button');
+    discBtn.textContent='✂️';discBtn.title='이 연결선 삭제 (노드는 유지, 독립 노드로 분리)';
+    discBtn.style.cssText='background:var(--sur2);border:1px solid #ff6b6b;border-radius:7px;width:34px;height:34px;font-size:.95rem;cursor:pointer;color:#ff6b6b;';
+    discBtn.onclick=function(e){
+      e.stopPropagation();
+      closeArrowMenu();
+      var n=gn(target);if(!n)return;
+      if(!confirm('✂️ "'+n.text+'" 노드의 부모 연결을 끊고 독립 노드로 분리할까요?\n\n하위 노드들은 함께 분리됩니다.'))return;
+      /* pid를 null로 — 루트 레벨 독립 노드 */
+      n.pid=null;
+      n.x=gr()?gr().x+300:300;
+      saveAll();renderAll();
+    };
+    menu.appendChild(discBtn);
+  }
+
   document.body.appendChild(menu);
   /* 바깥 클릭 시 닫기 */
   setTimeout(function(){
@@ -1293,12 +1347,32 @@ function renderCurves(){
     var pw=pelEl?pelEl.offsetWidth:nwFull(p);
     var cw=celEl?celEl.offsetWidth:nwFull(c);
     var pwx,pwy,cwx,cwy;
-    if(c.x>=p.x){pwx=p.x+pw/2;cwx=c.x-cw/2;}else{pwx=p.x-pw/2;cwx=c.x+cw/2;}
-    pwy=p.y; cwy=c.y;
-    var ps=w2s(pwx,pwy),cs=w2s(cwx,cwy),mx=(ps.x+cs.x)/2;
+    var ph=nhFull(p), ch=nhFull(c);
+    /* 수직 연결 판정: X 차이가 노드 너비의 절반 이하이면 상/하 연결 */
+    var isVert=Math.abs(c.x-p.x)<(pw/2+cw/2)*0.5;
+    if(isVert){
+      /* 상/하 방향: 노드 상단/하단 중앙에 연결 */
+      pwx=p.x; cwx=c.x;
+      if(c.y>=p.y){pwy=p.y+ph/2; cwy=c.y-ch/2;}
+      else{pwy=p.y-ph/2; cwy=c.y+ch/2;}
+    } else {
+      if(c.x>=p.x){pwx=p.x+pw/2;cwx=c.x-cw/2;}else{pwx=p.x-pw/2;cwx=c.x+cw/2;}
+      pwy=p.y; cwy=c.y;
+    }
+    var ps=w2s(pwx,pwy),cs=w2s(cwx,cwy);
     var cpOff=c.cp||{dx:0,dy:0};
-    var cp1x=mx+cpOff.dx*cam.z, cp1y=ps.y+cpOff.dy*cam.z;
-    var cp2x=mx+cpOff.dx*cam.z, cp2y=cs.y+cpOff.dy*cam.z;
+    var mx,cp1x,cp1y,cp2x,cp2y;
+    if(isVert){
+      /* 수직 베지어: 컨트롤포인트를 Y축 중간에 배치 */
+      var my=(ps.y+cs.y)/2;
+      mx=(ps.x+cs.x)/2;
+      cp1x=ps.x+cpOff.dx*cam.z; cp1y=my+cpOff.dy*cam.z;
+      cp2x=cs.x+cpOff.dx*cam.z; cp2y=my+cpOff.dy*cam.z;
+    } else {
+      mx=(ps.x+cs.x)/2;
+      cp1x=mx+cpOff.dx*cam.z; cp1y=ps.y+cpOff.dy*cam.z;
+      cp2x=mx+cpOff.dx*cam.z; cp2y=cs.y+cpOff.dy*cam.z;
+    }
     var path=document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('d','M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y);
     path.setAttribute('fill','none');
@@ -1398,12 +1472,27 @@ function renderCurves(){
             var celEl2=document.getElementById('n'+cid2);
             var pw2=pelEl2?pelEl2.offsetWidth:80,cw2=celEl2?celEl2.offsetWidth:80;
             var pn=gn(gn(cid2).pid),cn=gn(cid2);
-            var pwx2,cwx2;
-            if(cn.x>=pn.x){pwx2=pn.x+pw2/2;cwx2=cn.x-cw2/2;}else{pwx2=pn.x-pw2/2;cwx2=cn.x+cw2/2;}
-            var ps2=w2s(pwx2,pn.y),cs2=w2s(cwx2,cn.y);
-            var mx2=(ps2.x+cs2.x)/2;
-            var ncp1x=mx2+ddx*cam.z,ncp1y=ps2.y+ddy*cam.z;
-            var ncp2x=mx2+ddx*cam.z,ncp2y=cs2.y+ddy*cam.z;
+            var ph2=nhFull(pn),ch2=nhFull(cn);
+            var isVert2=Math.abs(cn.x-pn.x)<(pw2/2+cw2/2)*0.5;
+            var pwx2,pwy2,cwx2,cwy2;
+            if(isVert2){
+              pwx2=pn.x;cwx2=cn.x;
+              if(cn.y>=pn.y){pwy2=pn.y+ph2/2;cwy2=cn.y-ch2/2;}
+              else{pwy2=pn.y-ph2/2;cwy2=cn.y+ch2/2;}
+            } else {
+              if(cn.x>=pn.x){pwx2=pn.x+pw2/2;cwx2=cn.x-cw2/2;}else{pwx2=pn.x-pw2/2;cwx2=cn.x+cw2/2;}
+              pwy2=pn.y;cwy2=cn.y;
+            }
+            var ps2=w2s(pwx2,pwy2),cs2=w2s(cwx2,cwy2);
+            var mx2=(ps2.x+cs2.x)/2,my2=(ps2.y+cs2.y)/2;
+            var ncp1x,ncp1y,ncp2x,ncp2y;
+            if(isVert2){
+              ncp1x=ps2.x+ddx*cam.z;ncp1y=my2+ddy*cam.z;
+              ncp2x=cs2.x+ddx*cam.z;ncp2y=my2+ddy*cam.z;
+            } else {
+              ncp1x=mx2+ddx*cam.z;ncp1y=ps2.y+ddy*cam.z;
+              ncp2x=mx2+ddx*cam.z;ncp2y=cs2.y+ddy*cam.z;
+            }
             /* 경로 업데이트 */
             pathEl2.setAttribute('d','M'+ps2.x+','+ps2.y+' C'+ncp1x+','+ncp1y+' '+ncp2x+','+ncp2y+' '+cs2.x+','+cs2.y);
             var nhx=(ncp1x+ncp2x)/2, nhy=(ncp1y+ncp2y)/2;
@@ -2078,33 +2167,57 @@ function startEdit(id){
 /* ════════════════ ADD/DELETE ════════════════ */
 function addChild(pid){
   var par=gn(pid);if(!par)return;
-  var dir;
+  var dir, isVertical=false;
   if(childDir==='right') dir=1;
   else if(childDir==='left') dir=-1;
+  else if(childDir==='down'){dir=1;isVertical=true;}
+  else if(childDir==='up'){dir=-1;isVertical=true;}
   else dir=(par.pid===null?1:(par.x>=gr().x?1:-1));
 
-  /* 기존 자식 노드들 */
   var existingKids=gc(pid);
-
-  /* 새 노드 높이 예상 */
   var newNodeH=NH+VGAP;
+  var newNodeW=nwFull(par)+HGAP;
 
-  /* 새 노드 Y 위치: 기존 자식이 없으면 부모 Y, 있으면 마지막 자식 아래 */
-  var newY;
-  if(!existingKids.length){
-    newY=par.y;
-  } else {
-    /* 기존 자식 중 가장 아래에 있는 서브트리 끝 Y 찾기 */
-    var maxY=-Infinity;
-    for(var i=0;i<existingKids.length;i++){
-      var kidBottomY=existingKids[i].y + subH(existingKids[i].id)/2;
-      if(kidBottomY>maxY) maxY=kidBottomY;
+  var newX, newY;
+  if(isVertical){
+    /* 상/하 방향: X는 부모와 같고 Y만 이동 */
+    newX=par.x;
+    if(!existingKids.length){
+      newY=par.y+dir*(nhFull(par)/2+newNodeH/2+20);
+    } else {
+      if(dir>0){
+        var maxY2=-Infinity;
+        for(var i=0;i<existingKids.length;i++){
+          var ky=existingKids[i].y+subH(existingKids[i].id)/2;
+          if(ky>maxY2)maxY2=ky;
+        }
+        newY=maxY2+newNodeH/2+4;
+      } else {
+        var minY2=Infinity;
+        for(var i=0;i<existingKids.length;i++){
+          var ky2=existingKids[i].y-subH(existingKids[i].id)/2;
+          if(ky2<minY2)minY2=ky2;
+        }
+        newY=minY2-newNodeH/2-4;
+      }
     }
-    newY=maxY + newNodeH/2 + 4;
+  } else {
+    /* 좌/우 방향: 기존 로직 */
+    newX=par.x+dir*HGAP;
+    if(!existingKids.length){
+      newY=par.y;
+    } else {
+      var maxY=-Infinity;
+      for(var i=0;i<existingKids.length;i++){
+        var kidBottomY=existingKids[i].y+subH(existingKids[i].id)/2;
+        if(kidBottomY>maxY)maxY=kidBottomY;
+      }
+      newY=maxY+newNodeH/2+4;
+    }
   }
 
   var newN={id:nid++,text:'새 아이디어',
-    x:par.x+dir*HGAP, y:newY,
+    x:newX, y:newY,
     pid:pid,star:false,customColor:null,memo:'',imgs:[],scale:1};
   nodes.push(newN);
   sel=newN.id;
@@ -2330,6 +2443,31 @@ function bindNode(el,id){
     if(e.button!==0)return;e.stopPropagation();
     if(el.querySelector('.node-edit'))return;
     hideMemoTooltip();
+    /* ── 연결 변경 모드: 클릭한 노드를 새 부모로 설정 ── */
+    if(reconnectMode && reconnectNodeId!==null){
+      var rn=gn(reconnectNodeId);
+      if(rn && id!==reconnectNodeId){
+        /* 순환 방지: 새 부모가 현재 노드의 자손이면 안됨 */
+        var isCycle=false;
+        var walker=gn(id);
+        while(walker){if(walker.id===reconnectNodeId){isCycle=true;break;}walker=walker.pid?gn(walker.pid):null;}
+        if(isCycle){
+          showToast('⚠️ 순환 연결은 불가합니다');
+        } else {
+          rn.pid=id;
+          rn.cp={dx:0,dy:0};
+          /* 새 부모 옆에 배치 */
+          var newPar=gn(id);
+          var newDir=rn.x>=newPar.x?1:-1;
+          rn.x=newPar.x+newDir*HGAP;
+          saveAll();renderAll();
+          showToast('✅ 연결이 변경되었습니다');
+        }
+      }
+      reconnectMode=false;reconnectNodeId=null;
+      document.body.classList.remove('reconnect-mode');
+      return;
+    }
     /* 다중선택 노드 위 클릭 → multiDrag 시작 */
     if(multiSel.length && multiSel.indexOf(id)>=0){
       var wp0=s2w(e.clientX,e.clientY);
