@@ -1227,8 +1227,8 @@ function renderCurves(){
     pwy=p.y; cwy=c.y;
     var ps=w2s(pwx,pwy),cs=w2s(cwx,cwy),mx=(ps.x+cs.x)/2;
     var cpOff=c.cp||{dx:0,dy:0};
-    var cp1x=mx+cpOff.dx, cp1y=ps.y+cpOff.dy;
-    var cp2x=mx+cpOff.dx, cp2y=cs.y+cpOff.dy;
+    var cp1x=mx+cpOff.dx*cam.z, cp1y=ps.y+cpOff.dy*cam.z;
+    var cp2x=mx+cpOff.dx*cam.z, cp2y=cs.y+cpOff.dy*cam.z;
     var path=document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('d','M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y);
     path.setAttribute('fill','none');
@@ -1378,8 +1378,8 @@ function renderCurves(){
     var sc1=w2s(fx,fy),sc2=w2s(tx2,ty2);
     var lmx=(sc1.x+sc2.x)/2;
     var lcpOff=lk.cp||{dx:0,dy:0};
-    var lcp1x=lmx+lcpOff.dx, lcp1y=sc1.y+lcpOff.dy;
-    var lcp2x=lmx+lcpOff.dx, lcp2y=sc2.y+lcpOff.dy;
+    var lcp1x=lmx+lcpOff.dx*cam.z, lcp1y=sc1.y+lcpOff.dy*cam.z;
+    var lcp2x=lmx+lcpOff.dx*cam.z, lcp2y=sc2.y+lcpOff.dy*cam.z;
     var linkColor=getColor(lk.from);
     var lpath=document.createElementNS('http://www.w3.org/2000/svg','path');
     lpath.setAttribute('d','M'+sc1.x+','+sc1.y+' C'+lcp1x+','+lcp1y+' '+lcp2x+','+lcp2y+' '+sc2.x+','+sc2.y);
