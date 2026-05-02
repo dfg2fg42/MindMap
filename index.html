@@ -1084,9 +1084,10 @@ function showArrowMenu(target, cx, cy, type){
       closeArrowMenu();
       var n=gn(target);if(!n)return;
       if(!confirm('✂️ "'+n.text+'" 노드의 부모 연결을 끊고 독립 노드로 분리할까요?\n\n하위 노드들은 함께 분리됩니다.'))return;
-      /* pid를 null로 — 루트 레벨 독립 노드 */
+      /* pid를 null로 — 현재 위치 유지하며 독립 노드로 분리 */
+      undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
+      if(undoStack.length>30)undoStack.shift();
       n.pid=null;
-      n.x=gr()?gr().x+300:300;
       saveAll();renderAll();
     };
     menu.appendChild(discBtn);
@@ -1404,6 +1405,8 @@ function toggleLinkMode(){
 function addLink(fromId, toId, fromPort, toPort){
   if(fromId===toId)return;
   for(var i=0;i<links.length;i++) if(links[i].from===fromId&&links[i].to===toId) return;
+  undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
+  if(undoStack.length>30)undoStack.shift();
   var lkObj={from:fromId,to:toId};
   if(fromPort) lkObj.fromPort=fromPort;
   if(toPort)   lkObj.toPort=toPort;
@@ -1412,6 +1415,8 @@ function addLink(fromId, toId, fromPort, toPort){
   showToast('🔗 참조 연결 추가됨');
 }
 function removeLink(fromId, toId){
+  undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
+  if(undoStack.length>30)undoStack.shift();
   links=links.filter(function(l){return !(l.from===fromId&&l.to===toId);});
   saveAll();renderAll();
   showToast('연결 삭제됨');
@@ -1471,6 +1476,23 @@ function renderCurves(){
   svg.appendChild(defs);
 
   /* ── 트리 연결선 ── */
+  /* 부모별 자식 그룹 수집 (버스 라우팅용) */
+  var busMap={};
+  for(var i=0;i<nodes.length;i++){
+    var nc2=nodes[i]; if(nc2.pid===null)continue;
+    var np2=gn(nc2.pid); if(!np2)continue;
+    var npEl2=document.getElementById('n'+np2.id);
+    var ncEl2=document.getElementById('n'+nc2.id);
+    var npw2=npEl2?npEl2.offsetWidth:nwFull(np2);
+    var nph2=nhFull(np2), nch2=nhFull(nc2);
+    /* 방향 판정 */
+    var adxB=Math.abs(nc2.x-np2.x), adyB=Math.abs(nc2.y-np2.y);
+    var dirB=adyB>adxB?'v':(nc2.x>=np2.x?'r':'l');
+    var key=np2.id+'_'+dirB;
+    if(!busMap[key]) busMap[key]={pid:np2.id,dir:dirB,children:[]};
+    busMap[key].children.push(nc2.id);
+  }
+
   for(var i=0;i<nodes.length;i++){
     var c=nodes[i]; if(c.pid===null)continue;
     var p=gn(c.pid); if(!p)continue;
@@ -1479,25 +1501,99 @@ function renderCurves(){
     var celEl=document.getElementById('n'+c.id);
     var pw=pelEl?pelEl.offsetWidth:nwFull(p);
     var cw=celEl?celEl.offsetWidth:nwFull(c);
-    var pwx,pwy,cwx,cwy;
     var ph=nhFull(p), ch=nhFull(c);
-    /* 수직 연결 판정: X 차이가 노드 너비의 절반 이하이면 상/하 연결 */
-    /* 4방향 스마트 연결: 각 노드에서 상대방에 가장 가까운 면 선택 */
+    var pwx,pwy,cwx,cwy;
+    var cpOff=c.cp||{dx:0,dy:0};
+    var cp1x,cp1y,cp2x,cp2y;
+
+    /* 방향 판정 */
+    var adxC=Math.abs(c.x-p.x), adyC=Math.abs(c.y-p.y);
+    var dirC=adyC>adxC?'v':(c.x>=p.x?'r':'l');
+    var busKey=p.id+'_'+dirC;
+    var busGrp=busMap[busKey];
+    var useBus=(busGrp&&busGrp.children.length>=2&&dirC!=='v'
+                &&(cpOff.dx===0&&cpOff.dy===0));
+
+    var path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    var pathD='';
+
+    if(useBus){
+      /* ── 버스 라우팅 ── */
+      var BUS_GAP=40; /* world px: 부모 엣지에서 트렁크까지 거리 */
+      var isRight=(dirC==='r');
+      /* 트렁크 X (world) */
+      var trunkXw=isRight?(p.x+pw/2+BUS_GAP):(p.x-pw/2-BUS_GAP);
+      /* 부모 연결점: 우/좌 면 중앙 */
+      pwx=isRight?p.x+pw/2:p.x-pw/2;
+      pwy=p.y;
+      /* 자식 연결점: 좌/우 면 중앙 */
+      cwx=isRight?c.x-cw/2:c.x+cw/2;
+      cwy=c.y;
+      var pS=w2s(pwx,pwy);
+      var trunkXs=w2s(trunkXw,0).x; /* screen x of trunk */
+      var cS=w2s(cwx,cwy);
+      /* 수직 트렁크 범위 계산 (형제 중 min/max Y) */
+      var sibYs=busGrp.children.map(function(cid){var cn=gn(cid);return cn?cn.y:p.y;});
+      var minSibY=Math.min.apply(null,sibYs);
+      var maxSibY=Math.max.apply(null,sibYs);
+      var trunkTopS=w2s(0,minSibY).y;
+      var trunkBotS=w2s(0,maxSibY).y;
+      /* 첫 번째 자식만 부모→트렁크 수평선 + 트렁크 수직선 그리기 */
+      var firstCid=busGrp.children[0];
+      if(c.id===firstCid){
+        var trunkLine=document.createElementNS('http://www.w3.org/2000/svg','path');
+        var td='M'+pS.x+','+pS.y+' L'+trunkXs+','+pS.y
+              +' L'+trunkXs+','+trunkTopS
+              +' L'+trunkXs+','+trunkBotS;
+        trunkLine.setAttribute('d',td);
+        trunkLine.setAttribute('fill','none');
+        trunkLine.setAttribute('stroke',getColor(p.id));
+        trunkLine.setAttribute('stroke-width',(p.pid===null)?'3':'2');
+        trunkLine.setAttribute('stroke-linecap','round');
+        trunkLine.setAttribute('opacity','0.9');
+        trunkLine.style.pointerEvents='none';
+        svg.appendChild(trunkLine);
+      }
+      /* 자식 가지: 트렁크→자식 수평선 */
+      pathD='M'+trunkXs+','+cS.y+' L'+cS.x+','+cS.y;
+      path.setAttribute('d',pathD);
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke',color);
+      path.setAttribute('stroke-width','2');
+      path.setAttribute('stroke-linecap','round');
+      path.setAttribute('opacity','0.9');
+      /* 화살표 */
+      var arrB=c.arrow||'none';
+      if(arrB!=='none'){
+        var rightwardB=(trunkXs<=cS.x);
+        if(arrB==='forward'){path.setAttribute(rightwardB?'marker-end':'marker-start',getMarker(color));}
+        else if(arrB==='backward'){path.setAttribute(rightwardB?'marker-start':'marker-end',getMarker(color));}
+        else if(arrB==='both'){path.setAttribute('marker-end',getMarker(color));path.setAttribute('marker-start',getMarker(color));}
+      }
+      path.style.pointerEvents='stroke'; path.style.cursor='pointer';
+      (function(cid){
+        path.addEventListener('click',function(e){
+          e.stopPropagation();
+          showArrowMenu(cid,e.clientX,e.clientY,'tree');
+        });
+      })(c.id);
+      svg.appendChild(path);
+      /* 버스 모드에서는 드래그 핸들 생략 */
+      continue;
+    }
+
+    /* ── 일반 스마트 연결 (단독 or 수직) ── */
     var pEp=getEdgePoint(p.x,p.y,pw,ph,c.x,c.y);
     var cEp=getEdgePoint(c.x,c.y,cw,ch,p.x,p.y);
     pwx=pEp.x; pwy=pEp.y; cwx=cEp.x; cwy=cEp.y;
     var ps=w2s(pwx,pwy),cs=w2s(cwx,cwy);
-    var cpOff=c.cp||{dx:0,dy:0};
-    var cp1x,cp1y,cp2x,cp2y;
-    /* 베지어 컨트롤포인트: 출발/도착 면의 법선 방향으로 */
-    var pdx=pwx-p.x, pdy=pwy-p.y; /* 출발 법선 방향 */
-    var cdx=cwx-c.x, cdy=cwy-c.y; /* 도착 법선 방향 */
+    var pdx=pwx-p.x, pdy=pwy-p.y;
+    var cdx=cwx-c.x, cdy=cwy-c.y;
     var dist=Math.max(Math.abs(ps.x-cs.x),Math.abs(ps.y-cs.y))*0.5;
     cp1x=ps.x+(pdx!==0?(pdx>0?1:-1):0)*dist+cpOff.dx*cam.z;
     cp1y=ps.y+(pdy!==0?(pdy>0?1:-1):0)*dist+cpOff.dy*cam.z;
     cp2x=cs.x+(cdx!==0?(cdx>0?1:-1):0)*dist+cpOff.dx*cam.z;
     cp2y=cs.y+(cdy!==0?(cdy>0?1:-1):0)*dist+cpOff.dy*cam.z;
-    var path=document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('d','M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y);
     path.setAttribute('fill','none');
     path.setAttribute('stroke',color);
@@ -1507,14 +1603,9 @@ function renderCurves(){
     var arr=c.arrow||'none';
     if(arr!=='none'){
       var rightward=(ps.x<=cs.x);
-      if(arr==='forward'){
-        path.setAttribute(rightward?'marker-end':'marker-start', getMarker(color));
-      } else if(arr==='backward'){
-        path.setAttribute(rightward?'marker-start':'marker-end', getMarker(color));
-      } else if(arr==='both'){
-        path.setAttribute('marker-end',getMarker(color));
-        path.setAttribute('marker-start',getMarker(color));
-      }
+      if(arr==='forward'){path.setAttribute(rightward?'marker-end':'marker-start',getMarker(color));}
+      else if(arr==='backward'){path.setAttribute(rightward?'marker-start':'marker-end',getMarker(color));}
+      else if(arr==='both'){path.setAttribute('marker-end',getMarker(color));path.setAttribute('marker-start',getMarker(color));}
     }
     path.style.pointerEvents='stroke'; path.style.cursor='pointer';
     (function(cid){
@@ -1537,7 +1628,6 @@ function renderCurves(){
     handle.setAttribute('opacity','0');
     handle.style.transition='r .15s,opacity .15s';
     path.setAttribute('data-edge','tree-'+c.id);
-    /* hover show/hide */
     (function(hEl,pathEl){
       pathEl.addEventListener('mouseenter',function(){hEl.setAttribute('opacity','1');pathEl.setAttribute('stroke-width',(p.pid===null)?'4':'3');});
       pathEl.addEventListener('mouseleave',function(){if(!hEl._dragging){hEl.setAttribute('opacity','0');pathEl.setAttribute('stroke-width',(p.pid===null)?'3':'2');}});
@@ -1558,7 +1648,6 @@ function renderCurves(){
         hEl2.setAttribute('fill','rgba(56,178,255,0.45)');
         hEl2.setAttribute('stroke','#7dd8ff');
         hEl2.setAttribute('opacity','1');
-        /* 가이드라인 생성 */
         var guide1=document.createElementNS('http://www.w3.org/2000/svg','line');
         var guide2=document.createElementNS('http://www.w3.org/2000/svg','line');
         var cpDot=document.createElementNS('http://www.w3.org/2000/svg','circle');
@@ -1569,18 +1658,10 @@ function renderCurves(){
           g.setAttribute('stroke-dasharray','4,3');
           g.setAttribute('pointer-events','none');
         });
-        cpDot.setAttribute('r','4');
-        cpDot.setAttribute('fill','#38b2ff');
-        cpDot.setAttribute('stroke','#fff');
-        cpDot.setAttribute('stroke-width','1.5');
-        cpDot.setAttribute('pointer-events','none');
-        label.setAttribute('font-size','10');
-        label.setAttribute('fill','#38b2ff');
-        label.setAttribute('pointer-events','none');
-        label.setAttribute('font-family','monospace');
+        cpDot.setAttribute('r','4');cpDot.setAttribute('fill','#38b2ff');cpDot.setAttribute('stroke','#fff');cpDot.setAttribute('stroke-width','1.5');cpDot.setAttribute('pointer-events','none');
+        label.setAttribute('font-size','10');label.setAttribute('fill','#38b2ff');label.setAttribute('pointer-events','none');label.setAttribute('font-family','monospace');
         var svgEl=document.getElementById('svg-layer');
-        svgEl.appendChild(guide1);svgEl.appendChild(guide2);
-        svgEl.appendChild(cpDot);svgEl.appendChild(label);
+        svgEl.appendChild(guide1);svgEl.appendChild(guide2);svgEl.appendChild(cpDot);svgEl.appendChild(label);
         var startX=e.clientX,startY=e.clientY;
         var nc=gn(cid2);if(!nc)return;
         var origCp=nc.cp?{dx:nc.cp.dx,dy:nc.cp.dy}:{dx:0,dy:0};
@@ -1591,7 +1672,6 @@ function renderCurves(){
           nc.cp={dx:ddx,dy:ddy};
           if(rafId)cancelAnimationFrame(rafId);
           rafId=requestAnimationFrame(function(){
-            /* 현재 엔드포인트 재계산 */
             var pelEl2=document.getElementById('n'+gn(cid2).pid);
             var celEl2=document.getElementById('n'+cid2);
             var pw2=pelEl2?pelEl2.offsetWidth:80,cw2=celEl2?celEl2.offsetWidth:80;
@@ -1607,11 +1687,9 @@ function renderCurves(){
             var ncp1y=ps2.y+(pndy2!==0?(pndy2>0?1:-1):0)*tdist2+ddy*cam.z;
             var ncp2x=cs2.x+(cndx2!==0?(cndx2>0?1:-1):0)*tdist2+ddx*cam.z;
             var ncp2y=cs2.y+(cndy2!==0?(cndy2>0?1:-1):0)*tdist2+ddy*cam.z;
-            /* 경로 업데이트 */
             pathEl2.setAttribute('d','M'+ps2.x+','+ps2.y+' C'+ncp1x+','+ncp1y+' '+ncp2x+','+ncp2y+' '+cs2.x+','+cs2.y);
             var nhx=(ncp1x+ncp2x)/2, nhy=(ncp1y+ncp2y)/2;
             hEl2.setAttribute('cx',nhx);hEl2.setAttribute('cy',nhy);
-            /* 가이드라인 업데이트 */
             guide1.setAttribute('x1',ps2.x);guide1.setAttribute('y1',ps2.y);guide1.setAttribute('x2',ncp1x);guide1.setAttribute('y2',ncp1y);
             guide2.setAttribute('x1',cs2.x);guide2.setAttribute('y1',cs2.y);guide2.setAttribute('x2',ncp2x);guide2.setAttribute('y2',ncp2y);
             cpDot.setAttribute('cx',nhx);cpDot.setAttribute('cy',nhy-14);
@@ -2229,7 +2307,7 @@ function groupToNode(targetId){
   if(moved>0){
     repositionBranch(targetId, getBranchDir(targetId));
     multiSel=[];
-    undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),nid:nid,sel:sel});
+    undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
     saveAll();renderAll();
     showToast('🔗 '+moved+'개 노드를 묶었습니다');
   }
@@ -2260,7 +2338,7 @@ function reparentToNew(){
   repositionBranch(newParent.id, getBranchDir(newParent.id));
   if(commonPid!==null) repositionBranch(commonPid, getBranchDir(commonPid));
   multiSel=[];sel=newParent.id;
-  undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),nid:nid,sel:sel});
+  undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
   saveAll();renderAll();
   showToast('📦 새 부모 노드로 묶었습니다');
   setTimeout(function(){startEdit(newParent.id);},80);
@@ -2580,7 +2658,7 @@ function delNode(id){
   var msg=delCount>1?'"'+n.text+'" 및 하위 '+(delCount-1)+'개 노드를 삭제할까요?':'"'+n.text+'" 노드를 삭제할까요?';
   if(!confirm('🗑 '+msg))return;
   /* undo 스택에 현재 상태 저장 */
-  undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),nid:nid,sel:sel});
+  undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
   if(undoStack.length>30)undoStack.shift();
   nodes=nodes.filter(function(n){return del.indexOf(n.id)<0;});
   links=links.filter(function(l){return del.indexOf(l.from)<0&&del.indexOf(l.to)<0;});
@@ -2592,8 +2670,9 @@ function undoDelete(){
   if(!undoStack.length){showToast('↩ 되돌릴 내용이 없습니다');return;}
   var prev=undoStack.pop();
   nodes=prev.nodes;nid=prev.nid;sel=prev.sel;
+  if(prev.links!==undefined) links=prev.links;
   saveAll();renderAll();
-  showToast('↩ 삭제가 복구되었습니다');
+  showToast('↩ 복구되었습니다');
 }
 function showToast(msg){
   var t=document.getElementById('toast');
@@ -3450,7 +3529,7 @@ document.getElementById('ctx-del').onclick=function(){
     collectR(id);
     var msg=del.length>1?'"'+n.text+'" 및 하위 '+(del.length-1)+'개 노드를 삭제할까요?':'"'+n.text+'" 노드를 삭제할까요?';
     if(!confirm('🗑 '+msg))return;
-    undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),nid:nid,sel:sel});
+    undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
     if(undoStack.length>30)undoStack.shift();
     nodes=nodes.filter(function(x){return del.indexOf(x.id)<0;});
     links=links.filter(function(l){return del.indexOf(l.from)<0&&del.indexOf(l.to)<0;});
