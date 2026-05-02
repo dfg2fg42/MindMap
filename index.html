@@ -2573,19 +2573,61 @@ document.getElementById('btn-reset').onclick=function(){
 /* node panel */
 document.getElementById('np-up').onclick=function(e){e.stopPropagation();if(sel)moveSibling(sel,-1);};
 document.getElementById('np-down').onclick=function(e){e.stopPropagation();if(sel)moveSibling(sel,1);};
-function applyScaleChange(n){
-  /* X 위치는 건드리지 않고 Y만 재배치 */
-  if(n.pid===null){
-    /* 루트: 1레벨 자식들만 Y 재배치 */
-    var kids1=gc(n.id);
-    if(kids1.length) repositionBranchY(n.id);
-  } else {
-    /* 일반 노드: 부모 기준 Y 재배치 */
-    repositionBranchY(n.pid);
-    if(gc(n.id).length) repositionBranchY(n.id);
+function applyScaleChange(n, oldH){
+  var newH=nhFull(n);
+  var dH=(oldH!==undefined)?(newH-oldH):0;
+
+  if(dH!==0 && n.pid!==null){
+    /* 같은 부모의 형제 중 이 노드보다 아래에 있는 노드들을 dH만큼 이동 */
+    var siblings=nodes.filter(function(x){return x.pid===n.pid;});
+    /* 현재 노드의 형제 내 인덱스 찾기 */
+    var myIdx=-1;
+    for(var i=0;i<siblings.length;i++)if(siblings[i].id===n.id){myIdx=i;break;}
+    /* 현재 노드 자체도 절반만큼 중심 이동 (크기 변화의 중심을 유지) */
+    n.y += dH/2;
+    /* 아래 형제들과 그 서브트리 전체 이동 */
+    for(var i=myIdx+1;i<siblings.length;i++){
+      shiftSubtreeY(siblings[i].id, dH);
+    }
+    /* 위 형제들도 반대로 절반씩 이동 */
+    for(var i=0;i<myIdx;i++){
+      shiftSubtreeY(siblings[i].id, -dH/2);
+    }
+    /* 현재 노드의 자식 트리도 새 크기 기준으로 중심 재조정 */
+    if(gc(n.id).length){
+      /* 자식들의 중심을 노드 새 Y에 맞춤 */
+      var kids=nodes.filter(function(x){return x.pid===n.id;});
+      var totalKidH=0;for(var k=0;k<kids.length;k++)totalKidH+=subH(kids[k].id);
+      var ky=n.y-totalKidH/2;
+      for(var k=0;k<kids.length;k++){
+        var kh=subH(kids[k].id);
+        var kOldY=kids[k].y;
+        kids[k].y=ky+kh/2;
+        var kDy=kids[k].y-kOldY;
+        /* 손자 이하도 같은 양만큼 이동 */
+        var grandKids=[];var stack=[kids[k].id];
+        while(stack.length){var cur=stack.pop();var gk=gc(cur);for(var g=0;g<gk.length;g++){grandKids.push(gk[g].id);stack.push(gk[g].id);}}
+        for(var g=0;g<grandKids.length;g++){var gn2=gn(grandKids[g]);if(gn2)gn2.y+=kDy;}
+        ky+=kh;
+      }
+    }
   }
-  resolveOverlaps();
+
+  /* 크기 표시 업데이트 */
+  var sizeValEl=document.getElementById('np-size-val');
+  if(sizeValEl)sizeValEl.textContent=Math.round((n.scale||1)*100)+'%';
   renderAll();saveAll();
+}
+
+/* 특정 서브트리 전체 Y 이동 */
+function shiftSubtreeY(rootId, dy){
+  var stack=[rootId];
+  while(stack.length){
+    var cur=stack.pop();
+    var nd=gn(cur);if(nd)nd.y+=dy;
+    var kids=gc(cur);
+    for(var k=0;k<kids.length;k++)stack.push(kids[k].id);
+  }
 }
 
 /* X는 건드리지 않고 Y만 재배치 */
@@ -2605,14 +2647,16 @@ function repositionBranchY(pid){
 document.getElementById('np-size-up').onclick=function(e){
   e.stopPropagation();
   var n=gn(sel);if(!n)return;
+  var oldH=nhFull(n);
   n.scale=Math.min(3.0, Math.round(((n.scale||1)+0.1)*10)/10);
-  applyScaleChange(n);
+  applyScaleChange(n, oldH);
 };
 document.getElementById('np-size-down').onclick=function(e){
   e.stopPropagation();
   var n=gn(sel);if(!n)return;
+  var oldH=nhFull(n);
   n.scale=Math.max(0.5, Math.round(((n.scale||1)-0.1)*10)/10);
-  applyScaleChange(n);
+  applyScaleChange(n, oldH);
 };
 document.getElementById('np-color-toggle').onclick=function(e){
   e.stopPropagation();
