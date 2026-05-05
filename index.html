@@ -1408,14 +1408,17 @@ function autoLayout(){
 function selectGroup(gid){
   selGroup=gid;
   sel=null;
-  /* 모든 그룹 selected 클래스 제거 */
+  /* 모든 그룹 selected 클래스 제거 + z-index 원복 */
   document.querySelectorAll('.group-box-wrap').forEach(function(w){
     w.classList.remove('grp-selected');
     w.querySelector('.group-box-label').classList.remove('grp-selected-lbl');
+    var wgid=parseInt(w.dataset.gid)||0;
+    w.style.zIndex=2+(wgid%100);
   });
-  /* 선택된 그룹 강조 */
+  /* 선택된 그룹 강조 + 최상위로 */
   var wEl=document.querySelector('.group-box-wrap[data-gid="'+gid+'"]');
   if(wEl){
+    wEl.style.zIndex=200; /* 선택 시 최상위 */
     wEl.classList.add('grp-selected');
     wEl.querySelector('.group-box-label').classList.add('grp-selected-lbl');
   }
@@ -1434,6 +1437,7 @@ function deselectGroup(){
 function showGroupPanel(gid){
   var grp=groups.filter(function(g){return g.id===gid;})[0];
   if(!grp)return;
+  selGroup=gid; /* 삭제/조작 시 올바른 그룹 참조 보장 */
   var gp=document.getElementById('group-panel');
   if(!gp)return;
   /* 표시 후 크기 측정을 위해 먼저 visible hidden으로 렌더링 */
@@ -2047,11 +2051,12 @@ function renderNodes(){
       wrap=document.createElement('div');
       wrap.className='group-box-wrap';
       wrap.dataset.gid=grp.id;
-      wrap.style.cssText='position:absolute;pointer-events:none;z-index:2;';
+      wrap.style.cssText='position:absolute;pointer-events:none;z-index:2;'
+      wrap.style.zIndex=2+(grp.id%100);;
       /* 배경 박스 */
       var box=document.createElement('div');
       box.className='group-box-bg';
-      box.style.cssText='position:absolute;inset:0;border-radius:26px;pointer-events:all;cursor:default;z-index:1;';
+      box.style.cssText='position:absolute;inset:0;border-radius:26px;pointer-events:none;cursor:default;z-index:1;';
       /* 우클릭 → 색상 변경 미니 팝업 */
       box.addEventListener('contextmenu',function(e){
         e.preventDefault();e.stopPropagation();
@@ -2084,7 +2089,7 @@ function renderNodes(){
       var lbl=document.createElement('div');
       lbl.className='group-box-label';
       lbl.contentEditable='false';
-      lbl.style.cssText='position:absolute;top:0;left:50%;transform:translate(-50%,-50%);pointer-events:all;z-index:6;white-space:nowrap;border-radius:20px;padding:4px 14px;font-size:.82rem;font-weight:700;letter-spacing:.04em;box-shadow:0 2px 8px rgba(0,0,0,.35);';
+      lbl.style.cssText='position:absolute;top:0;left:50%;transform:translate(-50%,-50%);pointer-events:all;z-index:20;white-space:nowrap;border-radius:20px;padding:4px 14px;font-size:.82rem;font-weight:700;letter-spacing:.04em;box-shadow:0 2px 8px rgba(0,0,0,.35);';
       /* 단일 클릭: 그룹 선택 + 패널 표시 */
       lbl.addEventListener('mousedown',function(e){
         if(e.button!==0)return;
