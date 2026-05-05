@@ -3171,7 +3171,7 @@ function openBackupModal(){document.getElementById('backup-modal').classList.add
 function closeBackupModal(){document.getElementById('backup-modal').classList.remove('open');}
 
 function exportJSON(){
-  var cc=getCat(curCatId);if(cc){cc.nodes=nodes;cc.nid=nid;cc.cam=cam;}
+  var cc=getCat(curCatId);if(cc){cc.nodes=nodes;cc.nid=nid;cc.cam=cam;cc.links=links;cc.groups=groups;cc.nextGid=nextGid;}
   var data=JSON.stringify({cats:cats,curCatId:curCatId,nextCatId:nextCatId,exportedAt:new Date().toISOString()},null,2);
   var blob=new Blob([data],{type:'application/json'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);
@@ -3202,7 +3202,7 @@ document.getElementById('restore-input').addEventListener('change',function(e){
         });
       });
       var cc=getCat(curCatId);if(!cc){curCatId=cats[0].id;cc=cats[0];}
-      nodes=cc.nodes;nid=cc.nid;cam=cc.cam||{x:0,y:0,z:1};
+      nodes=cc.nodes;nid=cc.nid;cam=cc.cam||{x:0,y:0,z:1};links=cc.links||[];groups=cc.groups||[];nextGid=cc.nextGid||1;
       sel=null;closeMemo();saveAll();applyCamera();renderAll();fitView();updateToolbarChip();
       closeBackupModal();
       alert('✅ 백업을 성공적으로 불러왔습니다!');
@@ -3212,8 +3212,8 @@ document.getElementById('restore-input').addEventListener('change',function(e){
 });
 
 function exportHTML(){
-  var cc=getCat(curCatId);if(cc){cc.nodes=nodes;cc.nid=nid;cc.cam=cam;}
-  var data=JSON.stringify({cats:cats,curCatId:curCatId,nextCatId:nextCatId});
+  var cc=getCat(curCatId);if(cc){cc.nodes=nodes;cc.nid=nid;cc.cam=cam;cc.links=links;cc.groups=groups;cc.nextGid=nextGid;}
+  var data=JSON.stringify({cats:cats,curCatId:curCatId,nextCatId:nextCatId,nextGid:nextGid});
   // 현재 페이지 HTML에 데이터 삽입
   var src=document.documentElement.outerHTML;
   // 인라인 초기 데이터 주입
