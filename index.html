@@ -2017,163 +2017,139 @@ function renderCurves(){
 function renderNodes(){
   var world=document.getElementById('world');
 
-  /* ── 그룹 박스 렌더링 ── */
+/* ── 그룹 박스 렌더링 ── */
   var exG={};var gEls=world.querySelectorAll('.group-box-wrap');
   for(var gi=0;gi<gEls.length;gi++)exG[gEls[gi].dataset.gid]=gEls[gi];
   var aliveG={};
-  for(var gi=0;gi<groups.length;gi++){
-    var grp=groups[gi];
-    aliveG[grp.id]=true;
-    /* 그룹에 속한 노드들의 월드 바운딩 박스 계산 */
-    var PAD=28;
-    var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-    var validNodes=0;
-    for(var ni=0;ni<grp.nodeIds.length;ni++){
-      var gn2=gn(grp.nodeIds[ni]);if(!gn2)continue;
-      var nEl=document.getElementById('n'+gn2.id);
-      var nw2=nEl?nEl.offsetWidth:nwFull(gn2);
-      var nh2=nEl?nEl.offsetHeight:nhFull(gn2);
-      if(gn2.x-nw2/2<minX)minX=gn2.x-nw2/2;
-      if(gn2.y-nh2/2<minY)minY=gn2.y-nh2/2;
-      if(gn2.x+nw2/2>maxX)maxX=gn2.x+nw2/2;
-      if(gn2.y+nh2/2>maxY)maxY=gn2.y+nh2/2;
-      validNodes++;
-    }
-    if(validNodes===0)continue;
-    /* 패딩 적용 */
-    minX-=PAD;minY-=PAD+22;maxX+=PAD;maxY+=PAD;
-    /* #world는 이미 cam 변환이 적용되어 있으므로 월드 좌표 그대로 사용 */
-    var bw=maxX-minX, bh=maxY-minY;
-    var bsx=minX, bsy=minY;
-    var gc2=grp.color||'#7c6fcd';
-    var wrap=exG[grp.id];
-    if(!wrap){
-      wrap=document.createElement('div');
-      wrap.className='group-box-wrap';
-      wrap.dataset.gid=grp.id;
-      wrap.style.cssText='position:absolute;pointer-events:none;z-index:2;'
-      wrap.style.zIndex=2+(grp.id%100);;
-      /* 배경 박스 */
-      var box=document.createElement('div');
-      box.className='group-box-bg';
-      box.style.cssText='position:absolute;inset:0;border-radius:26px;pointer-events:none;cursor:default;z-index:1;';
-      /* 우클릭 → 색상 변경 미니 팝업 */
-      box.addEventListener('contextmenu',function(e){
-        e.preventDefault();e.stopPropagation();
-        var gidStr2=wrap.dataset.gid;
-        var existing=document.getElementById('grp-color-pop');
-        if(existing)existing.remove();
-        var pop=document.createElement('div');
-        pop.id='grp-color-pop';
-        pop.style.cssText='position:fixed;z-index:700;background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:10px;display:flex;flex-wrap:wrap;gap:6px;width:180px;box-shadow:0 8px 28px rgba(0,0,0,.6);';
-        pop.style.left=e.clientX+'px';pop.style.top=e.clientY+'px';
-        PALETTE.forEach(function(pc){
-          var dot=document.createElement('div');
-          dot.style.cssText='width:26px;height:26px;border-radius:50%;background:'+pc.v+';cursor:pointer;border:2px solid transparent;transition:.1s;';
-          dot.title=pc.n;
-          dot.addEventListener('mouseenter',function(){dot.style.border='2px solid #fff';});
-          dot.addEventListener('mouseleave',function(){dot.style.border='2px solid transparent';});
-          dot.addEventListener('click',function(ev){
-            ev.stopPropagation();
-            var grpObj=groups.filter(function(g){return String(g.id)===gidStr2;})[0];
-            if(grpObj)grpObj.color=pc.v;
-            pop.remove();saveAll();renderNodes();
+
+  for(var gi=0; gi<groups.length; gi++){
+    // [수정 핵심] 즉시 실행 함수로 각 그룹의 데이터를 독립적으로 고정합니다.
+    (function(grp) {
+      aliveG[grp.id]=true;
+      var PAD=28;
+      var minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+      var validNodes=0;
+      for(var ni=0; ni<grp.nodeIds.length; ni++){
+        var gn2=gn(grp.nodeIds[ni]); if(!gn2)continue;
+        var nEl=document.getElementById('n'+gn2.id);
+        var nw2=nEl?nEl.offsetWidth:nwFull(gn2);
+        var nh2=nEl?nEl.offsetHeight:nhFull(gn2);
+        if(gn2.x-nw2/2<minX)minX=gn2.x-nw2/2;
+        if(gn2.y-nh2/2<minY)minY=gn2.y-nh2/2;
+        if(gn2.x+nw2/2>maxX)maxX=gn2.x+nw2/2;
+        if(gn2.y+nh2/2>maxY)maxY=gn2.y+nh2/2;
+        validNodes++;
+      }
+      if(validNodes===0) return;
+
+      minX-=PAD; minY-=PAD+22; maxX+=PAD; maxY+=PAD;
+      var bw=maxX-minX, bh=maxY-minY;
+      var bsx=minX, bsy=minY;
+      var gc2=grp.color||'#7c6fcd';
+      var wrap=exG[grp.id];
+
+      if(!wrap){
+        wrap=document.createElement('div');
+        wrap.className='group-box-wrap';
+        wrap.dataset.gid=grp.id;
+        wrap.style.cssText='position:absolute;pointer-events:none;z-index:'+(2+(grp.id%100))+';';
+        
+        var box=document.createElement('div');
+        box.className='group-box-bg';
+        box.style.cssText='position:absolute;inset:0;border-radius:26px;pointer-events:none;z-index:1;';
+
+        box.addEventListener('contextmenu',function(e){
+          e.preventDefault(); e.stopPropagation();
+          var existing=document.getElementById('grp-color-pop');
+          if(existing)existing.remove();
+          var pop=document.createElement('div');
+          pop.id='grp-color-pop';
+          pop.style.cssText='position:fixed;z-index:700;background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:10px;display:flex;flex-wrap:wrap;gap:6px;width:180px;box-shadow:0 8px 28px rgba(0,0,0,.6);';
+          pop.style.left=e.clientX+'px'; pop.style.top=e.clientY+'px';
+          PALETTE.forEach(function(pc){
+            var dot=document.createElement('div');
+            dot.style.cssText='width:26px;height:26px;border-radius:50%;background:'+pc.v+';cursor:pointer;border:2px solid transparent;transition:.1s;';
+            dot.addEventListener('click',function(ev){
+              ev.stopPropagation();
+              grp.color=pc.v;
+              pop.remove(); saveAll(); renderNodes();
+            });
+            pop.appendChild(dot);
           });
-          pop.appendChild(dot);
+          document.body.appendChild(pop);
+          setTimeout(function(){document.addEventListener('click',function rm(){pop.remove();document.removeEventListener('click',rm);},{once:true});},0);
         });
-        document.body.appendChild(pop);
-        setTimeout(function(){document.addEventListener('click',function rm(){pop.remove();document.removeEventListener('click',rm);},{once:true});},0);
-      });
-      wrap.appendChild(box);
-      /* 라벨 */
-      var lbl=document.createElement('div');
-      lbl.className='group-box-label';
-      lbl.contentEditable='false';
-      lbl.style.cssText='position:absolute;top:0;left:50%;transform:translate(-50%,-50%);pointer-events:all;z-index:20;white-space:nowrap;border-radius:20px;padding:4px 14px;font-size:.82rem;font-weight:700;letter-spacing:.04em;box-shadow:0 2px 8px rgba(0,0,0,.35);';
-      /* 단일 클릭: 그룹 선택 + 패널 표시 */
-      lbl.addEventListener('mousedown',function(e){
-        if(e.button!==0)return;
-        e.stopPropagation();
-        var gidStr=wrap.dataset.gid;
-        var gidNum=parseInt(gidStr);
-        /* 선택 */
-        selectGroup(gidNum);
-        /* 드래그: 그룹 내 모든 노드 이동 */
-        var wp0=s2w(e.clientX,e.clientY);
-        var initPos={};
-        var grpObj=groups.filter(function(g){return g.id===gidNum;})[0];
-        if(grpObj){grpObj.nodeIds.forEach(function(nid2){var nd=gn(nid2);if(nd)initPos[nid2]={x:nd.x,y:nd.y};});}
-        var moved=false;
-        function onMove(ev){
-          var wp1=s2w(ev.clientX,ev.clientY);
-          var dx=wp1.x-wp0.x, dy=wp1.y-wp0.y;
-          moved=true;
-          if(grpObj){grpObj.nodeIds.forEach(function(nid2){
-            var nd=gn(nid2);if(nd&&initPos[nid2]){nd.x=initPos[nid2].x+dx;nd.y=initPos[nid2].y+dy;}
-          });}
-          renderAll();
-        }
-        function onUp(){
-          document.removeEventListener('mousemove',onMove);
-          document.removeEventListener('mouseup',onUp);
-          if(moved){saveAll();}
-          /* 패널 위치 재조정 */
-          setTimeout(function(){showGroupPanel(gidNum);},30);
-        }
-        document.addEventListener('mousemove',onMove);
-        document.addEventListener('mouseup',onUp);
-      });
-      /* 더블클릭: 이름 편집 */
-      lbl.addEventListener('dblclick',function(e){
-        e.stopPropagation();
-        var gidStr=wrap.dataset.gid;
-        var grpObj=groups.filter(function(g){return String(g.id)===gidStr;})[0];
-        var gpInput=document.querySelector('#group-panel .gp-name');
-        if(gpInput){gpInput.focus();gpInput.select();}
-      });
-      wrap.appendChild(lbl);
-      /* 삭제 버튼 */
-      var del=document.createElement('div');
-      del.className='group-box-del';
-      del.textContent='×';
-      del.style.cssText='position:absolute;top:8px;right:10px;pointer-events:all;z-index:5;width:22px;height:22px;';
-      del.addEventListener('click',function(e){
-        e.stopPropagation();
-        var gidStr=wrap.dataset.gid;
-        groups=groups.filter(function(g){return String(g.id)!==gidStr;});
-        saveAll();renderNodes();
-      });
-      wrap.appendChild(del);
-      world.insertBefore(wrap,world.firstChild);
-    }
-    /* 위치/크기 업데이트 */
-    wrap.style.left=bsx+'px'; wrap.style.top=bsy+'px';
-    wrap.style.width=bw+'px'; wrap.style.height=bh+'px';
-    var bg=wrap.querySelector('.group-box-bg');
-    var lbl2=wrap.querySelector('.group-box-label');
-    var isTransparent=!!grp.transparent;
-    if(isTransparent){
-      /* 투명 모드: 박스 완전 투명, 클릭 통과 */
-      bg.style.background='transparent';
-      bg.style.border='2px dashed '+gc2+'55';
-      bg.style.pointerEvents='none';
-      lbl2.style.background=gc2+'cc';
-      lbl2.style.color=getNodeFontColor(gc2,null);
-      lbl2.style.opacity='0.85';
-      lbl2.style.boxShadow='0 2px 8px rgba(0,0,0,.35)';
-    } else {
-      /* 일반 모드: 배경색 + 클릭 차단 */
-      var hexAlpha=Math.round(0.13*255).toString(16).padStart(2,'0');
-      bg.style.background=gc2+hexAlpha;
-      bg.style.border='2px solid '+gc2+'88';
-      bg.style.pointerEvents='all';
+        wrap.appendChild(box);
+
+        var lbl=document.createElement('div');
+        lbl.className='group-box-label';
+        lbl.style.cssText='position:absolute;top:0;left:50%;transform:translate(-50%,-50%);pointer-events:all;z-index:20;white-space:nowrap;border-radius:20px;padding:4px 14px;font-size:.82rem;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.35);';
+        
+        lbl.addEventListener('mousedown',function(e){
+          if(e.button!==0)return;
+          e.stopPropagation();
+          selectGroup(grp.id);
+          var wp0=s2w(e.clientX,e.clientY);
+          var initPos={};
+          grp.nodeIds.forEach(function(nid2){
+            var nd=gn(nid2); if(nd)initPos[nid2]={x:nd.x,y:nd.y};
+          });
+          var moved=false;
+          function onMove(ev){
+            var wp1=s2w(ev.clientX,ev.clientY);
+            var dx=wp1.x-wp0.x, dy=wp1.y-wp0.y;
+            moved=true;
+            grp.nodeIds.forEach(function(nid2){
+              var nd=gn(nid2); if(nd&&initPos[nid2]){nd.x=initPos[nid2].x+dx; nd.y=initPos[nid2].y+dy;}
+            });
+            renderAll();
+          }
+          function onUp(){
+            document.removeEventListener('mousemove',onMove);
+            document.removeEventListener('mouseup',onUp);
+            if(moved)saveAll();
+            setTimeout(function(){showGroupPanel(grp.id);},30);
+          }
+          document.addEventListener('mousemove',onMove);
+          document.addEventListener('mouseup',onUp);
+        });
+        wrap.appendChild(lbl);
+
+        var del=document.createElement('div');
+        del.className='group-box-del';
+        del.textContent='×';
+        del.style.cssText='position:absolute;top:8px;right:10px;pointer-events:all;z-index:5;width:22px;height:22px;';
+        del.addEventListener('click',function(e){
+          e.stopPropagation();
+          groups=groups.filter(function(g){return g.id!==grp.id;});
+          saveAll(); renderNodes();
+        });
+        wrap.appendChild(del);
+        world.insertBefore(wrap, world.firstChild);
+      }
+
+      wrap.style.left=bsx+'px'; wrap.style.top=bsy+'px';
+      wrap.style.width=bw+'px'; wrap.style.height=bh+'px';
+      var bg=wrap.querySelector('.group-box-bg');
+      var lbl2=wrap.querySelector('.group-box-label');
+      var isTr=!!grp.transparent;
+      
+      if(isTr){
+        bg.style.background='transparent';
+        bg.style.border='2px dashed '+gc2+'55';
+        bg.style.pointerEvents='none';
+      } else {
+        bg.style.background=gc2+Math.round(0.13*255).toString(16).padStart(2,'0');
+        bg.style.border='2px solid '+gc2+'88';
+        bg.style.pointerEvents='all';
+      }
       lbl2.style.background=gc2;
-      lbl2.style.color=getNodeFontColor(gc2,null);
-      lbl2.style.opacity='1';
-      lbl2.style.boxShadow='0 2px 8px rgba(0,0,0,.35)';
-    }
-    lbl2.textContent=grp.name||'그룹';
+      lbl2.style.color=getNodeFontColor(gc2, null);
+      lbl2.textContent=grp.name||'그룹';
+
+    })(groups[gi]); // 현재 순서의 그룹 정보를 함수 안으로 전달
   }
+
   /* 사라진 그룹 박스 제거 */
   for(var gid in exG){if(!aliveG[gid]){var el2=exG[gid];if(el2.parentNode)el2.parentNode.removeChild(el2);}}
 
