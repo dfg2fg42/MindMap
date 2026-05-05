@@ -1117,6 +1117,57 @@ function showArrowMenu(target, cx, cy, type){
     menu.appendChild(delBtn);
   }
 
+
+  /* ── 🎨 팔레트 아이콘 버튼 (누르면 색상 행 토글) ── */
+  var palSep=document.createElement('div');
+  palSep.style.cssText='width:1px;background:var(--bdr);margin:2px 2px;';
+  var palBtn=document.createElement('button');
+  palBtn.textContent='🎨';palBtn.title='선 색상 변경';
+  palBtn.style.cssText='background:var(--sur2);border:1px solid var(--bdr);border-radius:7px;width:34px;height:34px;font-size:1rem;cursor:pointer;color:var(--txt);transition:background .15s;';
+  var colorPalette=[
+    {c:'#ff3b3b',n:'빨강'},{c:'#ff6eb4',n:'핑크'},{c:'#4a90ff',n:'파랑'},
+    {c:'#38d9f5',n:'하늘'},{c:'#ffffff',n:'흰색'},{c:'#a259ff',n:'보라'},
+    {c:'#39ff14',n:'초록'},{c:'#ffd600',n:'노랑'},{c:'#ff8c00',n:'주황'},
+    {c:'default',n:'기본'}
+  ];
+  var curLineColor=type==='tree'?(gn(target)||{}).lineColor||'default':(target.color||'default');
+  var cRow=document.createElement('div');
+  cRow.style.cssText='display:none;flex-wrap:wrap;gap:5px;padding:6px 4px 2px;max-width:240px;';
+  colorPalette.forEach(function(cp){
+    var cb=document.createElement('button');
+    cb.title=cp.n;
+    var isActive=(curLineColor===cp.c)||(cp.c==='default'&&!curLineColor)||
+                 (cp.c==='default'&&curLineColor==='default');
+    cb.style.cssText='width:28px;height:28px;border-radius:50%;cursor:pointer;'+
+      'border:'+(isActive?'3px solid #fff':'2px solid rgba(255,255,255,.25)')+';'+
+      'background:'+(cp.c==='default'?'linear-gradient(135deg,#6c63ff,#39ff14)':cp.c)+';'+
+      'box-shadow:0 1px 4px rgba(0,0,0,.4);transition:transform .1s,border .1s;';
+    cb.onmouseenter=function(){cb.style.transform='scale(1.18)';};
+    cb.onmouseleave=function(){cb.style.transform='scale(1)';};
+    cb.onclick=function(e){
+      e.stopPropagation();
+      var newColor=cp.c==='default'?null:cp.c;
+      if(type==='tree'){var tn=gn(target);if(tn){tn.lineColor=newColor;}}
+      else{target.color=newColor;}
+      saveAll();renderAll();closeArrowMenu();
+    };
+    cRow.appendChild(cb);
+  });
+  palBtn.onclick=function(e){
+    e.stopPropagation();
+    var visible=cRow.style.display==='flex';
+    cRow.style.display=visible?'none':'flex';
+    palBtn.style.background=visible?'var(--sur2)':'rgba(108,99,255,.35)';
+  };
+  menu.style.flexDirection='column';
+  menu.style.alignItems='flex-start';
+  var topRow=document.createElement('div');
+  topRow.style.cssText='display:flex;gap:6px;align-items:center;';
+  while(menu.firstChild){topRow.appendChild(menu.firstChild);}
+  topRow.appendChild(palSep);
+  topRow.appendChild(palBtn);
+  menu.appendChild(topRow);
+  menu.appendChild(cRow);
   document.body.appendChild(menu);
   /* 바깥 클릭 시 닫기 */
   setTimeout(function(){
@@ -1517,10 +1568,17 @@ function renderCurves(){
   svg.appendChild(defs);
 
   /* ── 트리 연결선 ── */
+  /* ── 포트 분산: 부모당 자식 목록 사전 계산 ── */
+  var childMap={};
+  for(var ci=0;ci<nodes.length;ci++){
+    var cn=nodes[ci]; if(cn.pid===null)continue;
+    if(!childMap[cn.pid]) childMap[cn.pid]=[];
+    childMap[cn.pid].push(cn.id);
+  }
   for(var i=0;i<nodes.length;i++){
     var c=nodes[i]; if(c.pid===null)continue;
     var p=gn(c.pid); if(!p)continue;
-    var color=getColor(c.id);
+    var color=c.lineColor||getColor(c.id);
     var pelEl=document.getElementById('n'+p.id);
     var celEl=document.getElementById('n'+c.id);
     var pw=pelEl?pelEl.offsetWidth:nwFull(p);
@@ -1529,8 +1587,27 @@ function renderCurves(){
     var ph=nhFull(p), ch=nhFull(c);
     /* 수직 연결 판정: X 차이가 노드 너비의 절반 이하이면 상/하 연결 */
     /* 4방향 스마트 연결: 각 노드에서 상대방에 가장 가까운 면 선택 */
+    /* ── 포트 분산: 자식 인덱스 기반 출발점 분산 ── */
+    var siblings=childMap[p.id]||[c.id];
+    var sibIdx=siblings.indexOf(c.id);
+    var sibCount=siblings.length;
     var pEp=getEdgePoint(p.x,p.y,pw,ph,c.x,c.y);
     var cEp=getEdgePoint(c.x,c.y,cw,ch,p.x,p.y);
+    /* 같은 방향 출발일 때만 분산 적용 */
+    var allSameSide=true;
+    for(var si=0;si<siblings.length;si++){
+      var sn=gn(siblings[si]); if(!sn)continue;
+      var sep=getEdgePoint(p.x,p.y,pw,ph,sn.x,sn.y);
+      if(sep.x!==pEp.x||sep.y!==pEp.y){allSameSide=false;break;}
+    }
+    if(allSameSide&&sibCount>1){
+      /* 출발면이 좌/우이면 Y분산, 상/하이면 X분산 */
+      var isLR=(pEp.x!==p.x); /* 좌우 출발 */
+      var spread=Math.min(ph*0.75,sibCount*10); /* 분산 범위 */
+      var offset=(sibIdx/(sibCount-1)-0.5)*spread;
+      if(isLR){ pEp={x:pEp.x, y:p.y+offset}; }
+      else     { pEp={x:p.x+offset, y:pEp.y}; }
+    }
     pwx=pEp.x; pwy=pEp.y; cwx=cEp.x; cwy=cEp.y;
     var ps=w2s(pwx,pwy),cs=w2s(cwx,cwy);
     var cpOff=c.cp||{dx:0,dy:0};
@@ -1538,7 +1615,9 @@ function renderCurves(){
     /* 베지어 컨트롤포인트: 출발/도착 면의 법선 방향으로 */
     var pdx=pwx-p.x, pdy=pwy-p.y; /* 출발 법선 방향 */
     var cdx=cwx-c.x, cdy=cwy-c.y; /* 도착 법선 방향 */
-    var dist=Math.max(Math.abs(ps.x-cs.x),Math.abs(ps.y-cs.y))*0.5;
+    /* 자식 수 많을수록 제어점 단축 → 선이 출발부터 빨리 갈라짐 */
+    var distScale=sibCount>1?Math.max(0.25,0.5-sibCount*0.015):0.5;
+    var dist=Math.max(Math.abs(ps.x-cs.x),Math.abs(ps.y-cs.y))*distScale;
     cp1x=ps.x+(pdx!==0?(pdx>0?1:-1):0)*dist+cpOff.dx*cam.z;
     cp1y=ps.y+(pdy!==0?(pdy>0?1:-1):0)*dist+cpOff.dy*cam.z;
     cp2x=cs.x+(cdx!==0?(cdx>0?1:-1):0)*dist+cpOff.dx*cam.z;
@@ -1733,7 +1812,7 @@ function renderCurves(){
     lcp1y=sc1.y+(lpdy!==0?(lpdy>0?1:-1):0)*ldist+lcpOff.dy*cam.z;
     lcp2x=sc2.x+(ltdx!==0?(ltdx>0?1:-1):0)*ldist+lcpOff.dx*cam.z;
     lcp2y=sc2.y+(ltdy!==0?(ltdy>0?1:-1):0)*ldist+lcpOff.dy*cam.z;
-    var linkColor=getColor(lk.from);
+    var linkColor=lk.color||getColor(lk.from);
     /* 교차 구분용 배경 외곽선 */
     var lbgPath=document.createElementNS('http://www.w3.org/2000/svg','path');
     lbgPath.setAttribute('d','M'+sc1.x+','+sc1.y+' C'+lcp1x+','+lcp1y+' '+lcp2x+','+lcp2y+' '+sc2.x+','+sc2.y);
