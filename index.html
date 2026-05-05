@@ -440,6 +440,16 @@ body.reconnect-mode #reconnect-toast{display:flex!important;}
 .cl-item{display:flex;align-items:center;gap:5px;}
 .cl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:2px solid;}
 
+
+/* ══ LOCK MODE ══ */
+#btn-lock.lock-active{
+  background:rgba(255,100,100,.18)!important;
+  border-color:#ff6b6b!important;
+  color:#ff6b6b!important;
+}
+body.lock-mode .node{cursor:not-allowed!important;}
+body.lock-mode #viewport{cursor:default!important;}
+
 /* ══ ACTIVE EDGE ══ */
 .edge-active{
   filter: drop-shadow(0 0 4px rgba(255,220,80,0.9)) drop-shadow(0 0 8px rgba(255,180,0,0.6));
@@ -519,6 +529,7 @@ body.link-mode .link-del-btn{display:block;}
   <button class="tbtn" id="btn-zi">＋</button>
   <button class="tbtn" id="btn-zo">－</button>
   <div class="sep"></div>
+  <button class="tbtn" id="btn-lock" title="노드 이동 잠금 모드 (실수로 노드가 움직이지 않도록)">🔒 잠금</button>
   <button class="tbtn" id="btn-link-mode" title="참조 연결 모드 (노드 클릭 → 연결할 노드 클릭)">🔗 연결</button>
   <button class="tbtn" id="btn-group" title="선택한 노드들을 그룹으로 묶기 (노드 2개 이상 선택 후)">📦 그룹</button>
   <button class="tbtn" id="btn-color-opt" title="노드 색상 연해짐 설정">🎨 색상설정</button>
@@ -526,7 +537,7 @@ body.link-mode .link-del-btn{display:block;}
   <button class="tbtn" id="btn-theme">☀️ 라이트</button>
   <button class="tbtn" id="btn-help" title="단축키 도움말 (?)">❓ 도움말</button>
   <button class="tbtn danger" id="btn-reset">🗑 초기화</button>
-  <div class="tinfo">노드 <b id="ncnt">1</b>개 &nbsp;|&nbsp; S:별표 M:메모 Tab:자식 Del:삭제</div>
+  <div class="tinfo">노드 <b id="ncnt">1</b>개</div>
 </div>
 
 <!-- VIEWPORT -->
@@ -842,6 +853,7 @@ var nextCatId=1;
 var nodes=[],nid=1;
 var cam={x:0,y:0,z:1};
 var sel=null,panSt=null,movSt=null;
+var lockMode=false; // 노드 이동 잠금 모드
 var undoStack=[];
 var childDir='auto'; // 'auto','right','left'
 var selBox=null;      // 영역 선택 드래그 상태
@@ -3043,9 +3055,11 @@ function bindNode(el,id){
     }
     /* 다중선택 노드 위 클릭 → multiDrag 시작 */
     if(multiSel.length && multiSel.indexOf(id)>=0){
-      var wp0=s2w(e.clientX,e.clientY);
-      multiDrag={mx:wp0.x,my:wp0.y};
-      document.getElementById('viewport').classList.add('moving');
+      if(!lockMode){
+        var wp0=s2w(e.clientX,e.clientY);
+        multiDrag={mx:wp0.x,my:wp0.y};
+        document.getElementById('viewport').classList.add('moving');
+      }
       return;
     }
     /* ── 연결 모드 ── */
@@ -3065,8 +3079,10 @@ function bindNode(el,id){
     if(multiSel.length){multiSel=[];renderAll();}
     sel=id;panelVisible=false;
     var wp=s2w(e.clientX,e.clientY),n=gn(id);
-    movSt={id:id,ox:n.x,oy:n.y,mx:wp.x,my:wp.y};
-    document.getElementById('viewport').classList.add('moving');
+    if(!lockMode){
+      movSt={id:id,ox:n.x,oy:n.y,mx:wp.x,my:wp.y};
+      document.getElementById('viewport').classList.add('moving');
+    }
     if(memoOpen){saveMemoTxt();document.getElementById('memo-node-name').textContent=n.text;document.getElementById('memo-ta').value=n.memo||'';document.getElementById('memo-ta').dataset.nid=id;renderMemoImgs(n);}
     renderAll();
   });
@@ -3443,6 +3459,7 @@ document.getElementById('search-next').onclick=searchNext;
 document.getElementById('search-prev').onclick=searchPrev;
 document.getElementById('search-close').onclick=closeSearch;
 
+document.getElementById('btn-lock').onclick=toggleLock;
 document.getElementById('btn-link-mode').onclick=toggleLinkMode;
 document.getElementById('btn-help').onclick=openHelp;
 document.getElementById('help-modal').addEventListener('click',function(e){if(e.target===this)closeHelp();});
@@ -3985,6 +4002,29 @@ document.getElementById('gp-del').onclick=function(){
 };
 document.getElementById('gp-close').onclick=function(){deselectGroup();};
 setTimeout(function(){document.getElementById('hint').style.opacity='0';},6000);
+
+
+/* ════════════════ LOCK MODE ════════════════ */
+function toggleLock(){
+  if(lockMode){
+    /* 잠금 해제 시 경고 confirm */
+    var ok=confirm('🔓 노드 이동 잠금을 해제합니다.\n\n이제 노드를 드래그로 이동할 수 있습니다.\n(실수로 노드가 움직일 수 있습니다) 계속하시겠습니까?');
+    if(!ok)return;
+    lockMode=false;
+    document.body.classList.remove('lock-mode');
+    document.getElementById('btn-lock').classList.remove('lock-active');
+    document.getElementById('btn-lock').textContent='🔒 잠금';
+    document.getElementById('btn-lock').title='노드 이동 잠금 모드 (실수로 노드가 움직이지 않도록)';
+    showToast('🔓 잠금 해제됨 — 노드를 자유롭게 이동할 수 있습니다');
+  } else {
+    lockMode=true;
+    document.body.classList.add('lock-mode');
+    document.getElementById('btn-lock').classList.add('lock-active');
+    document.getElementById('btn-lock').textContent='🔓 잠금해제';
+    document.getElementById('btn-lock').title='잠금 해제 클릭 시 노드 이동 가능';
+    showToast('🔒 잠금 모드 — 노드가 고정되었습니다');
+  }
+}
 
 /* ════════════════ NODE CONNECTION HIGHLIGHT ════════════════ */
 function updateNodeConnHighlight(){
