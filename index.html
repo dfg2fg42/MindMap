@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MindSpark Pro</title>
+<title>MindMap</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -451,6 +451,40 @@ body.reconnect-mode #reconnect-toast{display:flex!important;}
 body.lock-mode .node{cursor:not-allowed!important;}
 body.lock-mode #viewport{cursor:default!important;}
 
+
+/* ══ GROUP FONT SLIDER ══ */
+#grp-font-slider-wrap{
+  position:fixed;z-index:500;display:none;
+  background:var(--sur);border:1px solid var(--bdr);
+  border-radius:12px;padding:10px 14px;
+  box-shadow:0 8px 28px rgba(0,0,0,.55);
+  min-width:200px;
+}
+#grp-font-slider-wrap .gfs-label{
+  font-size:.7rem;color:var(--mut);font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;
+  margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;
+}
+#grp-font-slider-wrap .gfs-label span{color:var(--acc);font-size:.85rem;font-family:monospace;}
+#grp-font-slider{
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:6px;border-radius:3px;
+  background:linear-gradient(to right, var(--acc) 0%, var(--acc) 50%, var(--bdr) 50%, var(--bdr) 100%);
+  outline:none;cursor:pointer;
+}
+#grp-font-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;width:18px;height:18px;
+  border-radius:50%;background:var(--acc);cursor:pointer;
+  border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);
+  transition:transform .1s;
+}
+#grp-font-slider::-webkit-slider-thumb:hover{transform:scale(1.2);}
+#grp-font-slider::-moz-range-thumb{
+  width:18px;height:18px;border-radius:50%;
+  background:var(--acc);cursor:pointer;
+  border:2px solid #fff;
+}
+
 /* ══ ACTIVE EDGE ══ */
 .edge-active{
   filter: drop-shadow(0 0 4px rgba(255,220,80,0.9)) drop-shadow(0 0 8px rgba(255,180,0,0.6));
@@ -504,7 +538,7 @@ body.link-mode .link-del-btn{display:block;}
 
 <!-- TOOLBAR -->
 <div id="toolbar">
-  <div class="logo">🧠Mind<b>Spark</b></div>
+  <div class="logo">🧠Mind<b>Map</b></div>
   <div id="cur-chip" class="cur-chip"><span id="cur-icon">🗂</span><span id="cur-name">기본</span></div>
   <div class="sep"></div>
   <button class="tbtn prim" id="btn-child">＋ 자식 <span style="opacity:.6;font-size:.72rem">(Tab)</span></button>
@@ -538,7 +572,7 @@ body.link-mode .link-del-btn{display:block;}
   <button class="tbtn" id="btn-theme">☀️ 라이트</button>
   <button class="tbtn" id="btn-help" title="단축키 도움말 (?)">❓ 도움말</button>
   <button class="tbtn danger" id="btn-reset">🗑 초기화</button>
-  <div class="tinfo">노드 <b id="ncnt">1</b>개 &nbsp;</div>
+  <div class="tinfo">노드 <b id="ncnt">1</b>개</div>
 </div>
 
 <!-- VIEWPORT -->
@@ -549,6 +583,15 @@ body.link-mode .link-del-btn{display:block;}
   
 <div id="sel-box"></div>
 <div id="world"></div>
+
+<!-- GROUP FONT SIZE SLIDER -->
+<div id="grp-font-slider-wrap">
+  <div class="gfs-label">
+    <span>𝐓 폰트 크기</span>
+    <span id="grp-font-val">0.82rem</span>
+  </div>
+  <input type="range" id="grp-font-slider" min="0.4" max="3.0" step="0.05" value="0.82">
+</div>
 </div>
 
 <!-- FLOATING NODE PANEL -->
@@ -2274,7 +2317,9 @@ function renderNodes(){
 
         var lbl=document.createElement('div');
         lbl.className='group-box-label';
-        lbl.style.cssText='position:absolute;top:0;left:50%;transform:translate(-50%,-50%);pointer-events:all;z-index:20;white-space:nowrap;border-radius:20px;padding:4px 14px;font-size:.82rem;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.35);';
+        if(!grp.fontSize)grp.fontSize=0.82;
+        lbl.style.cssText='position:absolute;top:0;left:50%;transform:translate(-50%,-50%);pointer-events:all;z-index:20;white-space:nowrap;border-radius:20px;padding:4px 14px;font-size:'+grp.fontSize+'rem;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer;';
+        lbl.title='드래그: 그룹 이동 | 더블클릭: 폰트 크기 슬라이더';
         
         lbl.addEventListener('mousedown',function(e){
           if(e.button!==0)return;
@@ -2304,6 +2349,14 @@ function renderNodes(){
           document.addEventListener('mousemove',onMove);
           document.addEventListener('mouseup',onUp);
         });
+
+        /* ── 더블클릭 → 폰트 크기 슬라이더 팝업 ── */
+        lbl.addEventListener('dblclick',function(e){
+          e.stopPropagation();
+          if(!grp.fontSize)grp.fontSize=0.82;
+          openGrpFontSlider(grp, lbl);
+        });
+
         wrap.appendChild(lbl);
 
         var del=document.createElement('div');
@@ -2337,6 +2390,7 @@ function renderNodes(){
       lbl2.style.background=gc2;
       lbl2.style.color=getNodeFontColor(gc2, null);
       lbl2.textContent=grp.name||'그룹';
+      lbl2.style.fontSize=(grp.fontSize||0.82)+'rem';
 
     })(groups[gi]); // 현재 순서의 그룹 정보를 함수 안으로 전달
   }
@@ -3332,7 +3386,7 @@ function exportJSON(){
     var data=JSON.stringify(payload,null,2);
     var blob=new Blob([data],{type:'application/json'});
     var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-    a.download='mindspark_backup_'+new Date().toISOString().slice(0,10)+'.json';
+    a.download='mindmap_backup_'+new Date().toISOString().slice(0,10)+'.json';
     a.click();URL.revokeObjectURL(a.href);
     closeBackupModal();
   });
@@ -3387,7 +3441,7 @@ function exportHTML(){
       'var __ED__='+data+';try{if(__ED__){cats=__ED__.cats;curCatId=__ED__.curCatId;nextCatId=__ED__.nextCatId;if(__ED__.idbImages&&__ED__.idbImages.length){openImgDB(function(db){var tx=db.transaction("images","readwrite");__ED__.idbImages.forEach(function(r){tx.objectStore("images").put({key:r.key,data:r.data});});});}}}catch(e){}');
     var blob=new Blob([injected],{type:'text/html;charset=utf-8'});
     var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-    a.download='mindspark_'+new Date().toISOString().slice(0,10)+'.html';
+    a.download='mindmap_'+new Date().toISOString().slice(0,10)+'.html';
     a.click();URL.revokeObjectURL(a.href);
     closeBackupModal();
   });
@@ -3591,7 +3645,7 @@ document.getElementById('btn-group').onclick=function(){
   /* 현재 위치 그대로 유지 — 노드 위치 변경 없이 바운딩 박스만 생성 */
   var gc3=getColor(ids[0]);
   var grpName='그룹 '+(nextGid);
-  var grp={id:nextGid++,name:grpName,nodeIds:ids.slice(),color:gc3};
+  var grp={id:nextGid++,name:grpName,nodeIds:ids.slice(),color:gc3,fontSize:0.82};
   groups.push(grp);
   saveAll();renderAll();
   showToast('📦 그룹이 생성되었습니다. 라벨을 클릭해 이름 변경 가능');
@@ -4180,6 +4234,93 @@ function drawArrowHead(svgA, ex, ey, angle, color){
   poly.setAttribute('stroke-linejoin','round');
   svgA.appendChild(poly);
 }
+
+/* ════════════════ GROUP FONT SLIDER ════════════════ */
+var _grpFontTarget = null; // 현재 슬라이더로 조절 중인 grp 객체
+
+function openGrpFontSlider(grp, anchorEl){
+  _grpFontTarget = grp;
+  var wrap = document.getElementById('grp-font-slider-wrap');
+  var slider = document.getElementById('grp-font-slider');
+  var valLbl = document.getElementById('grp-font-val');
+  var fs = grp.fontSize || 0.82;
+  slider.value = fs;
+  valLbl.textContent = fs.toFixed(2) + 'rem';
+  /* 슬라이더 색상 그라데이션 업데이트 */
+  updateSliderGradient(slider);
+  /* 위치: 레이블 바로 아래 */
+  var rect = anchorEl.getBoundingClientRect();
+  wrap.style.display = 'block';
+  var ww = wrap.offsetWidth || 220;
+  var left = Math.min(rect.left, window.innerWidth - ww - 10);
+  wrap.style.left = Math.max(10, left) + 'px';
+  wrap.style.top  = (rect.bottom + 6) + 'px';
+}
+
+function closeGrpFontSlider(){
+  document.getElementById('grp-font-slider-wrap').style.display = 'none';
+  _grpFontTarget = null;
+}
+
+function updateSliderGradient(slider){
+  var min=parseFloat(slider.min), max=parseFloat(slider.max), val=parseFloat(slider.value);
+  var pct = ((val-min)/(max-min)*100).toFixed(1);
+  slider.style.background = 'linear-gradient(to right, var(--acc) 0%, var(--acc) '+pct+'%, var(--bdr) '+pct+'%, var(--bdr) 100%)';
+}
+
+/* 슬라이더 팝업 위에서 휠 스크롤 시 캔버스 이동 차단 */
+document.getElementById('grp-font-slider-wrap').addEventListener('wheel', function(e){
+  e.stopPropagation();
+}, {passive:false});
+
+/* 슬라이더 드래그 시 캔버스 pan 차단 */
+document.getElementById('grp-font-slider').addEventListener('mousedown', function(e){
+  e.stopPropagation();
+});
+document.getElementById('grp-font-slider').addEventListener('mousemove', function(e){
+  e.stopPropagation();
+});
+document.getElementById('grp-font-slider-wrap').addEventListener('mousedown', function(e){
+  e.stopPropagation();
+});
+document.getElementById('grp-font-slider-wrap').addEventListener('mousemove', function(e){
+  e.stopPropagation();
+});
+
+document.getElementById('grp-font-slider').addEventListener('wheel', function(e){
+  e.stopPropagation();
+  e.preventDefault();
+  var slider = this;
+  var step = 0.05;
+  var cur = parseFloat(slider.value);
+  var newVal = Math.max(0.4, Math.min(3.0, cur + (e.deltaY < 0 ? step : -step)));
+  slider.value = newVal;
+  slider.dispatchEvent(new Event('input'));
+}, {passive:false});
+
+document.getElementById('grp-font-slider').addEventListener('input', function(){
+  if(!_grpFontTarget) return;
+  var fs = parseFloat(this.value);
+  _grpFontTarget.fontSize = fs;
+  document.getElementById('grp-font-val').textContent = fs.toFixed(2) + 'rem';
+  updateSliderGradient(this);
+  /* 실시간 반영 */
+  document.querySelectorAll('.group-box-label').forEach(function(lbl){
+    var wrapEl = lbl.closest('.group-box-wrap');
+    if(wrapEl && parseInt(wrapEl.dataset.gid) === _grpFontTarget.id){
+      lbl.style.fontSize = fs + 'rem';
+    }
+  });
+  saveAll();
+});
+
+/* 슬라이더 바깥 클릭 시 닫기 */
+document.addEventListener('mousedown', function(e){
+  var wrap = document.getElementById('grp-font-slider-wrap');
+  if(wrap.style.display !== 'none' && !wrap.contains(e.target)){
+    closeGrpFontSlider();
+  }
+});
 
 /* ════════════════ LOCK MODE ════════════════ */
 function toggleLock(){
