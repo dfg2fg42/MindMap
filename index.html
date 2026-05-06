@@ -125,8 +125,9 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 #viewport.memo-open{right:var(--mp);}
 #viewport.panning{cursor:grabbing;}
 #viewport.moving{cursor:move;}
-#svg-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:20;}
+#svg-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;}
 #svg-handle-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:15;}
+#svg-arrow-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:22;}
 #world{position:absolute;left:0;top:0;transform-origin:0 0;z-index:8;}
 
 /* ══ NODES ══ */
@@ -544,6 +545,7 @@ body.link-mode .link-del-btn{display:block;}
 <div id="viewport">
   <svg id="svg-layer"></svg>
   <svg id="svg-handle-layer"></svg>
+<svg id="svg-arrow-layer"></svg>
   
 <div id="sel-box"></div>
 <div id="world"></div>
@@ -1722,9 +1724,11 @@ function resolveEp(nx,ny,nw,nh,port,tx,ty,isTarget){
 function renderCurves(){
   var svg=document.getElementById('svg-layer');
   var svgH=document.getElementById('svg-handle-layer');
+  var svgA=document.getElementById('svg-arrow-layer');
   svg.style.pointerEvents = linkMode ? 'all' : 'none';
   svgH.innerHTML='';
   svgH.style.pointerEvents='none';
+  svgA.innerHTML='';
   while(svg.firstChild)svg.removeChild(svg.firstChild);
 
   /* ── SVG defs: 화살촉 marker ── */
@@ -1840,17 +1844,16 @@ function renderCurves(){
     path.setAttribute('opacity','0.9');
     var arr=c.arrow||'none';
     if(arr!=='none'){
-      /* 화살표 방향: 경로는 항상 부모→자식(M=부모ep, 끝=자식ep)
-         forward(부모→자식): marker-end(자식쪽) 고정
-         backward(자식→부모): marker-start(부모쪽) 고정
-         위치 변경에 무관하게 방향 유지 */
-      if(arr==='forward'){
-        path.setAttribute('marker-end', getMarker(color));
-      } else if(arr==='backward'){
-        path.setAttribute('marker-start', getMarker(color));
-      } else if(arr==='both'){
-        path.setAttribute('marker-end', getMarker(color));
-        path.setAttribute('marker-start', getMarker(color));
+      /* 화살촉을 별도 레이어(svgA)에 그림 → 노드 위에 항상 표시 */
+      if(arr==='forward'||arr==='both'){
+        /* 도착점 cs, 방향: cp2→cs */
+        var fwAngle=Math.atan2(cs.y-cp2y, cs.x-cp2x);
+        drawArrowHead(svgA, cs.x, cs.y, fwAngle, color);
+      }
+      if(arr==='backward'||arr==='both'){
+        /* 도착점 ps, 방향: cp1→ps */
+        var bwAngle=Math.atan2(ps.y-cp1y, ps.x-cp1x);
+        drawArrowHead(svgA, ps.x, ps.y, bwAngle, color);
       }
     }
     /* 활성 선 강조 + 노드 선택 시 연결선 강조 */
@@ -2043,13 +2046,13 @@ function renderCurves(){
          forward(from→to): marker-end(to쪽) 고정
          backward(to→from): marker-start(from쪽) 고정
          위치 변경에 무관하게 방향 유지 */
-      if(larr==='forward'){
-        lpath.setAttribute('marker-end', getMarker(linkColor));
-      } else if(larr==='backward'){
-        lpath.setAttribute('marker-start', getMarker(linkColor));
-      } else if(larr==='both'){
-        lpath.setAttribute('marker-end', getMarker(linkColor));
-        lpath.setAttribute('marker-start', getMarker(linkColor));
+      if(larr==='forward'||larr==='both'){
+        var lfwAngle=Math.atan2(sc2.y-lcp2y, sc2.x-lcp2x);
+        drawArrowHead(svgA, sc2.x, sc2.y, lfwAngle, linkColor);
+      }
+      if(larr==='backward'||larr==='both'){
+        var lbwAngle=Math.atan2(sc1.y-lcp1y, sc1.x-lcp1x);
+        drawArrowHead(svgA, sc1.x, sc1.y, lbwAngle, linkColor);
       }
     }
     /* 활성 참조선 강조 + 노드 선택 시 연결선 강조 */
@@ -4152,6 +4155,31 @@ document.getElementById('gp-del').onclick=function(){
 document.getElementById('gp-close').onclick=function(){deselectGroup();};
 setTimeout(function(){document.getElementById('hint').style.opacity='0';},6000);
 
+
+/* ════ 화살촉 전용 레이어에 삼각형 그리기 ════ */
+function drawArrowHead(svgA, ex, ey, angle, color){
+  var size=13, half=5;
+  /* 화살촉 삼각형 꼭짓점 (로컬좌표) */
+  var pts=[
+    {x:0,    y:0},      /* 뾰족한 끝 */
+    {x:-size, y:-half},
+    {x:-size+2.5, y:0},
+    {x:-size, y:half}
+  ];
+  /* 회전 변환 */
+  var cos=Math.cos(angle), sin=Math.sin(angle);
+  var rotated=pts.map(function(p){
+    return {x: ex + p.x*cos - p.y*sin,
+            y: ey + p.x*sin + p.y*cos};
+  });
+  var poly=document.createElementNS('http://www.w3.org/2000/svg','polygon');
+  poly.setAttribute('points', rotated.map(function(p){return p.x+','+p.y;}).join(' '));
+  poly.setAttribute('fill', color);
+  poly.setAttribute('stroke','rgba(255,255,255,0.75)');
+  poly.setAttribute('stroke-width','1.5');
+  poly.setAttribute('stroke-linejoin','round');
+  svgA.appendChild(poly);
+}
 
 /* ════════════════ LOCK MODE ════════════════ */
 function toggleLock(){
