@@ -485,33 +485,6 @@ body.lock-mode #viewport{cursor:default!important;}
   border:2px solid #fff;
 }
 
-
-/* ═══════════════ TABLET / TOUCH UI ═══════════════ */
-@media (pointer: coarse) {
-  /* 버튼 터치 영역 확대 */
-  .tbtn { min-height: 40px; min-width: 40px; padding: 6px 12px; font-size: .85rem; }
-  .node-el { min-height: 48px; }
-
-  /* 컨텍스트 메뉴 항목 터치 영역 확대 */
-  #ctx-menu .ctx-item { padding: 12px 18px; font-size: .95rem; }
-
-  /* 패널 버튼 */
-  #side-panel button { min-height: 38px; }
-
-  /* 롱프레스 안내 툴팁 */
-  #touch-hint {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: rgba(0,0,0,.75); color: #fff; font-size: .78rem;
-    padding: 7px 18px; border-radius: 20px; z-index: 9999;
-    pointer-events: none; opacity: 0; transition: opacity .3s;
-    white-space: nowrap;
-  }
-  #touch-hint.show { opacity: 1; }
-
-  /* 포트 도트 터치 영역 확대 */
-  .link-port { width: 18px !important; height: 18px !important; margin: -5px; }
-}
-
 /* ══ ACTIVE EDGE ══ */
 .edge-active{
   filter: drop-shadow(0 0 4px rgba(255,220,80,0.9)) drop-shadow(0 0 8px rgba(255,180,0,0.6));
@@ -612,7 +585,6 @@ body.link-mode .link-del-btn{display:block;}
 <div id="world"></div>
 
 <!-- GROUP FONT SIZE SLIDER -->
-<div id="touch-hint">길게 누르면 메뉴가 열립니다</div>
 <div id="grp-font-slider-wrap">
   <div class="gfs-label">
     <span>𝐓 폰트 크기</span>
@@ -4428,158 +4400,6 @@ function updateNodeConnHighlight(){
   }
 }
 
-
-/* ═══════════════════════════════════════════════
-   TOUCH → MOUSE 이벤트 폴리필 (태블릿/모바일 지원)
-   ═══════════════════════════════════════════════ */
-(function(){
-  if(!('ontouchstart' in window)) return; /* 터치 미지원 기기는 스킵 */
-
-  var _longPressTimer = null;
-  var _lastTap = 0;
-  var _lastTapTarget = null;
-  var _touchMoved = false;
-  var _pinching = false;
-  var _lastPinchDist = 0;
-  var _activeTouchId = null;
-
-  function getTouchById(touches, id){
-    for(var i=0;i<touches.length;i++) if(touches[i].identifier===id) return touches[i];
-    return touches[0];
-  }
-
-  function simulateMouse(type, srcTouch, target){
-    var rect = (target||document.elementFromPoint(srcTouch.clientX, srcTouch.clientY)||document.body).getBoundingClientRect&&
-               (target||document.elementFromPoint(srcTouch.clientX, srcTouch.clientY)||document.body);
-    var ev = new MouseEvent(type, {
-      bubbles: true, cancelable: true,
-      clientX: srcTouch.clientX, clientY: srcTouch.clientY,
-      screenX: srcTouch.screenX, screenY: srcTouch.screenY,
-      buttons: type==='mouseup'?0:1, button: 0,
-      view: window
-    });
-    ev._fromTouch = true;
-    var el = target || document.elementFromPoint(srcTouch.clientX, srcTouch.clientY) || document.body;
-    el.dispatchEvent(ev);
-  }
-
-  function getPinchDist(e){
-    var t = e.touches;
-    if(t.length < 2) return 0;
-    var dx = t[0].clientX - t[1].clientX;
-    var dy = t[0].clientY - t[1].clientY;
-    return Math.sqrt(dx*dx+dy*dy);
-  }
-
-  function getPinchCenter(e){
-    var t = e.touches;
-    return { x:(t[0].clientX+t[1].clientX)/2, y:(t[0].clientY+t[1].clientY)/2 };
-  }
-
-  document.addEventListener('touchstart', function(e){
-    /* 슬라이더 등 네이티브 터치 요소는 폴리필 스킵 */
-    var tag = e.target.tagName;
-    if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||tag==='BUTTON'||tag==='A') return;
-
-    _touchMoved = false;
-
-    if(e.touches.length === 2){
-      _pinching = true;
-      _lastPinchDist = getPinchDist(e);
-      e.preventDefault();
-      return;
-    }
-    _pinching = false;
-
-    var t = e.touches[0];
-    _activeTouchId = t.identifier;
-
-    /* 더블탭 감지 */
-    var now = Date.now();
-    var sameTarget = (_lastTapTarget === e.target);
-    if(now - _lastTap < 350 && sameTarget){
-      _lastTap = 0;
-      _lastTapTarget = null;
-      clearTimeout(_longPressTimer);
-      simulateMouse('dblclick', t, e.target);
-      e.preventDefault();
-      return;
-    }
-    _lastTap = now;
-    _lastTapTarget = e.target;
-
-    simulateMouse('mousedown', t, e.target);
-
-    /* 롱프레스 → 우클릭(contextmenu) */
-    _longPressTimer = setTimeout(function(){
-      if(!_touchMoved){
-        var lpt = getTouchById(document.touches||e.touches, _activeTouchId) || t;
-        var ctx = new MouseEvent('contextmenu',{
-          bubbles:true,cancelable:true,
-          clientX:lpt.clientX,clientY:lpt.clientY,
-          button:2,buttons:2,view:window
-        });
-        ctx._fromTouch = true;
-        var el = document.elementFromPoint(lpt.clientX,lpt.clientY)||document.body;
-        el.dispatchEvent(ctx);
-      }
-    }, 550);
-
-  }, {passive:false});
-
-  document.addEventListener('touchmove', function(e){
-    if(e.touches.length === 2 && _pinching){
-      /* 핀치 줌 → wheel 이벤트로 변환 */
-      var dist = getPinchDist(e);
-      var center = getPinchCenter(e);
-      var delta = _lastPinchDist - dist; /* 줄어들면 양수(축소), 늘면 음수(확대) */
-      _lastPinchDist = dist;
-      var wev = new WheelEvent('wheel',{
-        bubbles:true, cancelable:true,
-        clientX:center.x, clientY:center.y,
-        deltaY: delta * 1.5,
-        deltaMode:0,
-        view:window
-      });
-      wev._fromTouch = true;
-      var vp = document.getElementById('viewport')||document.body;
-      vp.dispatchEvent(wev);
-      e.preventDefault();
-      return;
-    }
-    _touchMoved = true;
-    clearTimeout(_longPressTimer);
-    var t = getTouchById(e.touches, _activeTouchId);
-    if(!t) return;
-    simulateMouse('mousemove', t, null);
-    e.preventDefault();
-  }, {passive:false});
-
-  document.addEventListener('touchend', function(e){
-    clearTimeout(_longPressTimer);
-    _pinching = false;
-    var t = e.changedTouches[0];
-    simulateMouse('mouseup', t, null);
-    /* 짧은 탭 → click */
-    if(!_touchMoved){
-      simulateMouse('click', t, e.target);
-    }
-    e.preventDefault();
-  }, {passive:false});
-
-  document.addEventListener('touchcancel', function(e){
-    clearTimeout(_longPressTimer);
-    _pinching = false;
-    var t = e.changedTouches[0];
-    if(t) simulateMouse('mouseup', t, null);
-  }, {passive:false});
-
-  /* 터치 기기 뷰포트 meta 보정 */
-  var vm = document.querySelector('meta[name=viewport]');
-  if(vm) vm.setAttribute('content','width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no');
-
-  console.log('[MindMap] 터치 폴리필 활성화');
-})();
 </script>
 
 </body>
