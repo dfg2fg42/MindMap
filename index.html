@@ -141,7 +141,7 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 .node-label{pointer-events:none;white-space:pre;line-height:1.4;text-align:center;}
 .node-edit{background:transparent;border:none;outline:none;font-family:inherit;font-weight:inherit;font-size:inherit;color:inherit;text-align:center;width:100%;min-width:30px;resize:none;overflow:hidden;line-height:1.4;padding:0;}
 .star-badge{position:absolute;top:-9px;right:-9px;font-size:.75rem;pointer-events:none;filter:drop-shadow(0 0 4px rgba(255,215,0,.9));}
-.memo-dot{position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);width:8px;height:8px;border-radius:50%;background:#38b2ff;border:2px solid var(--bg);pointer-events:none;box-shadow:0 0 6px rgba(56,178,255,.7);}
+.memo-dot{position:absolute;top:-5px;right:-5px;width:9px;height:9px;border-radius:50%;background:#38b2ff;border:2px solid var(--bg);pointer-events:none;box-shadow:0 0 6px rgba(56,178,255,.7);}
 
 /* ══ MEMO TOOLTIP ══ */
 #memo-tooltip{position:fixed;z-index:400;background:var(--sur);border:1.5px solid #38b2ff;border-radius:10px;padding:10px 13px;max-width:420px;min-width:180px;box-shadow:0 8px 28px rgba(0,0,0,.6),0 0 12px rgba(56,178,255,.2);pointer-events:auto;display:none;font-size:.81rem;line-height:1.65;color:var(--txt);}
@@ -1678,19 +1678,30 @@ function getLinksOf(id){
 /* ── 노드의 4방향 중 target에 가장 가까운 면의 연결점 반환 ── */
 function getEdgePoint(nx, ny, nw, nh, tx, ty){
   var dx=tx-nx, dy=ty-ny;
-  var rx=Math.abs(dx)/(nw/2||1), ry=Math.abs(dy)/(nh/2||1);
-  if(rx>=ry){
-    return {x: nx+(dx>=0?nw/2:-nw/2), y: ny};
-  } else {
-    return {x: nx, y: ny+(dy>=0?nh/2:-nh/2)};
-  }
+  if(dx===0&&dy===0) return {x:nx, y:ny};
+  var hw=nw/2, hh=nh/2;
+  /* 방향 벡터 정규화 후 노드 사각형 테두리와의 교차점 계산 */
+  var absDx=Math.abs(dx), absDy=Math.abs(dy);
+  var sx=dx>=0?1:-1, sy=dy>=0?1:-1;
+  /* 가로/세로 비율로 어느 면(좌우 or 상하)에 먼저 닿는지 판단 */
+  var tx1 = absDx>0 ? hw/absDx : Infinity;
+  var ty1 = absDy>0 ? hh/absDy : Infinity;
+  var t = Math.min(tx1, ty1);
+  return {
+    x: nx + dx * t,
+    y: ny + dy * t
+  };
 }
 /* ── 포트 이름으로 엣지 좌표 반환 ── */
 function getPortPoint(nx, ny, nw, nh, port){
-  if(port==='top')    return {x:nx,       y:ny-nh/2};
-  if(port==='bottom') return {x:nx,       y:ny+nh/2};
-  if(port==='left')   return {x:nx-nw/2,  y:ny};
-  if(port==='right')  return {x:nx+nw/2,  y:ny};
+  if(port==='top')         return {x:nx,        y:ny-nh/2};
+  if(port==='bottom')      return {x:nx,        y:ny+nh/2};
+  if(port==='left')        return {x:nx-nw/2,   y:ny};
+  if(port==='right')       return {x:nx+nw/2,   y:ny};
+  if(port==='top-left')    return {x:nx-nw/2,   y:ny-nh/2};
+  if(port==='top-right')   return {x:nx+nw/2,   y:ny-nh/2};
+  if(port==='bottom-left') return {x:nx-nw/2,   y:ny+nh/2};
+  if(port==='bottom-right')return {x:nx+nw/2,   y:ny+nh/2};
   return {x:nx, y:ny};
 }
 /* ── 포트 or 자동 스마트 연결점 ── */
@@ -1713,14 +1724,22 @@ function renderCurves(){
     if(!_mids[key]){
       var m=document.createElementNS('http://www.w3.org/2000/svg','marker');
       m.setAttribute('id','mk'+key);
-      m.setAttribute('markerWidth','10');m.setAttribute('markerHeight','8');
-      m.setAttribute('refX','9');m.setAttribute('refY','4');
+      m.setAttribute('markerWidth','14');m.setAttribute('markerHeight','11');
+      m.setAttribute('refX','12');m.setAttribute('refY','5.5');
       m.setAttribute('orient','auto-start-reverse');
       m.setAttribute('markerUnits','userSpaceOnUse');
+      /* 외곽선(흰색 테두리) 레이어 */
+      var mpBg=document.createElementNS('http://www.w3.org/2000/svg','path');
+      mpBg.setAttribute('d','M0,0 L13,5.5 L0,11 L2.5,5.5 Z');
+      mpBg.setAttribute('fill','none');
+      mpBg.setAttribute('stroke','rgba(255,255,255,0.75)');
+      mpBg.setAttribute('stroke-width','1.8');
+      mpBg.setAttribute('stroke-linejoin','round');
+      /* 화살촉 본체 */
       var mp=document.createElementNS('http://www.w3.org/2000/svg','path');
-      mp.setAttribute('d','M0,0 L9,4 L0,8 L2,4 Z');
+      mp.setAttribute('d','M0,0 L13,5.5 L0,11 L2.5,5.5 Z');
       mp.setAttribute('fill',color);
-      m.appendChild(mp); defs.appendChild(m);
+      m.appendChild(mpBg); m.appendChild(mp); defs.appendChild(m);
       _mids[key]=true;
     }
     return 'url(#mk'+key+')';
@@ -1778,10 +1797,17 @@ function renderCurves(){
     /* 자식 수 많을수록 제어점 단축 → 선이 출발부터 빨리 갈라짐 */
     var distScale=sibCount>1?Math.max(0.25,0.5-sibCount*0.015):0.5;
     var dist=Math.max(Math.abs(ps.x-cs.x),Math.abs(ps.y-cs.y))*distScale;
-    cp1x=ps.x+(pdx!==0?(pdx>0?1:-1):0)*dist+cpOff.dx*cam.z;
-    cp1y=ps.y+(pdy!==0?(pdy>0?1:-1):0)*dist+cpOff.dy*cam.z;
-    cp2x=cs.x+(cdx!==0?(cdx>0?1:-1):0)*dist+cpOff.dx*cam.z;
-    cp2y=cs.y+(cdy!==0?(cdy>0?1:-1):0)*dist+cpOff.dy*cam.z;
+    /* 제어점: 대각선 모서리 연결 시 꼬부랑 방지 → 주요 축 방향만 사용 */
+    var pAbsDx=Math.abs(pdx), pAbsDy=Math.abs(pdy);
+    var cAbsDx=Math.abs(cdx), cAbsDy=Math.abs(cdy);
+    var pMainX = pAbsDx>=pAbsDy ? (pdx>0?1:-1) : 0;
+    var pMainY = pAbsDy> pAbsDx ? (pdy>0?1:-1) : 0;
+    var cMainX = cAbsDx>=cAbsDy ? (cdx>0?1:-1) : 0;
+    var cMainY = cAbsDy> cAbsDx ? (cdy>0?1:-1) : 0;
+    cp1x=ps.x+pMainX*dist+cpOff.dx*cam.z;
+    cp1y=ps.y+pMainY*dist+cpOff.dy*cam.z;
+    cp2x=cs.x+cMainX*dist+cpOff.dx*cam.z;
+    cp2y=cs.y+cMainY*dist+cpOff.dy*cam.z;
     /* 교차 구분용 배경 외곽선 path */
     var bgPath=document.createElementNS('http://www.w3.org/2000/svg','path');
     bgPath.setAttribute('d','M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y);
@@ -1968,10 +1994,15 @@ function renderCurves(){
     var lpdx=fx-fa.x, lpdy=fy-fa.y;
     var ltdx=tx2-ta.x, ltdy=ty2-ta.y;
     var ldist=Math.max(Math.abs(sc1.x-sc2.x),Math.abs(sc1.y-sc2.y))*0.5;
-    lcp1x=sc1.x+(lpdx!==0?(lpdx>0?1:-1):0)*ldist+lcpOff.dx*cam.z;
-    lcp1y=sc1.y+(lpdy!==0?(lpdy>0?1:-1):0)*ldist+lcpOff.dy*cam.z;
-    lcp2x=sc2.x+(ltdx!==0?(ltdx>0?1:-1):0)*ldist+lcpOff.dx*cam.z;
-    lcp2y=sc2.y+(ltdy!==0?(ltdy>0?1:-1):0)*ldist+lcpOff.dy*cam.z;
+    /* 참조선 제어점: 대각선 꼬부랑 방지 → 주요 축만 사용 */
+    var lpAbsDx=Math.abs(lpdx), lpAbsDy=Math.abs(lpdy);
+    var ltAbsDx=Math.abs(ltdx), ltAbsDy=Math.abs(ltdy);
+    var lpMX=lpAbsDx>=lpAbsDy?(lpdx>0?1:-1):0, lpMY=lpAbsDy>lpAbsDx?(lpdy>0?1:-1):0;
+    var ltMX=ltAbsDx>=ltAbsDy?(ltdx>0?1:-1):0, ltMY=ltAbsDy>ltAbsDx?(ltdy>0?1:-1):0;
+    lcp1x=sc1.x+lpMX*ldist+lcpOff.dx*cam.z;
+    lcp1y=sc1.y+lpMY*ldist+lcpOff.dy*cam.z;
+    lcp2x=sc2.x+ltMX*ldist+lcpOff.dx*cam.z;
+    lcp2y=sc2.y+ltMY*ldist+lcpOff.dy*cam.z;
     var linkColor=lk.color||getColor(lk.from);
     /* 교차 구분용 배경 외곽선 */
     var lbgPath=document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -2311,10 +2342,14 @@ function renderNodes(){
     /* 연결 포트 도트 — 없을 때만 추가 (기존 노드 포함) */
     if(!el.querySelector('.link-port')){
       var portDefs=[
-        {dir:'top',   sx:'50%', sy:'0%'},
-        {dir:'bottom',sx:'50%', sy:'100%'},
-        {dir:'left',  sx:'0%',  sy:'50%'},
-        {dir:'right', sx:'100%',sy:'50%'}
+        {dir:'top',          sx:'50%',  sy:'0%'},
+        {dir:'bottom',       sx:'50%',  sy:'100%'},
+        {dir:'left',         sx:'0%',   sy:'50%'},
+        {dir:'right',        sx:'100%', sy:'50%'},
+        {dir:'top-left',     sx:'0%',   sy:'0%'},
+        {dir:'top-right',    sx:'100%', sy:'0%'},
+        {dir:'bottom-left',  sx:'0%',   sy:'100%'},
+        {dir:'bottom-right', sx:'100%', sy:'100%'}
       ];
       portDefs.forEach(function(pd){
         var dot=document.createElement('div');
