@@ -537,7 +537,7 @@ body.link-mode .link-del-btn{display:block;}
   <button class="tbtn" id="btn-theme">☀️ 라이트</button>
   <button class="tbtn" id="btn-help" title="단축키 도움말 (?)">❓ 도움말</button>
   <button class="tbtn danger" id="btn-reset">🗑 초기화</button>
-  <div class="tinfo">노드 <b id="ncnt">1</b>개</div>
+  <div class="tinfo">노드 <b id="ncnt">1</b>개 &nbsp;|&nbsp; S:별표 M:메모 Tab:자식 Del:삭제</div>
 </div>
 
 <!-- VIEWPORT -->
@@ -852,6 +852,70 @@ var curCatId=1;
 var nextCatId=1;
 var nodes=[],nid=1;
 var cam={x:0,y:0,z:1};
+
+/* ════════════════ INDEXED DB (이미지 저장) ════════════════ */
+var imgDB = null;
+var IMG_DB_NAME = 'MindSparkImgDB';
+var IMG_STORE   = 'images';
+
+function openImgDB(callback){
+  if(imgDB){callback(imgDB);return;}
+  var req = indexedDB.open(IMG_DB_NAME, 1);
+  req.onupgradeneeded = function(e){
+    e.target.result.createObjectStore(IMG_STORE, {keyPath:'key'});
+  };
+  req.onsuccess = function(e){
+    imgDB = e.target.result;
+    callback(imgDB);
+  };
+  req.onerror = function(){ console.error('IndexedDB 열기 실패'); };
+}
+
+function idbSaveImg(key, dataURL, cb){
+  openImgDB(function(db){
+    var tx = db.transaction(IMG_STORE,'readwrite');
+    tx.objectStore(IMG_STORE).put({key:key, data:dataURL});
+    tx.oncomplete = function(){ if(cb)cb(); };
+  });
+}
+
+function idbGetImg(key, cb){
+  openImgDB(function(db){
+    var req = db.transaction(IMG_STORE,'readonly').objectStore(IMG_STORE).get(key);
+    req.onsuccess = function(e){ cb(e.target.result ? e.target.result.data : null); };
+    req.onerror   = function(){ cb(null); };
+  });
+}
+
+function idbDelImg(key, cb){
+  openImgDB(function(db){
+    var tx = db.transaction(IMG_STORE,'readwrite');
+    tx.objectStore(IMG_STORE).delete(key);
+    tx.oncomplete = function(){ if(cb)cb(); };
+  });
+}
+
+function idbGetAllImgs(cb){
+  openImgDB(function(db){
+    var req = db.transaction(IMG_STORE,'readonly').objectStore(IMG_STORE).getAll();
+    req.onsuccess = function(e){ cb(e.target.result||[]); };
+    req.onerror   = function(){ cb([]); };
+  });
+}
+
+function idbClearAllImgs(cb){
+  openImgDB(function(db){
+    var tx = db.transaction(IMG_STORE,'readwrite');
+    tx.objectStore(IMG_STORE).clear();
+    tx.oncomplete = function(){ if(cb)cb(); };
+  });
+}
+
+function genImgKey(){
+  return 'idb_img_' + Date.now() + '_' + Math.floor(Math.random()*100000);
+}
+/* ════════════════════════════════════════════════════════════ */
+
 var sel=null,panSt=null,movSt=null;
 var lockMode=false; // 노드 이동 잠금 모드
 var undoStack=[];
@@ -2345,8 +2409,14 @@ function showMemoTooltip(nodeId,clientX,clientY){
     tt.querySelector('.mtt-title').innerHTML='📝 메모 — <span style="color:var(--txt);font-weight:600;text-transform:none;letter-spacing:0">'+n.text+'</span>';
     var imgPrev=document.getElementById('mtt-img-preview');imgPrev.innerHTML='';
     if(n.imgs&&n.imgs.length){
-      n.imgs.slice(0,4).forEach(function(src){
-        var im=document.createElement('img');im.src=src;imgPrev.appendChild(im);
+      n.imgs.slice(0,4).forEach(function(keyOrSrc){
+        var im=document.createElement('img');
+        if(keyOrSrc.startsWith('idb_img_')){
+          idbGetImg(keyOrSrc,function(dataURL){if(dataURL)im.src=dataURL;});
+        } else {
+          im.src=keyOrSrc;
+        }
+        imgPrev.appendChild(im);
       });
     }
     tt.style.display='block';
@@ -2683,12 +2753,22 @@ function saveMemoTxt(){
 function renderMemoImgs(n){
   var grid=document.getElementById('memo-img-grid');grid.innerHTML='';
   if(!n.imgs)n.imgs=[];
-  n.imgs.forEach(function(src,idx){
+  n.imgs.forEach(function(keyOrSrc,idx){
     var wrap=document.createElement('div');wrap.className='memo-img-thumb';
-    var im=document.createElement('img');im.src=src;
-    im.onclick=function(){openLightbox(src);};
+    var im=document.createElement('img');
+    /* 기존 base64 데이터(이전 버전 호환)와 새 IDB key 모두 처리 */
+    if(keyOrSrc.startsWith('idb_img_')){
+      idbGetImg(keyOrSrc,function(dataURL){if(dataURL){im.src=dataURL;im.onclick=function(){openLightbox(dataURL);};}});
+    } else {
+      im.src=keyOrSrc;
+      im.onclick=function(){openLightbox(keyOrSrc);};
+    }
     var del=document.createElement('button');del.className='img-del';del.textContent='✕';del.title='삭제';
-    (function(i){del.onclick=function(e){e.stopPropagation();n.imgs.splice(i,1);saveAll();renderMemoImgs(n);renderNodes();};})(idx);
+    (function(i,k){del.onclick=function(e){
+      e.stopPropagation();
+      if(k.startsWith('idb_img_'))idbDelImg(k);
+      n.imgs.splice(i,1);saveAll();renderMemoImgs(n);renderNodes();
+    };})(idx,keyOrSrc);
     wrap.appendChild(im);wrap.appendChild(del);grid.appendChild(wrap);
   });
 }
@@ -2699,14 +2779,18 @@ function handleImgFiles(files){
   var id2=parseInt(ta.dataset.nid);if(!id2)return;
   var n=gn(id2);if(!n)return;
   if(!n.imgs)n.imgs=[];
-  var remaining=files.length;
-  Array.from(files).forEach(function(file){
-    if(!file.type.startsWith('image/'))return;
+  var fileArr=Array.from(files).filter(function(f){return f.type.startsWith('image/');});
+  var remaining=fileArr.length;
+  if(remaining===0)return;
+  fileArr.forEach(function(file){
     var reader=new FileReader();
     reader.onload=function(e){
-      n.imgs.push(e.target.result);
-      remaining--;
-      if(remaining<=0){saveAll();renderMemoImgs(n);renderNodes();}
+      var key=genImgKey();
+      idbSaveImg(key, e.target.result, function(){
+        n.imgs.push(key);
+        remaining--;
+        if(remaining<=0){saveAll();renderMemoImgs(n);renderNodes();}
+      });
     };
     reader.readAsDataURL(file);
   });
@@ -3188,12 +3272,17 @@ function closeBackupModal(){document.getElementById('backup-modal').classList.re
 
 function exportJSON(){
   var cc=getCat(curCatId);if(cc){cc.nodes=nodes;cc.nid=nid;cc.cam=cam;cc.links=links;cc.groups=groups;cc.nextGid=nextGid;}
-  var data=JSON.stringify({cats:cats,curCatId:curCatId,nextCatId:nextCatId,exportedAt:new Date().toISOString()},null,2);
-  var blob=new Blob([data],{type:'application/json'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='mindspark_backup_'+new Date().toISOString().slice(0,10)+'.json';
-  a.click();URL.revokeObjectURL(a.href);
-  closeBackupModal();
+  /* IDB 이미지 전체 포함하여 내보내기 */
+  idbGetAllImgs(function(imgRecords){
+    var payload={cats:cats,curCatId:curCatId,nextCatId:nextCatId,nextGid:nextGid,
+      idbImages:imgRecords,exportedAt:new Date().toISOString()};
+    var data=JSON.stringify(payload,null,2);
+    var blob=new Blob([data],{type:'application/json'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='mindspark_backup_'+new Date().toISOString().slice(0,10)+'.json';
+    a.click();URL.revokeObjectURL(a.href);
+    closeBackupModal();
+  });
 }
 
 function importJSON(){
@@ -3219,9 +3308,18 @@ document.getElementById('restore-input').addEventListener('change',function(e){
       });
       var cc=getCat(curCatId);if(!cc){curCatId=cats[0].id;cc=cats[0];}
       nodes=cc.nodes;nid=cc.nid;cam=cc.cam||{x:0,y:0,z:1};links=cc.links||[];groups=cc.groups||[];nextGid=cc.nextGid||1;
-      sel=null;closeMemo();saveAll();applyCamera();renderAll();fitView();updateToolbarChip();
-      closeBackupModal();
-      alert('✅ 백업을 성공적으로 불러왔습니다!');
+      /* IDB 이미지 복원 */
+      function doFinish(){sel=null;closeMemo();saveAll();applyCamera();renderAll();fitView();updateToolbarChip();closeBackupModal();alert('✅ 백업을 성공적으로 불러왔습니다!');}
+      if(o.idbImages&&o.idbImages.length){
+        idbClearAllImgs(function(){
+          var rem=o.idbImages.length;
+          o.idbImages.forEach(function(rec){
+            idbSaveImg(rec.key,rec.data,function(){rem--;if(rem<=0)doFinish();});
+          });
+        });
+      } else {
+        doFinish();
+      }
     }catch(err){alert('❌ 파일 오류: '+err.message);}
   };
   reader.readAsText(file);
@@ -3229,20 +3327,21 @@ document.getElementById('restore-input').addEventListener('change',function(e){
 
 function exportHTML(){
   var cc=getCat(curCatId);if(cc){cc.nodes=nodes;cc.nid=nid;cc.cam=cam;cc.links=links;cc.groups=groups;cc.nextGid=nextGid;}
-  var data=JSON.stringify({cats:cats,curCatId:curCatId,nextCatId:nextCatId,nextGid:nextGid});
-  // 현재 페이지 HTML에 데이터 삽입
-  var src=document.documentElement.outerHTML;
-  // 인라인 초기 데이터 주입
-  var injected=src.replace('/* __EMBEDDED_DATA__ */',
-    'var __ED__='+data+';try{if(__ED__){cats=__ED__.cats;curCatId=__ED__.curCatId;nextCatId=__ED__.nextCatId;}}catch(e){}');
-  var blob=new Blob([injected],{type:'text/html;charset=utf-8'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='mindspark_'+new Date().toISOString().slice(0,10)+'.html';
-  a.click();URL.revokeObjectURL(a.href);
-  closeBackupModal();
+  idbGetAllImgs(function(imgRecords){
+    var data=JSON.stringify({cats:cats,curCatId:curCatId,nextCatId:nextCatId,nextGid:nextGid,idbImages:imgRecords});
+    var src=document.documentElement.outerHTML;
+    var injected=src.replace('/* __EMBEDDED_DATA__ */',
+      'var __ED__='+data+';try{if(__ED__){cats=__ED__.cats;curCatId=__ED__.curCatId;nextCatId=__ED__.nextCatId;if(__ED__.idbImages&&__ED__.idbImages.length){openImgDB(function(db){var tx=db.transaction("images","readwrite");__ED__.idbImages.forEach(function(r){tx.objectStore("images").put({key:r.key,data:r.data});});});}}}catch(e){}');
+    var blob=new Blob([injected],{type:'text/html;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='mindspark_'+new Date().toISOString().slice(0,10)+'.html';
+    a.click();URL.revokeObjectURL(a.href);
+    closeBackupModal();
+  });
 }
 
 /* ════════════════ LIGHT THEME ════════════════ */
+
 function toggleTheme(){
   isLight=!isLight;
   var r=document.documentElement;
