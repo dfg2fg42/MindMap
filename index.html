@@ -125,7 +125,7 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 #viewport.memo-open{right:var(--mp);}
 #viewport.panning{cursor:grabbing;}
 #viewport.moving{cursor:move;}
-#svg-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;}
+#svg-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:20;}
 #svg-handle-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:15;}
 #world{position:absolute;left:0;top:0;transform-origin:0 0;z-index:8;}
 
@@ -1676,37 +1676,48 @@ function getLinksOf(id){
 
 /* ════════════════ RENDER CURVES ════════════════ */
 /* ── 노드의 4방향 중 target에 가장 가까운 면의 연결점 반환 ── */
-function getEdgePoint(nx, ny, nw, nh, tx, ty){
+var ARROW_OFFSET = 0; /* z-index 방식으로 해결 - offset 불필요 */
+function getEdgePoint(nx, ny, nw, nh, tx, ty, applyOffset){
   var dx=tx-nx, dy=ty-ny;
   if(dx===0&&dy===0) return {x:nx, y:ny};
   var hw=nw/2, hh=nh/2;
-  /* 방향 벡터 정규화 후 노드 사각형 테두리와의 교차점 계산 */
   var absDx=Math.abs(dx), absDy=Math.abs(dy);
-  var sx=dx>=0?1:-1, sy=dy>=0?1:-1;
-  /* 가로/세로 비율로 어느 면(좌우 or 상하)에 먼저 닿는지 판단 */
   var tx1 = absDx>0 ? hw/absDx : Infinity;
   var ty1 = absDy>0 ? hh/absDy : Infinity;
   var t = Math.min(tx1, ty1);
-  return {
-    x: nx + dx * t,
-    y: ny + dy * t
-  };
+  var ex = nx + dx * t;
+  var ey = ny + dy * t;
+  /* 도착점(applyOffset=true)일 때 화살촉 길이만큼 바깥으로 offset → 화살촉이 노드 테두리에 딱 닿음 */
+  if(applyOffset){
+    var len = Math.sqrt(dx*dx+dy*dy)||1;
+    var off = ARROW_OFFSET / cam.z; /* 줌 레벨 보정 */
+    ex -= (dx/len)*off;
+    ey -= (dy/len)*off;
+  }
+  return {x: ex, y: ey};
 }
 /* ── 포트 이름으로 엣지 좌표 반환 ── */
-function getPortPoint(nx, ny, nw, nh, port){
-  if(port==='top')         return {x:nx,        y:ny-nh/2};
-  if(port==='bottom')      return {x:nx,        y:ny+nh/2};
-  if(port==='left')        return {x:nx-nw/2,   y:ny};
-  if(port==='right')       return {x:nx+nw/2,   y:ny};
-  if(port==='top-left')    return {x:nx-nw/2,   y:ny-nh/2};
-  if(port==='top-right')   return {x:nx+nw/2,   y:ny-nh/2};
-  if(port==='bottom-left') return {x:nx-nw/2,   y:ny+nh/2};
-  if(port==='bottom-right')return {x:nx+nw/2,   y:ny+nh/2};
-  return {x:nx, y:ny};
+function getPortPoint(nx, ny, nw, nh, port, applyOffset, tx, ty){
+  var px,py;
+  if(port==='top')         {px=nx;        py=ny-nh/2;}
+  else if(port==='bottom') {px=nx;        py=ny+nh/2;}
+  else if(port==='left')   {px=nx-nw/2;   py=ny;}
+  else if(port==='right')  {px=nx+nw/2;   py=ny;}
+  else if(port==='top-left')    {px=nx-nw/2; py=ny-nh/2;}
+  else if(port==='top-right')   {px=nx+nw/2; py=ny-nh/2;}
+  else if(port==='bottom-left') {px=nx-nw/2; py=ny+nh/2;}
+  else if(port==='bottom-right'){px=nx+nw/2; py=ny+nh/2;}
+  else {px=nx; py=ny;}
+  if(applyOffset && tx!==undefined && ty!==undefined){
+    var ddx=px-tx, ddy=py-ty, len=Math.sqrt(ddx*ddx+ddy*ddy)||1;
+    var off=ARROW_OFFSET/cam.z;
+    px -= (ddx/len)*off; py -= (ddy/len)*off;
+  }
+  return {x:px, y:py};
 }
 /* ── 포트 or 자동 스마트 연결점 ── */
-function resolveEp(nx,ny,nw,nh,port,tx,ty){
-  return port ? getPortPoint(nx,ny,nw,nh,port) : getEdgePoint(nx,ny,nw,nh,tx,ty);
+function resolveEp(nx,ny,nw,nh,port,tx,ty,isTarget){
+  return port ? getPortPoint(nx,ny,nw,nh,port,isTarget,tx,ty) : getEdgePoint(nx,ny,nw,nh,tx,ty,isTarget);
 }
 function renderCurves(){
   var svg=document.getElementById('svg-layer');
@@ -1770,8 +1781,11 @@ function renderCurves(){
     var siblings=childMap[p.id]||[c.id];
     var sibIdx=siblings.indexOf(c.id);
     var sibCount=siblings.length;
-    var pEp=getEdgePoint(p.x,p.y,pw,ph,c.x,c.y);
-    var cEp=getEdgePoint(c.x,c.y,cw,ch,p.x,p.y);
+    var arr0=c.arr||'forward';
+    var pEpIsTarget=(arr0==='backward');
+    var cEpIsTarget=(arr0==='forward'||arr0==='both');
+    var pEp=getEdgePoint(p.x,p.y,pw,ph,c.x,c.y,pEpIsTarget);
+    var cEp=getEdgePoint(c.x,c.y,cw,ch,p.x,p.y,cEpIsTarget);
     /* 같은 방향 출발일 때만 분산 적용 */
     var allSameSide=true;
     for(var si=0;si<siblings.length;si++){
@@ -1985,8 +1999,9 @@ function renderCurves(){
     var fw=faEl?faEl.offsetWidth:nwFull(fa),tw=taEl?taEl.offsetWidth:nwFull(ta);
     var fh=nhFull(fa), th=nhFull(ta);
     var fx,fy,tx2,ty2;
-    var faEp=resolveEp(fa.x,fa.y,fw,fh,lk.fromPort,ta.x,ta.y);
-    var taEp=resolveEp(ta.x,ta.y,tw,th,lk.toPort,fa.x,fa.y);
+    var lkArr=lk.arr||'forward';
+    var faEp=resolveEp(fa.x,fa.y,fw,fh,lk.fromPort,ta.x,ta.y,(lkArr==='backward'||lkArr==='both'));
+    var taEp=resolveEp(ta.x,ta.y,tw,th,lk.toPort,fa.x,fa.y,(lkArr==='forward'||lkArr==='both'));
     fx=faEp.x; fy=faEp.y; tx2=taEp.x; ty2=taEp.y;
     var sc1=w2s(fx,fy),sc2=w2s(tx2,ty2);
     var lcpOff=lk.cp||{dx:0,dy:0};
