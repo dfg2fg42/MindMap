@@ -1738,7 +1738,8 @@ function getLinksOf(id){
 
 /* ════════════════ RENDER CURVES ════════════════ */
 /* ── 노드의 4방향 중 target에 가장 가까운 면의 연결점 반환 ── */
-var ARROW_OFFSET = 0; /* z-index 방식으로 해결 - offset 불필요 */
+var ARROW_OFFSET = 0; /* 실제 화살촉 위치는 곡선 접선 기준으로 별도 보정 */
+var ARROW_TIP_GAP = 5; /* 화살촉 끝과 노드 박스 사이 화면 기준 px 간격 */
 function getEdgePoint(nx, ny, nw, nh, tx, ty, applyOffset){
   var dx=tx-nx, dy=ty-ny;
   if(dx===0&&dy===0) return {x:nx, y:ny};
@@ -1749,12 +1750,12 @@ function getEdgePoint(nx, ny, nw, nh, tx, ty, applyOffset){
   var t = Math.min(tx1, ty1);
   var ex = nx + dx * t;
   var ey = ny + dy * t;
-  /* 도착점(applyOffset=true)일 때 화살촉 길이만큼 바깥으로 offset → 화살촉이 노드 테두리에 딱 닿음 */
+  /* 도착점(applyOffset=true)일 때 노드 중심에서 연결면 바깥 방향으로 살짝 밀어 화살촉 겹침 방지 */
   if(applyOffset){
     var len = Math.sqrt(dx*dx+dy*dy)||1;
     var off = ARROW_OFFSET / cam.z; /* 줌 레벨 보정 */
-    ex -= (dx/len)*off;
-    ey -= (dy/len)*off;
+    ex += (dx/len)*off;
+    ey += (dy/len)*off;
   }
   return {x: ex, y: ey};
 }
@@ -1776,6 +1777,18 @@ function getPortPoint(nx, ny, nw, nh, port, applyOffset, tx, ty){
     px -= (ddx/len)*off; py -= (ddy/len)*off;
   }
   return {x:px, y:py};
+}
+
+/* 곡선 접선 방향을 기준으로 노드 박스 바깥의 정확한 화살촉 끝점 계산 */
+function getArrowTipForNode(node, nodeW, nodeH, angle){
+  var center=w2s(node.x,node.y);
+  var ux=Math.cos(angle), uy=Math.sin(angle);
+  var ox=-ux, oy=-uy; /* 노드 중심에서 화살표가 들어오는 바깥쪽 방향 */
+  var hw=(nodeW*cam.z)/2, hh=(nodeH*cam.z)/2;
+  var tx=Math.abs(ox)>0.0001 ? hw/Math.abs(ox) : Infinity;
+  var ty=Math.abs(oy)>0.0001 ? hh/Math.abs(oy) : Infinity;
+  var t=Math.min(tx,ty)+ARROW_TIP_GAP;
+  return {x:center.x+ox*t, y:center.y+oy*t};
 }
 /* ── 포트 or 자동 스마트 연결점 ── */
 function resolveEp(nx,ny,nw,nh,port,tx,ty,isTarget){
@@ -1886,6 +1899,15 @@ function renderCurves(){
     cp1y=ps.y+pMainY*dist+cpOff.dy*cam.z;
     cp2x=cs.x+cMainX*dist+cpOff.dx*cam.z;
     cp2y=cs.y+cMainY*dist+cpOff.dy*cam.z;
+    var arr=c.arrow||'none';
+    if(arr==='forward'||arr==='both'){
+      var fwTipAngle=Math.atan2(cs.y-cp2y, cs.x-cp2x);
+      cs=getArrowTipForNode(c,cw,ch,fwTipAngle);
+    }
+    if(arr==='backward'||arr==='both'){
+      var bwTipAngle=Math.atan2(ps.y-cp1y, ps.x-cp1x);
+      ps=getArrowTipForNode(p,pw,ph,bwTipAngle);
+    }
     /* 교차 구분용 배경 외곽선 path */
     var bgPath=document.createElementNS('http://www.w3.org/2000/svg','path');
     bgPath.setAttribute('d','M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y);
@@ -1902,7 +1924,6 @@ function renderCurves(){
     path.setAttribute('stroke-width',(p.pid===null)?'3':'2');
     path.setAttribute('stroke-linecap','round');
     path.setAttribute('opacity','0.9');
-    var arr=c.arrow||'none';
     if(arr!=='none'){
       /* 화살촉을 별도 레이어(svgA)에 그림 → 노드 위에 항상 표시 */
       if(arr==='forward'||arr==='both'){
@@ -2074,6 +2095,15 @@ function renderCurves(){
     lcp1y=sc1.y+lpMY*ldist+lcpOff.dy*cam.z;
     lcp2x=sc2.x+ltMX*ldist+lcpOff.dx*cam.z;
     lcp2y=sc2.y+ltMY*ldist+lcpOff.dy*cam.z;
+    var larr=lk.arrow||'none';
+    if(larr==='forward'||larr==='both'){
+      var lfwTipAngle=Math.atan2(sc2.y-lcp2y, sc2.x-lcp2x);
+      sc2=getArrowTipForNode(ta,tw,th,lfwTipAngle);
+    }
+    if(larr==='backward'||larr==='both'){
+      var lbwTipAngle=Math.atan2(sc1.y-lcp1y, sc1.x-lcp1x);
+      sc1=getArrowTipForNode(fa,fw,fh,lbwTipAngle);
+    }
     var linkColor=lk.color||getColor(lk.from);
     /* 교차 구분용 배경 외곽선 */
     var lbgPath=document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -2093,7 +2123,6 @@ function renderCurves(){
     lpath.setAttribute('stroke-linecap','round');
     lpath.setAttribute('opacity','0.9');
     lpath.setAttribute('data-link',lk.from+'-'+lk.to);
-    var larr=lk.arrow||'none';
     if(larr!=='none'){
       /* 화살표 방향: 경로는 항상 from→to(M=from ep, 끝=to ep)
          forward(from→to): marker-end(to쪽) 고정
@@ -4459,8 +4488,3 @@ function updateNodeConnHighlight(){
 
 </body>
 </html>
-
-
-
-
-
