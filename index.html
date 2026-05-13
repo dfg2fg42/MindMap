@@ -131,7 +131,7 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 #world{position:absolute;left:0;top:0;transform-origin:0 0;z-index:8;}
 
 /* ══ NODES ══ */
-.node{position:absolute;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-size:.88rem;font-weight:700;text-align:center;white-space:pre-wrap;word-break:break-word;border:2.5px solid transparent;transition:box-shadow .15s,border-color .15s;}
+.node{position:absolute;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-size:.88rem;font-weight:700;text-align:center;white-space:pre-wrap;word-break:break-word;border:2.5px solid transparent;transition:box-shadow .15s,border-color .15s;contain:layout style paint;will-change:left,top;}
 .node:hover{filter:brightness(1.1);}
 .node.root-node{font-size:1rem;font-weight:900;border-radius:14px;}
 @keyframes selPulse{0%,100%{box-shadow:0 0 0 2px rgba(57,255,20,.4),0 0 14px 4px rgba(57,255,20,.45),0 5px 20px rgba(0,0,0,.45);}50%{box-shadow:0 0 0 2px rgba(57,255,20,.6),0 0 22px 8px rgba(57,255,20,.65),0 5px 20px rgba(0,0,0,.45);}}
@@ -1475,6 +1475,23 @@ function s2w(sx,sy){
   return{x:(sx-vp.left-cam.x)/cam.z,y:(sy-vp.top-cam.y)/cam.z};
 }
 
+/* 화면 밖 연결선 SVG 생성을 줄이기 위한 viewport bounds */
+function getWorldViewportBounds(pad){
+  pad=pad||360;
+  var vp=document.getElementById('viewport');
+  return {
+    x1:(-cam.x)/cam.z-pad,
+    y1:(-cam.y)/cam.z-pad,
+    x2:(vp.clientWidth-cam.x)/cam.z+pad,
+    y2:(vp.clientHeight-cam.y)/cam.z+pad
+  };
+}
+function edgeMaybeVisible(a,b,bounds){
+  var minX=Math.min(a.x,b.x), maxX=Math.max(a.x,b.x);
+  var minY=Math.min(a.y,b.y), maxY=Math.max(a.y,b.y);
+  return !(maxX<bounds.x1||minX>bounds.x2||maxY<bounds.y1||minY>bounds.y2);
+}
+
 /* ════════════════ LAYOUT ════════════════ */
 function nodeH(id){var n=gn(id);var sc=n?n.scale||1:1;return Math.max(NH+VGAP,(NH+VGAP)*sc);}
 function subH(id){
@@ -1765,6 +1782,7 @@ function resolveEp(nx,ny,nw,nh,port,tx,ty,isTarget){
   return port ? getPortPoint(nx,ny,nw,nh,port,isTarget,tx,ty) : getEdgePoint(nx,ny,nw,nh,tx,ty,isTarget);
 }
 function renderCurves(){
+  var curveBounds=getWorldViewportBounds(520);
   var svg=document.getElementById('svg-layer');
   var svgH=document.getElementById('svg-handle-layer');
   var svgA=document.getElementById('svg-arrow-layer');
@@ -1815,11 +1833,10 @@ function renderCurves(){
   for(var i=0;i<nodes.length;i++){
     var c=nodes[i]; if(c.pid===null)continue;
     var p=gn(c.pid); if(!p)continue;
+    if(!edgeMaybeVisible(p,c,curveBounds))continue;
     var color=c.lineColor||getColor(c.id);
-    var pelEl=document.getElementById('n'+p.id);
-    var celEl=document.getElementById('n'+c.id);
-    var pw=pelEl?pelEl.offsetWidth:nwFull(p);
-    var cw=celEl?celEl.offsetWidth:nwFull(c);
+    var pw=nwFull(p);
+    var cw=nwFull(c);
     var pwx,pwy,cwx,cwy;
     var ph=nhFull(p), ch=nhFull(c);
     /* 수직 연결 판정: X 차이가 노드 너비의 절반 이하이면 상/하 연결 */
@@ -1979,6 +1996,16 @@ function renderCurves(){
         var startX=e.clientX,startY=e.clientY;
         var nc=gn(cid2);if(!nc)return;
         var origCp=nc.cp?{dx:nc.cp.dx,dy:nc.cp.dy}:{dx:0,dy:0};
+        var pn0=gn(nc.pid), cn0=nc;
+        var pCenter0=pn0?w2s(pn0.x,pn0.y):{x:psx,y:psy};
+        var cCenter0=cn0?w2s(cn0.x,cn0.y):{x:csx,y:csy};
+        var pdx0=psx-pCenter0.x, pdy0=psy-pCenter0.y;
+        var cdx0=csx-cCenter0.x, cdy0=csy-cCenter0.y;
+        var pMainX0=Math.abs(pdx0)>=Math.abs(pdy0)?(pdx0>=0?1:-1):0;
+        var pMainY0=Math.abs(pdy0)> Math.abs(pdx0)?(pdy0>=0?1:-1):0;
+        var cMainX0=Math.abs(cdx0)>=Math.abs(cdy0)?(cdx0>=0?1:-1):0;
+        var cMainY0=Math.abs(cdy0)> Math.abs(cdx0)?(cdy0>=0?1:-1):0;
+        var baseDist0=Math.max(Math.abs(psx-csx),Math.abs(psy-csy))*0.5;
         var rafId=null;
         function onMove(ev){
           var ddx=origCp.dx+(ev.clientX-startX)/cam.z;
@@ -1986,32 +2013,15 @@ function renderCurves(){
           nc.cp={dx:ddx,dy:ddy};
           if(rafId)cancelAnimationFrame(rafId);
           rafId=requestAnimationFrame(function(){
-            /* 핸들 현재 world 좌표 → 스마트 연결점 재계산 */
-            var pelEl2=document.getElementById('n'+gn(cid2).pid);
-            var celEl2=document.getElementById('n'+cid2);
-            var pw2=pelEl2?pelEl2.offsetWidth:80,cw2=celEl2?celEl2.offsetWidth:80;
-            var pn=gn(gn(cid2).pid),cn=gn(cid2);
-            var ph2=nhFull(pn),ch2=nhFull(cn);
-            var hmxCur=(psx+csx)/2+(ev.clientX-startX);
-            var hmyCur=(psy+csy)/2+(ev.clientY-startY);
-            var hw=s2w(hmxCur,hmyCur);
-            var pEp2=getEdgePoint(pn.x,pn.y,pw2,ph2,hw.x,hw.y);
-            var cEp2=getEdgePoint(cn.x,cn.y,cw2,ch2,hw.x,hw.y);
-            var ps2=w2s(pEp2.x,pEp2.y),cs2=w2s(cEp2.x,cEp2.y);
-            var pndx2=pEp2.x-pn.x, pndy2=pEp2.y-pn.y;
-            var cndx2=cEp2.x-cn.x, cndy2=cEp2.y-cn.y;
-            var tdist2=Math.max(Math.abs(ps2.x-cs2.x),Math.abs(ps2.y-cs2.y))*0.5;
-            var ncp1x=ps2.x+(pndx2!==0?(pndx2>0?1:-1):0)*tdist2+ddx*cam.z;
-            var ncp1y=ps2.y+(pndy2!==0?(pndy2>0?1:-1):0)*tdist2+ddy*cam.z;
-            var ncp2x=cs2.x+(cndx2!==0?(cndx2>0?1:-1):0)*tdist2+ddx*cam.z;
-            var ncp2y=cs2.y+(cndy2!==0?(cndy2>0?1:-1):0)*tdist2+ddy*cam.z;
-            /* 경로 업데이트 */
-            pathEl2.setAttribute('d','M'+ps2.x+','+ps2.y+' C'+ncp1x+','+ncp1y+' '+ncp2x+','+ncp2y+' '+cs2.x+','+cs2.y);
+            var ncp1x=psx+pMainX0*baseDist0+ddx*cam.z;
+            var ncp1y=psy+pMainY0*baseDist0+ddy*cam.z;
+            var ncp2x=csx+cMainX0*baseDist0+ddx*cam.z;
+            var ncp2y=csy+cMainY0*baseDist0+ddy*cam.z;
+            pathEl2.setAttribute('d','M'+psx+','+psy+' C'+ncp1x+','+ncp1y+' '+ncp2x+','+ncp2y+' '+csx+','+csy);
             var nhx=(ncp1x+ncp2x)/2, nhy=(ncp1y+ncp2y)/2;
             hEl2.setAttribute('cx',nhx);hEl2.setAttribute('cy',nhy);
-            /* 가이드라인 업데이트 */
-            guide1.setAttribute('x1',ps2.x);guide1.setAttribute('y1',ps2.y);guide1.setAttribute('x2',ncp1x);guide1.setAttribute('y2',ncp1y);
-            guide2.setAttribute('x1',cs2.x);guide2.setAttribute('y1',cs2.y);guide2.setAttribute('x2',ncp2x);guide2.setAttribute('y2',ncp2y);
+            guide1.setAttribute('x1',psx);guide1.setAttribute('y1',psy);guide1.setAttribute('x2',ncp1x);guide1.setAttribute('y2',ncp1y);
+            guide2.setAttribute('x1',csx);guide2.setAttribute('y1',csy);guide2.setAttribute('x2',ncp2x);guide2.setAttribute('y2',ncp2y);
             cpDot.setAttribute('cx',nhx);cpDot.setAttribute('cy',nhy-14);
             label.setAttribute('x',nhx+10);label.setAttribute('y',nhy-10);
             label.textContent='dx:'+Math.round(ddx)+' dy:'+Math.round(ddy);
@@ -2041,8 +2051,8 @@ function renderCurves(){
     var lk=links[li];
     var fa=gn(lk.from),ta=gn(lk.to);
     if(!fa||!ta)continue;
-    var faEl=document.getElementById('n'+fa.id),taEl=document.getElementById('n'+ta.id);
-    var fw=faEl?faEl.offsetWidth:nwFull(fa),tw=taEl?taEl.offsetWidth:nwFull(ta);
+    if(!edgeMaybeVisible(fa,ta,curveBounds))continue;
+    var fw=nwFull(fa),tw=nwFull(ta);
     var fh=nhFull(fa), th=nhFull(ta);
     var fx,fy,tx2,ty2;
     var lkArr=lk.arr||'forward';
@@ -2169,6 +2179,19 @@ function renderCurves(){
         svgEl.appendChild(lg1);svgEl.appendChild(lg2);svgEl.appendChild(lcpDot);svgEl.appendChild(llabel);
         var startX=e.clientX,startY=e.clientY;
         var origCp=lkref2.cp?{dx:lkref2.cp.dx,dy:lkref2.cp.dy}:{dx:0,dy:0};
+        var fan0=gn(lkref2.from),tan0=gn(lkref2.to);if(!fan0||!tan0)return;
+        var faW0=nwFull(fan0),taW0=nwFull(tan0),faH0=nhFull(fan0),taH0=nhFull(tan0);
+        var faEp0=lkref2.fromPort?getPortPoint(fan0.x,fan0.y,faW0,faH0,lkref2.fromPort):getEdgePoint(fan0.x,fan0.y,faW0,faH0,tan0.x,tan0.y);
+        var taEp0=lkref2.toPort?getPortPoint(tan0.x,tan0.y,taW0,taH0,lkref2.toPort):getEdgePoint(tan0.x,tan0.y,taW0,taH0,fan0.x,fan0.y);
+        var lsc1=w2s(faEp0.x,faEp0.y),lsc2=w2s(taEp0.x,taEp0.y);
+        var fanCenter0=w2s(fan0.x,fan0.y),tanCenter0=w2s(tan0.x,tan0.y);
+        var flpdx0=lsc1.x-fanCenter0.x, flpdy0=lsc1.y-fanCenter0.y;
+        var tltdx0=lsc2.x-tanCenter0.x, tltdy0=lsc2.y-tanCenter0.y;
+        var flMainX0=Math.abs(flpdx0)>=Math.abs(flpdy0)?(flpdx0>=0?1:-1):0;
+        var flMainY0=Math.abs(flpdy0)> Math.abs(flpdx0)?(flpdy0>=0?1:-1):0;
+        var tlMainX0=Math.abs(tltdx0)>=Math.abs(tltdy0)?(tltdx0>=0?1:-1):0;
+        var tlMainY0=Math.abs(tltdy0)> Math.abs(tltdx0)?(tltdy0>=0?1:-1):0;
+        var ldist0=Math.max(Math.abs(lsc1.x-lsc2.x),Math.abs(lsc1.y-lsc2.y))*0.5;
         var rafId=null;
         function onMove(ev){
           var ddx=origCp.dx+(ev.clientX-startX)/cam.z;
@@ -2176,28 +2199,10 @@ function renderCurves(){
           lkref2.cp={dx:ddx,dy:ddy};
           if(rafId)cancelAnimationFrame(rafId);
           rafId=requestAnimationFrame(function(){
-            var fan=gn(lkref2.from),tan=gn(lkref2.to);if(!fan||!tan)return;
-            var faEl2=document.getElementById('n'+fan.id),taEl2=document.getElementById('n'+tan.id);
-            var fw2=faEl2?faEl2.offsetWidth:80,tw2=taEl2?taEl2.offsetWidth:80;
-            var fh2=nhFull(fan),th2=nhFull(tan);
-            /* 포트 미지정 시 핸들 위치 기준 스마트 연결점 */
-            var lhmxCur=initHmx+(ev.clientX-startX);
-            var lhmyCur=initHmy+(ev.clientY-startY);
-            var lhw=s2w(lhmxCur,lhmyCur);
-            var faEp2=lkref2.fromPort
-              ? getPortPoint(fan.x,fan.y,fw2,fh2,lkref2.fromPort)
-              : getEdgePoint(fan.x,fan.y,fw2,fh2,lhw.x,lhw.y);
-            var taEp2=lkref2.toPort
-              ? getPortPoint(tan.x,tan.y,tw2,th2,lkref2.toPort)
-              : getEdgePoint(tan.x,tan.y,tw2,th2,lhw.x,lhw.y);
-            var lsc1=w2s(faEp2.x,faEp2.y),lsc2=w2s(taEp2.x,taEp2.y);
-            var flpdx2=faEp2.x-fan.x, flpdy2=faEp2.y-fan.y;
-            var tltdx2=taEp2.x-tan.x, tltdy2=taEp2.y-tan.y;
-            var ldist2=Math.max(Math.abs(lsc1.x-lsc2.x),Math.abs(lsc1.y-lsc2.y))*0.5;
-            var nlcp1x=lsc1.x+(flpdx2!==0?(flpdx2>0?1:-1):0)*ldist2+ddx*cam.z;
-            var nlcp1y=lsc1.y+(flpdy2!==0?(flpdy2>0?1:-1):0)*ldist2+ddy*cam.z;
-            var nlcp2x=lsc2.x+(tltdx2!==0?(tltdx2>0?1:-1):0)*ldist2+ddx*cam.z;
-            var nlcp2y=lsc2.y+(tltdy2!==0?(tltdy2>0?1:-1):0)*ldist2+ddy*cam.z;
+            var nlcp1x=lsc1.x+flMainX0*ldist0+ddx*cam.z;
+            var nlcp1y=lsc1.y+flMainY0*ldist0+ddy*cam.z;
+            var nlcp2x=lsc2.x+tlMainX0*ldist0+ddx*cam.z;
+            var nlcp2y=lsc2.y+tlMainY0*ldist0+ddy*cam.z;
             lpathEl2.setAttribute('d','M'+lsc1.x+','+lsc1.y+' C'+nlcp1x+','+nlcp1y+' '+nlcp2x+','+nlcp2y+' '+lsc2.x+','+lsc2.y);
             var lnhx=(nlcp1x+nlcp2x)/2,lnhy=(nlcp1y+nlcp2y)/2;
             lhEl2.setAttribute('cx',lnhx);lhEl2.setAttribute('cy',lnhy);
@@ -2265,9 +2270,8 @@ function renderNodes(){
       var validNodes=0;
       for(var ni=0; ni<grp.nodeIds.length; ni++){
         var gn2=gn(grp.nodeIds[ni]); if(!gn2)continue;
-        var nEl=document.getElementById('n'+gn2.id);
-        var nw2=nEl?nEl.offsetWidth:nwFull(gn2);
-        var nh2=nEl?nEl.offsetHeight:nhFull(gn2);
+        var nw2=nwFull(gn2);
+        var nh2=nhFull(gn2);
         if(gn2.x-nw2/2<minX)minX=gn2.x-nw2/2;
         if(gn2.y-nh2/2<minY)minY=gn2.y-nh2/2;
         if(gn2.x+nw2/2>maxX)maxX=gn2.x+nw2/2;
@@ -2338,7 +2342,7 @@ function renderNodes(){
             grp.nodeIds.forEach(function(nid2){
               var nd=gn(nid2); if(nd&&initPos[nid2]){nd.x=initPos[nid2].x+dx; nd.y=initPos[nid2].y+dy;}
             });
-            renderAll();
+            requestFastRender({forceCurves:true,drawMM:false});
           }
           function onUp(){
             document.removeEventListener('mousemove',onMove);
@@ -2453,8 +2457,7 @@ function renderNodes(){
         el.appendChild(dot);
       });
     }
-    var nEl=document.getElementById('n'+n.id);
-  var w=nEl?nEl.offsetWidth:nwFull(n),h=nEl?nEl.offsetHeight:nhFull(n);
+    var w=nwFull(n),h=nhFull(n);
     var sc2=n.scale||1;
     var fs2=n.pid===null?(1.0*sc2):(0.88*sc2);
     el.style.left=(n.x-w/2)+'px';el.style.top=(n.y-h/2)+'px';
@@ -2774,42 +2777,91 @@ function blendColors(colors){
 }
 
 /* ════════════════ OVERLAP RESOLVER ════════════════ */
+/* ════════════════ RENDER PERFORMANCE HELPERS ════════════════ */
+var _fastRenderRAF=null;
+var _fastCurveLast=0;
+var _fullRenderRAF=null;
+
+function requestFastRender(opts){
+  opts=opts||{};
+  if(_fastRenderRAF)return;
+  _fastRenderRAF=requestAnimationFrame(function(){
+    _fastRenderRAF=null;
+    renderNodes();
+    var now=performance.now?performance.now():Date.now();
+    if(opts.forceCurves || now-_fastCurveLast>32){
+      renderCurves();
+      _fastCurveLast=now;
+    }
+    updatePanel();
+    if(opts.drawMM!==false)drawMM();
+  });
+}
+
+function requestViewportRender(){
+  if(_fastRenderRAF)return;
+  _fastRenderRAF=requestAnimationFrame(function(){
+    _fastRenderRAF=null;
+    applyCamera();
+    renderCurves();
+    updatePanel();
+    if(!(panSt||movSt||multiDrag))drawMM();
+  });
+}
+
+/* 가까운 노드끼리만 비교하는 공간 해시 기반 겹침 해소 */
 function resolveOverlaps(){
+  if(movSt||multiDrag||panSt||selBox)return;
   var PAD_X=18, PAD_Y=14;
-  var MAX_ITER=80;
+  var len=nodes.length;
+  var MAX_ITER=len>700?3:(len>350?6:14);
+  var CELL=260;
   var dragId=movSt?movSt.id:null;
-  /* 고정 노드: 드래그 중인 노드 */
   function isFixed(n){ return n.id===dragId; }
+  function addCell(grid,key,idx){
+    if(!grid[key])grid[key]=[];
+    grid[key].push(idx);
+  }
+  function pairKey(i,j){return i<j?i+'_'+j:j+'_'+i;}
   for(var iter=0;iter<MAX_ITER;iter++){
     var moved=false;
-    for(var i=0;i<nodes.length;i++){
-      for(var j=i+1;j<nodes.length;j++){
-        var a=nodes[i], b=nodes[j];
-        var aFix=isFixed(a), bFix=isFixed(b);
-        /* 둘 다 고정이면 건너뜀 */
-        if(aFix&&bFix) continue;
-        var aw=nwFull(a), ah=nhFull(a);
-        var bw=nwFull(b), bh=nhFull(b);
-        var minDx=(aw+bw)/2+PAD_X;
-        var minDy=(ah+bh)/2+PAD_Y;
-        var dx=Math.abs(a.x-b.x);
-        var dy=Math.abs(a.y-b.y);
-        if(dx<minDx && dy<minDy){
-          var overlapX=minDx-dx;
-          var overlapY=minDy-dy;
-          /* 겹침이 적은 축 방향으로 밀기 (최소 이동) */
-          if(overlapX < overlapY){
-            /* X축으로 밀기 */
-            var pushX = aFix ? overlapX+1 : (bFix ? overlapX+1 : overlapX/2+1);
-            if(!aFix){ if(a.x<=b.x){ a.x-=pushX; }else{ a.x+=pushX; } }
-            if(!bFix){ if(b.x<=a.x){ b.x-=pushX; }else{ b.x+=pushX; } }
-          } else {
-            /* Y축으로 밀기 */
-            var pushY = aFix ? overlapY+1 : (bFix ? overlapY+1 : overlapY/2+1);
-            if(!aFix){ if(a.y<=b.y){ a.y-=pushY; }else{ a.y+=pushY; } }
-            if(!bFix){ if(b.y<=a.y){ b.y-=pushY; }else{ b.y+=pushY; } }
+    var grid={};
+    for(var i=0;i<len;i++){
+      var n=nodes[i];
+      var w=nwFull(n)+PAD_X*2, h=nhFull(n)+PAD_Y*2;
+      var x1=Math.floor((n.x-w/2)/CELL), x2=Math.floor((n.x+w/2)/CELL);
+      var y1=Math.floor((n.y-h/2)/CELL), y2=Math.floor((n.y+h/2)/CELL);
+      for(var gx=x1;gx<=x2;gx++)for(var gy=y1;gy<=y2;gy++)addCell(grid,gx+','+gy,i);
+    }
+    var seen={};
+    for(var key in grid){
+      var bucket=grid[key];
+      for(var bi=0;bi<bucket.length;bi++){
+        for(var bj=bi+1;bj<bucket.length;bj++){
+          var i1=bucket[bi], i2=bucket[bj];
+          var pk=pairKey(i1,i2);if(seen[pk])continue;seen[pk]=true;
+          var a=nodes[i1], b=nodes[i2];
+          var aFix=isFixed(a), bFix=isFixed(b);
+          if(aFix&&bFix)continue;
+          var aw=nwFull(a), ah=nhFull(a), bw=nwFull(b), bh=nhFull(b);
+          var minDx=(aw+bw)/2+PAD_X, minDy=(ah+bh)/2+PAD_Y;
+          var rawDx=b.x-a.x, rawDy=b.y-a.y;
+          var dx=Math.abs(rawDx), dy=Math.abs(rawDy);
+          if(dx<minDx && dy<minDy){
+            var overlapX=minDx-dx, overlapY=minDy-dy;
+            if(overlapX<overlapY){
+              var sx=rawDx>=0?1:-1;
+              var pushX=aFix||bFix?overlapX+1:overlapX/2+1;
+              if(!aFix)a.x-=sx*pushX;
+              if(!bFix)b.x+=sx*pushX;
+            }else{
+              var sy=rawDy>=0?1:-1;
+              var pushY=aFix||bFix?overlapY+1:overlapY/2+1;
+              if(!aFix)a.y-=sy*pushY;
+              if(!bFix)b.y+=sy*pushY;
+            }
+            moved=true;
           }
-          moved=true;
         }
       }
     }
@@ -2818,15 +2870,18 @@ function resolveOverlaps(){
 }
 
 function renderAll(){
-  resolveOverlaps();
-  renderNodes();
-  /* DOM 크기 확정 후 커브 그리기 */
-  requestAnimationFrame(function(){
-    renderCurves();updatePanel();drawMM();
+  if(_fullRenderRAF)return;
+  _fullRenderRAF=requestAnimationFrame(function(){
+    _fullRenderRAF=null;
+    resolveOverlaps();
+    renderNodes();
+    requestAnimationFrame(function(){
+      renderCurves();updatePanel();drawMM();
+    });
+    document.getElementById('ncnt').textContent=nodes.length;
+    updateNodeConnHighlight();
+    if(!movSt&&!multiDrag&&!panSt&&!selBox)buildCatTree();
   });
-  document.getElementById('ncnt').textContent=nodes.length;
-  updateNodeConnHighlight();
-  buildCatTree();
 }
 
 /* ════════════════ MEMO + IMAGES ════════════════ */
@@ -3506,14 +3561,14 @@ document.addEventListener('mousemove',function(e){
     multiSel.forEach(function(id){
       var n=gn(id);if(n){n.x+=dx;n.y+=dy;}
     });
-    renderNodes();renderCurves();updatePanel();drawMM();return;
+    requestFastRender({forceCurves:true,drawMM:false});return;
   }
   if(movSt){
     var wp=s2w(e.clientX,e.clientY),n=gn(movSt.id);
     if(n){n.x=movSt.ox+(wp.x-movSt.mx);n.y=movSt.oy+(wp.y-movSt.my);}
-    renderAll();return;
+    requestFastRender({forceCurves:true,drawMM:false});return;
   }
-  if(panSt){cam.x=panSt.cx+(e.clientX-panSt.sx);cam.y=panSt.cy+(e.clientY-panSt.sy);applyCamera();renderCurves();updatePanel();drawMM();}
+  if(panSt){cam.x=panSt.cx+(e.clientX-panSt.sx);cam.y=panSt.cy+(e.clientY-panSt.sy);requestViewportRender();}
 });
 document.addEventListener('mouseup',function(){
   /* 영역선택 완료 → 포함된 노드 multiSel에 등록 */
@@ -3532,7 +3587,7 @@ document.addEventListener('mouseup',function(){
     return;
   }
   if(multiDrag){multiDrag=null;document.getElementById('viewport').classList.remove('moving');saveAll();renderAll();return;}
-  if(movSt){movSt=null;document.getElementById('viewport').classList.remove('moving');saveAll();}
+  if(movSt){movSt=null;document.getElementById('viewport').classList.remove('moving');saveAll();renderAll();}
   if(panSt){panSt=null;document.getElementById('viewport').classList.remove('panning');}
 });
 document.getElementById('viewport').addEventListener('wheel',function(e){e.preventDefault();zoomAt(e.clientX,e.clientY,e.deltaY<0);},{passive:false});
@@ -4404,3 +4459,8 @@ function updateNodeConnHighlight(){
 
 </body>
 </html>
+
+
+
+
+
