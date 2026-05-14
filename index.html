@@ -1230,6 +1230,26 @@ function showArrowMenu(target, cx, cy, type){
     {val:'both', label:'↔', title:'양방향 ↔'}
   ];
   var curArr = type==='tree' ? (gn(target)||{}).arrow||'none' : (target.arrow||'none');
+  var curLineType = type==='tree' ? ((gn(target)||{}).lineType||'curve') : (target.lineType||'curve');
+  var typeSep=document.createElement('div');
+  typeSep.style.cssText='width:1px;background:var(--bdr);margin:2px 2px;';
+  menu.appendChild(typeSep);
+  var typeOpts=[
+    {val:'curve', label:'∿', title:'곡선 연결'},
+    {val:'elbow', label:'┐', title:'라운드 꺾은선 연결'}
+  ];
+  typeOpts.forEach(function(o){
+    var btn=document.createElement('button');
+    btn.textContent=o.label;btn.title=o.title;
+    btn.style.cssText='background:'+(curLineType===o.val?'var(--acc)':'var(--sur2)')+';border:1px solid var(--bdr);border-radius:7px;width:34px;height:34px;font-size:1.05rem;cursor:pointer;color:var(--txt);font-weight:800;';
+    btn.onclick=function(e){
+      e.stopPropagation();
+      if(type==='tree'){var n=gn(target);if(n){n.lineType=o.val;}}
+      else{target.lineType=o.val;}
+      saveAll();renderAll();closeArrowMenu();
+    };
+    menu.appendChild(btn);
+  });
   opts.forEach(function(o){
     var btn=document.createElement('button');
     btn.textContent=o.label;btn.title=o.title;
@@ -1790,6 +1810,104 @@ function getArrowTipForNode(node, nodeW, nodeH, angle){
   var t=Math.min(tx,ty)+ARROW_TIP_GAP;
   return {x:center.x+ox*t, y:center.y+oy*t};
 }
+
+function roundedElbowPath(ps,cs,cpOff,lineType){
+  if(lineType!=='elbow')return null;
+  cpOff=cpOff||{dx:0,dy:0};
+  var dx=cs.x-ps.x, dy=cs.y-ps.y;
+  var offX=(cpOff.dx||0)*cam.z, offY=(cpOff.dy||0)*cam.z;
+  var horizontalFirst;
+  if(Math.abs(offX)>Math.abs(offY)+2) horizontalFirst=true;
+  else if(Math.abs(offY)>Math.abs(offX)+2) horizontalFirst=false;
+  else horizontalFirst=Math.abs(dx)>=Math.abs(dy);
+  var r=Math.min(22, Math.max(6, Math.min(Math.abs(dx),Math.abs(dy))/3));
+  if(!isFinite(r))r=10;
+  var d,handle,startAngle,endAngle;
+  if(horizontalFirst){
+    var mx=(ps.x+cs.x)/2+offX;
+    var sx=mx>=ps.x?1:-1, sy=cs.y>=ps.y?1:-1, ex=cs.x>=mx?1:-1;
+    var r1=Math.min(r,Math.abs(mx-ps.x)/2,Math.abs(cs.y-ps.y)/2);
+    var r2=Math.min(r,Math.abs(cs.x-mx)/2,Math.abs(cs.y-ps.y)/2);
+    d='M'+ps.x+','+ps.y+
+      ' L'+(mx-sx*r1)+','+ps.y+
+      ' Q'+mx+','+ps.y+' '+mx+','+(ps.y+sy*r1)+
+      ' L'+mx+','+(cs.y-sy*r2)+
+      ' Q'+mx+','+cs.y+' '+(mx+ex*r2)+','+cs.y+
+      ' L'+cs.x+','+cs.y;
+    handle={x:mx,y:(ps.y+cs.y)/2};
+    startAngle=Math.atan2(0, ps.x-mx);
+    endAngle=Math.atan2(0, cs.x-mx);
+  }else{
+    var my=(ps.y+cs.y)/2+offY;
+    var sy1=my>=ps.y?1:-1, sx1=cs.x>=ps.x?1:-1, ey=cs.y>=my?1:-1;
+    var rv1=Math.min(r,Math.abs(my-ps.y)/2,Math.abs(cs.x-ps.x)/2);
+    var rv2=Math.min(r,Math.abs(cs.y-my)/2,Math.abs(cs.x-ps.x)/2);
+    d='M'+ps.x+','+ps.y+
+      ' L'+ps.x+','+(my-sy1*rv1)+
+      ' Q'+ps.x+','+my+' '+(ps.x+sx1*rv1)+','+my+
+      ' L'+(cs.x-sx1*rv2)+','+my+
+      ' Q'+cs.x+','+my+' '+cs.x+','+(my+ey*rv2)+
+      ' L'+cs.x+','+cs.y;
+    handle={x:(ps.x+cs.x)/2,y:my};
+    startAngle=Math.atan2(ps.y-my,0);
+    endAngle=Math.atan2(cs.y-my,0);
+  }
+  return {d:d,handle:handle,startAngle:startAngle,endAngle:endAngle};
+}
+
+function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs){
+  pathEl.addEventListener('mouseenter',function(){hEl.setAttribute('opacity','1');pathEl.setAttribute('stroke-width','3');});
+  pathEl.addEventListener('mouseleave',function(){if(!hEl._dragging){hEl.setAttribute('opacity','0');pathEl.setAttribute('stroke-width','2');}});
+  hEl.addEventListener('mouseenter',function(){hEl.setAttribute('opacity','1');});
+  hEl.addEventListener('mouseleave',function(){if(!hEl._dragging)hEl.setAttribute('opacity','0');});
+  hEl.addEventListener('dblclick',function(e){
+    e.stopPropagation();
+    edgeObj.cp={dx:0,dy:0};
+    saveAll();renderCurves();drawMM();
+  });
+  hEl.addEventListener('mousedown',function(e){
+    if(e.button!==0)return;
+    e.stopPropagation();e.preventDefault();
+    hEl._dragging=true;
+    hEl.style.cursor='grabbing';
+    hEl.setAttribute('r','9');
+    hEl.setAttribute('fill','rgba(56,178,255,0.45)');
+    hEl.setAttribute('stroke','#7dd8ff');
+    hEl.setAttribute('opacity','1');
+    var startX=e.clientX,startY=e.clientY;
+    var orig=edgeObj.cp?{dx:edgeObj.cp.dx||0,dy:edgeObj.cp.dy||0}:{dx:0,dy:0};
+    var rafId=null;
+    function onMove(ev){
+      var next={
+        dx:orig.dx+(ev.clientX-startX)/cam.z,
+        dy:orig.dy+(ev.clientY-startY)/cam.z
+      };
+      edgeObj.cp=next;
+      if(rafId)cancelAnimationFrame(rafId);
+      rafId=requestAnimationFrame(function(){
+        var info=roundedElbowPath(ps,cs,next,'elbow');
+        if(!info)return;
+        pathEl.setAttribute('d',info.d);
+        if(bgPath)bgPath.setAttribute('d',info.d);
+        hEl.setAttribute('cx',info.handle.x);
+        hEl.setAttribute('cy',info.handle.y);
+      });
+    }
+    function onUp(){
+      hEl._dragging=false;
+      if(rafId)cancelAnimationFrame(rafId);
+      hEl.style.cursor='grab';
+      hEl.setAttribute('r','7');
+      hEl.setAttribute('fill','rgba(56,178,255,0.22)');
+      hEl.setAttribute('stroke','#38b2ff');
+      saveAll();renderCurves();drawMM();
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+    }
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+}
 /* ── 포트 or 자동 스마트 연결점 ── */
 function resolveEp(nx,ny,nw,nh,port,tx,ty,isTarget){
   return port ? getPortPoint(nx,ny,nw,nh,port,isTarget,tx,ty) : getEdgePoint(nx,ny,nw,nh,tx,ty,isTarget);
@@ -1908,9 +2026,16 @@ function renderCurves(){
       var bwTipAngle=Math.atan2(ps.y-cp1y, ps.x-cp1x);
       ps=getArrowTipForNode(p,pw,ph,bwTipAngle);
     }
+    var edgeLineType=c.lineType||'curve';
+    var edgePathInfo=roundedElbowPath(ps,cs,cpOff,edgeLineType)||{
+      d:'M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y,
+      handle:{x:(cp1x+cp2x)/2,y:(cp1y+cp2y)/2},
+      startAngle:Math.atan2(ps.y-cp1y,ps.x-cp1x),
+      endAngle:Math.atan2(cs.y-cp2y,cs.x-cp2x)
+    };
     /* 교차 구분용 배경 외곽선 path */
     var bgPath=document.createElementNS('http://www.w3.org/2000/svg','path');
-    bgPath.setAttribute('d','M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y);
+    bgPath.setAttribute('d',edgePathInfo.d);
     bgPath.setAttribute('fill','none');
     bgPath.setAttribute('stroke','var(--bg,#1a1a2e)');
     bgPath.setAttribute('stroke-width',(p.pid===null)?'7':'6');
@@ -1918,7 +2043,7 @@ function renderCurves(){
     bgPath.setAttribute('pointer-events','none');
     svg.appendChild(bgPath);
     var path=document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d','M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y);
+    path.setAttribute('d',edgePathInfo.d);
     path.setAttribute('fill','none');
     path.setAttribute('stroke',color);
     path.setAttribute('stroke-width',(p.pid===null)?'3':'2');
@@ -1958,7 +2083,7 @@ function renderCurves(){
     })(c.id);
     svg.appendChild(path);
     /* ── 컨트롤 핸들 (드래그로 곡선 조절) ── */
-    var hmx=(cp1x+cp2x)/2, hmy=(cp1y+cp2y)/2;
+    var hmx=edgePathInfo.handle.x, hmy=edgePathInfo.handle.y;
     var handle=document.createElementNS('http://www.w3.org/2000/svg','circle');
     handle.setAttribute('cx',hmx); handle.setAttribute('cy',hmy);
     handle.setAttribute('r','7');
@@ -1970,6 +2095,11 @@ function renderCurves(){
     handle.setAttribute('opacity','0');
     handle.style.transition='r .15s,opacity .15s';
     path.setAttribute('data-edge','tree-'+c.id);
+    if(edgeLineType==='elbow'){
+      bindRoundedElbowHandle(handle,path,bgPath,c,ps,cs);
+      svgH.appendChild(handle);
+      continue;
+    }
     /* hover show/hide */
     (function(hEl,pathEl){
       pathEl.addEventListener('mouseenter',function(){hEl.setAttribute('opacity','1');pathEl.setAttribute('stroke-width',(p.pid===null)?'4':'3');});
@@ -2105,9 +2235,16 @@ function renderCurves(){
       sc1=getArrowTipForNode(fa,fw,fh,lbwTipAngle);
     }
     var linkColor=lk.color||getColor(lk.from);
+    var linkLineType=lk.lineType||'curve';
+    var linkPathInfo=roundedElbowPath(sc1,sc2,lcpOff,linkLineType)||{
+      d:'M'+sc1.x+','+sc1.y+' C'+lcp1x+','+lcp1y+' '+lcp2x+','+lcp2y+' '+sc2.x+','+sc2.y,
+      handle:{x:(lcp1x+lcp2x)/2,y:(lcp1y+lcp2y)/2},
+      startAngle:Math.atan2(sc1.y-lcp1y,sc1.x-lcp1x),
+      endAngle:Math.atan2(sc2.y-lcp2y,sc2.x-lcp2x)
+    };
     /* 교차 구분용 배경 외곽선 */
     var lbgPath=document.createElementNS('http://www.w3.org/2000/svg','path');
-    lbgPath.setAttribute('d','M'+sc1.x+','+sc1.y+' C'+lcp1x+','+lcp1y+' '+lcp2x+','+lcp2y+' '+sc2.x+','+sc2.y);
+    lbgPath.setAttribute('d',linkPathInfo.d);
     lbgPath.setAttribute('fill','none');
     lbgPath.setAttribute('stroke','var(--bg,#1a1a2e)');
     lbgPath.setAttribute('stroke-width','6');
@@ -2115,7 +2252,7 @@ function renderCurves(){
     lbgPath.setAttribute('pointer-events','none');
     svg.appendChild(lbgPath);
     var lpath=document.createElementNS('http://www.w3.org/2000/svg','path');
-    lpath.setAttribute('d','M'+sc1.x+','+sc1.y+' C'+lcp1x+','+lcp1y+' '+lcp2x+','+lcp2y+' '+sc2.x+','+sc2.y);
+    lpath.setAttribute('d',linkPathInfo.d);
     lpath.setAttribute('fill','none');
     lpath.setAttribute('stroke',linkColor);
     lpath.setAttribute('stroke-width','2');
@@ -2159,7 +2296,7 @@ function renderCurves(){
     })(lk);
     svg.appendChild(lpath);
     /* ── 참조선 컨트롤 핸들 ── */
-    var lhmx=(lcp1x+lcp2x)/2, lhmy=(lcp1y+lcp2y)/2;
+    var lhmx=linkPathInfo.handle.x, lhmy=linkPathInfo.handle.y;
     var lhandle=document.createElementNS('http://www.w3.org/2000/svg','circle');
     lhandle.setAttribute('cx',lhmx); lhandle.setAttribute('cy',lhmy);
     lhandle.setAttribute('r','7');
@@ -2169,6 +2306,11 @@ function renderCurves(){
     lhandle.style.cursor='grab'; lhandle.style.pointerEvents='all';
     lhandle.setAttribute('opacity','0');
     lpath.setAttribute('data-edge','link-'+lk.from+'-'+lk.to);
+    if(linkLineType==='elbow'){
+      bindRoundedElbowHandle(lhandle,lpath,lbgPath,lk,sc1,sc2);
+      lhandle._elbow=true;
+      svg.appendChild(lhandle);
+    }
     (function(lhEl,lpathEl){
       lpathEl.addEventListener('mouseenter',function(){lhEl.setAttribute('opacity','1');lpathEl.setAttribute('stroke-width','3');});
       lpathEl.addEventListener('mouseleave',function(){if(!lhEl._dragging){lhEl.setAttribute('opacity','0');lpathEl.setAttribute('stroke-width','2');}});
@@ -2181,6 +2323,7 @@ function renderCurves(){
         lkref2.cp={dx:0,dy:0};saveAll();renderCurves();drawMM();
       });
       lhEl2.addEventListener('mousedown',function(e){
+        if(lhEl2._elbow)return;
         if(e.button!==0)return;
         e.stopPropagation();e.preventDefault();
         lhEl2._dragging=true;
