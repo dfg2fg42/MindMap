@@ -541,9 +541,9 @@ body.link-mode .link-del-btn{display:block;}
   <div class="logo">🧠Mind<b>Map</b></div>
   <div id="cur-chip" class="cur-chip"><span id="cur-icon">🗂</span><span id="cur-name">기본</span></div>
   <div class="sep"></div>
-  <button class="tbtn prim" id="btn-child">＋ 자식 <span style="opacity:.6;font-size:.72rem">(Tab)</span></button>
+  <button class="tbtn prim" id="btn-child">＋ 하위 노드 <span style="opacity:.6;font-size:.72rem">(Tab)</span></button>
   <div id="dir-wrap" style="position:relative;display:inline-flex;">
-    <button class="tbtn" id="btn-dir" title="자식 노드 생성 방향 선택" style="padding:5px 8px;gap:3px;">
+    <button class="tbtn" id="btn-dir" title="하위 노드 생성 방향 선택" style="padding:5px 8px;gap:3px;">
       <span id="dir-icon">⇄</span><span id="dir-label" style="font-size:.75rem;">자동</span><span style="font-size:.6rem;opacity:.6;">▼</span>
     </button>
     <div id="dir-menu" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;
@@ -556,7 +556,7 @@ body.link-mode .link-del-btn{display:block;}
       <div class="dir-opt" data-val="up"    data-icon="↑" data-lbl="위">↑ &nbsp;위</div>
     </div>
   </div>
-  <button class="tbtn" id="btn-sibling">＋ 형제 <span style="opacity:.6;font-size:.72rem">(Enter)</span></button>
+  <button class="tbtn" id="btn-sibling">＋ 같은 단계 노드 <span style="opacity:.6;font-size:.72rem">(Enter)</span></button>
   <div class="sep"></div>
   <button class="tbtn" id="btn-layout" title="노드 선택 시: 선택 노드 수직 정렬 | 미선택 시: 전체 자동 재배치">⟳ 정렬</button>
   <button class="tbtn" id="btn-fit">⊡ 맞춤</button>
@@ -701,13 +701,13 @@ body.link-mode .link-del-btn{display:block;}
 <div id="ctx">
   <div class="ctx-row" id="ctx-new-independent" style="display:none;">＋ 독립 노드 생성</div>
   <div class="ctx-row ctx-sep" id="ctx-sep-top" style="display:none;"></div>
-  <div class="ctx-row" id="ctx-child">＋ 자식 노드 추가</div>
-  <div class="ctx-row" id="ctx-sib">＋ 형제 노드 추가</div>
+  <div class="ctx-row" id="ctx-child">＋ 하위 노드 추가</div>
+  <div class="ctx-row" id="ctx-sib">＋ 같은 단계 노드 추가</div>
   <div class="ctx-row" id="ctx-edit">✏️ 텍스트 편집</div>
   <div class="ctx-row" id="ctx-star">⭐ 중요 표시</div>
   <div class="ctx-row" id="ctx-memo">📝 메모 열기</div>
-  <div class="ctx-row" id="ctx-group">🔗 선택 노드들을 이 노드에 묶기</div>
-  <div class="ctx-row" id="ctx-reparent">📦 새 부모 노드로 묶기</div>
+  <div class="ctx-row" id="ctx-group">🔗 이 노드 아래로 모으기</div>
+  <div class="ctx-row" id="ctx-reparent">📦 새 상위 노드로 묶기</div>
   <div class="ctx-row red" id="ctx-del">🗑 삭제</div>
 </div>
 
@@ -738,8 +738,8 @@ body.link-mode .link-del-btn{display:block;}
     <div class="help-section">
       <div class="help-title">⌨️ 노드 편집</div>
       <div class="help-table">
-        <div class="hr"><span class="hk">Tab</span><span class="hd">자식 노드 추가</span></div>
-        <div class="hr"><span class="hk">Enter</span><span class="hd">형제 노드 추가</span></div>
+        <div class="hr"><span class="hk">Tab</span><span class="hd">하위 노드 추가</span></div>
+        <div class="hr"><span class="hk">Enter</span><span class="hd">같은 단계 노드 추가</span></div>
         <div class="hr"><span class="hk">F2</span><span class="hd">노드 이름 편집 시작</span></div>
         <div class="hr"><span class="hk">Alt + Enter</span><span class="hd">편집 중 줄바꿈 (다음 줄 추가)</span></div>
         <div class="hr"><span class="hk">Enter (편집 중)</span><span class="hd">편집 완료</span></div>
@@ -765,8 +765,8 @@ body.link-mode .link-del-btn{display:block;}
     <div class="help-section">
       <div class="help-title">🔀 노드 이동</div>
       <div class="help-table">
-        <div class="hr"><span class="hk">Alt + ↑</span><span class="hd">형제 노드 위로 이동</span></div>
-        <div class="hr"><span class="hk">Alt + ↓</span><span class="hd">형제 노드 아래로 이동</span></div>
+        <div class="hr"><span class="hk">Alt + ↑</span><span class="hd">같은 단계 노드 위로 이동</span></div>
+        <div class="hr"><span class="hk">Alt + ↓</span><span class="hd">같은 단계 노드 아래로 이동</span></div>
       </div>
     </div>
 
@@ -799,7 +799,7 @@ body.link-mode .link-del-btn{display:block;}
       <div class="help-title">📁 카테고리 &amp; 노드 방향</div>
       <div class="help-table">
         <div class="hr"><span class="hk">사이드바 (마우스 왼쪽)</span><span class="hd">카테고리 슬라이드 메뉴</span></div>
-        <div class="hr"><span class="hk">⇄ / → / ← 방향 버튼</span><span class="hd">새 자식 노드 생성 방향 설정</span></div>
+        <div class="hr"><span class="hk">⇄ / → / ← 방향 버튼</span><span class="hd">새 하위 노드 생성 방향 설정</span></div>
         <div class="hr"><span class="hk">⟳ 정렬 버튼</span><span class="hd">전체 노드 자동 재배치</span></div>
         <div class="hr"><span class="hk">⊡ 맞춤 버튼</span><span class="hd">전체 노드 화면에 맞추기</span></div>
       </div>
@@ -863,8 +863,8 @@ body.link-mode .link-del-btn{display:block;}
 
 <div id="conn-legend">
   <span style="font-size:.73rem;color:var(--txt);font-weight:700;margin-right:4px;">🔗 연결 노드</span>
-  <div class="cl-item"><div class="cl-dot" style="border-color:rgba(255,160,0,.9);background:rgba(255,160,0,.22);"></div><span>부모</span></div>
-  <div class="cl-item"><div class="cl-dot" style="border-color:rgba(56,210,255,.9);background:rgba(56,210,255,.22);"></div><span>자식</span></div>
+  <div class="cl-item"><div class="cl-dot" style="border-color:rgba(255,160,0,.9);background:rgba(255,160,0,.22);"></div><span>상위 노드</span></div>
+  <div class="cl-item"><div class="cl-dot" style="border-color:rgba(56,210,255,.9);background:rgba(56,210,255,.22);"></div><span>하위 노드</span></div>
   <div class="cl-item"><div class="cl-dot" style="border-color:rgba(200,80,255,.9);background:rgba(200,80,255,.22);"></div><span>참조</span></div>
   <div class="cl-item"><div class="cl-dot" style="border-color:var(--mut);background:rgba(100,100,100,.2);"></div><span>비연결 (흐림)</span></div>
 </div>
@@ -985,6 +985,11 @@ var lightenStep=0.055;   // 깊이당 밝아지는 비율 (0.01~0.15)
 var lightenMaxDepth=6;   // 최대 적용 깊이
 var iconPickerTarget=null;
 var sbPinned=false;
+
+function pushUndoState(){
+  undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
+  if(undoStack.length>30)undoStack.shift();
+}
 
 /* ════════════════ HELPERS ════════════════ */
 function gn(id){for(var i=0;i<nodes.length;i++)if(nodes[i].id===id)return nodes[i];return null;}
@@ -1270,7 +1275,7 @@ function showArrowMenu(target, cx, cy, type){
 
     /* 🔀 연결 변경 버튼 */
     var reconnBtn=document.createElement('button');
-    reconnBtn.textContent='🔀';reconnBtn.title='다른 노드에 연결 (클릭 후 새 부모 노드 선택)';
+    reconnBtn.textContent='🔀';reconnBtn.title='다른 노드에 연결 (클릭 후 새 상위 노드 선택)';
     reconnBtn.style.cssText='background:var(--sur2);border:1px solid var(--bdr);border-radius:7px;width:34px;height:34px;font-size:.95rem;cursor:pointer;color:var(--txt);';
     reconnBtn.onclick=function(e){
       e.stopPropagation();
@@ -1278,7 +1283,7 @@ function showArrowMenu(target, cx, cy, type){
       reconnectMode=true;
       reconnectNodeId=target;
       document.body.classList.add('reconnect-mode');
-      showToast('🔀 연결할 새 부모 노드를 클릭하세요  (ESC 취소)');
+      showToast('🔀 연결할 새 상위 노드를 클릭하세요  (ESC 취소)');
       function onEsc(ev){
         if(ev.key==='Escape'){
           reconnectMode=false;reconnectNodeId=null;
@@ -1862,12 +1867,16 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs){
   hEl.addEventListener('mouseleave',function(){if(!hEl._dragging)hEl.setAttribute('opacity','0');});
   hEl.addEventListener('dblclick',function(e){
     e.stopPropagation();
+    if(lockMode){showToast('🔒 잠금 모드 — 선을 조정할 수 없습니다');return;}
+    pushUndoState();
     edgeObj.cp={dx:0,dy:0};
     saveAll();renderCurves();drawMM();
   });
   hEl.addEventListener('mousedown',function(e){
+    if(lockMode){e.stopPropagation();showToast('🔒 잠금 모드 — 선을 조정할 수 없습니다');return;}
     if(e.button!==0)return;
     e.stopPropagation();e.preventDefault();
+    pushUndoState();
     hEl._dragging=true;
     hEl.style.cursor='grabbing';
     hEl.setAttribute('r','9');
@@ -2110,11 +2119,14 @@ function renderCurves(){
     (function(cid2,hEl2,pathEl2,psx,psy,csx,csy){
       hEl2.addEventListener('dblclick',function(e){
         e.stopPropagation();
-        var nc=gn(cid2);if(nc){nc.cp={dx:0,dy:0};saveAll();renderCurves();drawMM();}
+        if(lockMode){showToast('🔒 잠금 모드 — 선을 조정할 수 없습니다');return;}
+        var nc=gn(cid2);if(nc){pushUndoState();nc.cp={dx:0,dy:0};saveAll();renderCurves();drawMM();}
       });
       hEl2.addEventListener('mousedown',function(e){
+        if(lockMode){e.stopPropagation();showToast('🔒 잠금 모드 — 선을 조정할 수 없습니다');return;}
         if(e.button!==0)return;
         e.stopPropagation();e.preventDefault();
+        pushUndoState();
         hEl2._dragging=true;
         hEl2.style.cursor='grabbing';
         hEl2.setAttribute('r','9');
@@ -2320,12 +2332,16 @@ function renderCurves(){
     (function(lkref2,lhEl2,lpathEl2,initHmx,initHmy){
       lhEl2.addEventListener('dblclick',function(e){
         e.stopPropagation();
+        if(lockMode){showToast('🔒 잠금 모드 — 선을 조정할 수 없습니다');return;}
+        pushUndoState();
         lkref2.cp={dx:0,dy:0};saveAll();renderCurves();drawMM();
       });
       lhEl2.addEventListener('mousedown',function(e){
         if(lhEl2._elbow)return;
+        if(lockMode){e.stopPropagation();showToast('🔒 잠금 모드 — 선을 조정할 수 없습니다');return;}
         if(e.button!==0)return;
         e.stopPropagation();e.preventDefault();
+        pushUndoState();
         lhEl2._dragging=true;
         lhEl2.style.cursor='grabbing';
         lhEl2.setAttribute('r','9');
@@ -2510,6 +2526,7 @@ function renderNodes(){
           function onMove(ev){
             var wp1=s2w(ev.clientX,ev.clientY);
             var dx=wp1.x-wp0.x, dy=wp1.y-wp0.y;
+            if(!moved)pushUndoState();
             moved=true;
             grp.nodeIds.forEach(function(nid2){
               var nd=gn(nid2); if(nd&&initPos[nid2]){nd.x=initPos[nid2].x+dx; nd.y=initPos[nid2].y+dy;}
@@ -2890,7 +2907,7 @@ function reparentToNew(){
   multiSel=[];sel=newParent.id;
   undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
   saveAll();renderAll();
-  showToast('📦 새 부모 노드로 묶었습니다');
+  showToast('📦 새 상위 노드로 묶었습니다');
   setTimeout(function(){startEdit(newParent.id);},80);
 }
 
@@ -3475,7 +3492,7 @@ function bindNode(el,id){
     if(multiSel.length && multiSel.indexOf(id)>=0){
       if(!lockMode){
         var wp0=s2w(e.clientX,e.clientY);
-        multiDrag={mx:wp0.x,my:wp0.y};
+        multiDrag={mx:wp0.x,my:wp0.y,undoPushed:false};
         document.getElementById('viewport').classList.add('moving');
       }
       return;
@@ -3498,7 +3515,7 @@ function bindNode(el,id){
     sel=id;panelVisible=false;
     var wp=s2w(e.clientX,e.clientY),n=gn(id);
     if(!lockMode){
-      movSt={id:id,ox:n.x,oy:n.y,mx:wp.x,my:wp.y};
+      movSt={id:id,ox:n.x,oy:n.y,mx:wp.x,my:wp.y,undoPushed:false};
       document.getElementById('viewport').classList.add('moving');
     }
     if(memoOpen){saveMemoTxt();document.getElementById('memo-node-name').textContent=n.text;document.getElementById('memo-ta').value=n.memo||'';document.getElementById('memo-ta').dataset.nid=id;renderMemoImgs(n);}
@@ -3729,6 +3746,7 @@ document.addEventListener('mousemove',function(e){
   if(multiDrag){
     var wp=s2w(e.clientX,e.clientY);
     var dx=wp.x-multiDrag.mx, dy=wp.y-multiDrag.my;
+    if(!multiDrag.undoPushed){pushUndoState();multiDrag.undoPushed=true;}
     multiDrag.mx=wp.x;multiDrag.my=wp.y;
     multiSel.forEach(function(id){
       var n=gn(id);if(n){n.x+=dx;n.y+=dy;}
@@ -3737,6 +3755,7 @@ document.addEventListener('mousemove',function(e){
   }
   if(movSt){
     var wp=s2w(e.clientX,e.clientY),n=gn(movSt.id);
+    if(!movSt.undoPushed){pushUndoState();movSt.undoPushed=true;}
     if(n){n.x=movSt.ox+(wp.x-movSt.mx);n.y=movSt.oy+(wp.y-movSt.my);}
     requestFastRender({forceCurves:true,drawMM:false});return;
   }
@@ -4631,3 +4650,7 @@ function updateNodeConnHighlight(){
 
 </body>
 </html>
+
+
+
+
