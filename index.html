@@ -1902,6 +1902,39 @@ function getArrowTipForNode(node, nodeW, nodeH, angle){
   return {x:center.x+ox*t, y:center.y+oy*t};
 }
 
+function clampVal(v,min,max){return Math.max(min,Math.min(max,v));}
+function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
+  if(!info||!info.horizontalFirst)return null;
+  var center=w2s(node.x,node.y);
+  var hw=(nodeW*cam.z)/2, hh=(nodeH*cam.z)/2;
+  var left=center.x-hw, right=center.x+hw, top=center.y-hh, bottom=center.y+hh;
+  var margin=Math.max(10,18*cam.z);
+  var pad=Math.max(6,10*cam.z);
+  var probeY=info.routeY;
+  var legX=isStart?info.startX:info.turnX;
+  var segMin=Math.min(info.startX,info.turnX);
+  var segMax=Math.max(info.startX,info.turnX);
+  if(segMax<left-margin||segMin>right+margin)return null;
+  var usableLeft=left+pad, usableRight=right-pad;
+  var overlapLeft=Math.max(usableLeft,segMin);
+  var overlapRight=Math.min(usableRight,segMax);
+  var attachX;
+  if(legX>=usableLeft&&legX<=usableRight){
+    attachX=legX;
+  }else if(overlapLeft<=overlapRight){
+    attachX=clampVal(center.x,overlapLeft,overlapRight);
+  }else{
+    attachX=clampVal(center.x,usableLeft,usableRight);
+  }
+  if(probeY<top-margin){
+    return {angle:Math.PI/2, mode:'vertical', side:'top', point:{x:attachX,y:top-ARROW_TIP_GAP}};
+  }
+  if(probeY>bottom+margin){
+    return {angle:-Math.PI/2, mode:'vertical', side:'bottom', point:{x:attachX,y:bottom+ARROW_TIP_GAP}};
+  }
+  return null;
+}
+
 function roundedElbowPath(ps,cs,cpOff,lineType){
   if(lineType!=='elbow')return null;
   cpOff=cpOff||{dx:0,dy:0};
@@ -1909,10 +1942,11 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
   function zs(v){return v*z;}
   var dx=cs.x-ps.x, dy=cs.y-ps.y;
   var offX=(cpOff.dx||0)*cam.z, offY=(cpOff.dy||0)*cam.z;
+  var startOffX=(cpOff.startDx||0)*cam.z, startOffY=(cpOff.startDy||0)*cam.z;
   var horizontalFirst=Math.abs(dx)>=Math.abs(dy);
   var r=Math.min(zs(22), Math.max(zs(6), Math.min(Math.abs(dx),Math.abs(dy))/3));
   if(!isFinite(r))r=zs(10);
-  var d,handle,handle2,startAngle,endAngle;
+  var d,handle,handle2,handle3,startAngle,endAngle;
   if(horizontalFirst){
     var dirX=dx>=0?1:-1;
     var startGapX=Math.min(zs(28), Math.max(zs(10), Math.abs(dx)*0.06));
@@ -1926,30 +1960,41 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
       가로로 긴 꺾은선은 가운데 가로 줄(routeY)을 기준으로 그린다.
       이 값에 offY를 반영해 사용자가 선을 상하로 직접 조절할 수 있게 한다.
     */
-    var turnX=cs.x-dirX*endGapX+offX;
+    var startX=cpOff.startVertical?ps.x:(ps.x+startOffX);
+    if((cpOff.startDx||0)===0||cpOff.startVertical)startX=ps.x;
+    var turnX=cpOff.endVertical?cs.x:(cs.x-dirX*endGapX+offX);
     if(Math.abs(dx)>startGapX+endGapX+zs(8)){
       if((turnX-ps.x)*dirX<startGapX)turnX=ps.x+dirX*startGapX;
       if((cpOff.dx||0)===0 && (cs.x-turnX)*dirX<endGapX)turnX=cs.x-dirX*endGapX;
     }
     var syStart=routeY>=ps.y?1:-1;
-    var hxDir=turnX>=ps.x?1:-1;
+    var outDir=startX>=ps.x?1:-1;
+    var hxDir=turnX>=startX?1:-1;
     var syEnd=cs.y>=routeY?1:-1;
     var ex=cs.x>=turnX?1:-1;
-    var rStart=Math.min(r,Math.abs(routeY-ps.y)/2,Math.abs(turnX-ps.x)/2);
-    var rTurnIn=Math.min(r,Math.abs(cs.y-routeY)/2,Math.abs(turnX-ps.x)/2);
-    var rTurnOut=Math.min(r,Math.abs(cs.y-routeY)/2,Math.abs(cs.x-turnX)/2);
+    var rOut=Math.min(r,Math.abs(startX-ps.x)/2,Math.abs(routeY-ps.y)/2);
+    var rStart=Math.min(r,Math.abs(routeY-ps.y)/2,Math.abs(turnX-startX)/2);
+    var rTurnIn=Math.min(r,Math.abs(cs.y-routeY)/2,Math.abs(turnX-startX)/2);
+    var rTurnOut=cpOff.endVertical?0:Math.min(r,Math.abs(cs.y-routeY)/2,Math.abs(cs.x-turnX)/2);
     d='M'+ps.x+','+ps.y+
-      ' L'+ps.x+','+(routeY-syStart*rStart)+
-      ' Q'+ps.x+','+routeY+' '+(ps.x+hxDir*rStart)+','+routeY+
+      ' L'+(startX-outDir*rOut)+','+ps.y+
+      ' Q'+startX+','+ps.y+' '+startX+','+(ps.y+syStart*rOut)+
+      ' L'+startX+','+(routeY-syStart*rStart)+
+      ' Q'+startX+','+routeY+' '+(startX+hxDir*rStart)+','+routeY+
       ' L'+(turnX-hxDir*rTurnIn)+','+routeY+
-      ' Q'+turnX+','+routeY+' '+turnX+','+(routeY+syEnd*rTurnIn)+
-      ' L'+turnX+','+(cs.y-syEnd*rTurnOut)+
-      ' Q'+turnX+','+cs.y+' '+(turnX+ex*rTurnOut)+','+cs.y+
-      ' L'+cs.x+','+cs.y;
-    handle={x:(ps.x+turnX)/2,y:routeY,axis:'y'};
+      ' Q'+turnX+','+routeY+' '+turnX+','+(routeY+syEnd*rTurnIn);
+    if(cpOff.endVertical){
+      d+=' L'+cs.x+','+cs.y;
+    }else{
+      d+=' L'+turnX+','+(cs.y-syEnd*rTurnOut)+
+        ' Q'+turnX+','+cs.y+' '+(turnX+ex*rTurnOut)+','+cs.y+
+        ' L'+cs.x+','+cs.y;
+    }
+    handle={x:(startX+turnX)/2,y:routeY,axis:'y'};
     handle2={x:turnX,y:(routeY+cs.y)/2,axis:'x'};
-    startAngle=Math.abs(routeY-ps.y)>1?Math.atan2(routeY-ps.y,0):Math.atan2(0,turnX-ps.x);
-    endAngle=Math.atan2(0,cs.x-turnX);
+    handle3={x:startX,y:(ps.y+routeY)/2,axis:'startX'};
+    startAngle=Math.abs(startX-ps.x)>1?Math.atan2(0,ps.x-startX):(Math.abs(routeY-ps.y)>1?Math.atan2(ps.y-routeY,0):Math.atan2(0,ps.x-turnX));
+    endAngle=cpOff.endVertical?Math.atan2(cs.y-routeY,0):Math.atan2(0,cs.x-turnX);
   }else{
     var dirY=dy>=0?1:-1;
     var startGapY=Math.min(zs(28), Math.max(zs(10), Math.abs(dy)*0.06));
@@ -1959,32 +2004,45 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
       baseX=Math.min(ps.x,cs.x)-Math.min(zs(90),Math.max(zs(44),Math.abs(dx)*0.35));
     }
     var routeX=baseX+offX;
+    var startY=cpOff.startVertical?ps.y:(ps.y+startOffY);
+    if((cpOff.startDy||0)===0||cpOff.startVertical)startY=ps.y;
     var turnY=cs.y-dirY*endGapY+offY;
     if(Math.abs(dy)>startGapY+endGapY+zs(8)){
       if((turnY-ps.y)*dirY<startGapY)turnY=ps.y+dirY*startGapY;
       if((cpOff.dy||0)===0 && (cs.y-turnY)*dirY<endGapY)turnY=cs.y-dirY*endGapY;
     }
     var sxStart=routeX>=ps.x?1:-1;
-    var vyDir=turnY>=ps.y?1:-1;
+    var outYDir=startY>=ps.y?1:-1;
+    var vyDir=turnY>=startY?1:-1;
     var sxEnd=cs.x>=routeX?1:-1;
     var ey=cs.y>=turnY?1:-1;
-    var rvStart=Math.min(r,Math.abs(routeX-ps.x)/2,Math.abs(turnY-ps.y)/2);
-    var rvTurnIn=Math.min(r,Math.abs(cs.x-routeX)/2,Math.abs(turnY-ps.y)/2);
+    var rvOut=Math.min(r,Math.abs(startY-ps.y)/2,Math.abs(routeX-ps.x)/2);
+    var rvStart=Math.min(r,Math.abs(routeX-ps.x)/2,Math.abs(turnY-startY)/2);
+    var rvTurnIn=Math.min(r,Math.abs(cs.x-routeX)/2,Math.abs(turnY-startY)/2);
     var rvTurnOut=Math.min(r,Math.abs(cs.x-routeX)/2,Math.abs(cs.y-turnY)/2);
     d='M'+ps.x+','+ps.y+
-      ' L'+(routeX-sxStart*rvStart)+','+ps.y+
-      ' Q'+routeX+','+ps.y+' '+routeX+','+(ps.y+vyDir*rvStart)+
+      ' L'+ps.x+','+(startY-outYDir*rvOut)+
+      ' Q'+ps.x+','+startY+' '+(ps.x+sxStart*rvOut)+','+startY+
+      ' L'+(routeX-sxStart*rvStart)+','+startY+
+      ' Q'+routeX+','+startY+' '+routeX+','+(startY+vyDir*rvStart)+
       ' L'+routeX+','+(turnY-vyDir*rvTurnIn)+
       ' Q'+routeX+','+turnY+' '+(routeX+sxEnd*rvTurnIn)+','+turnY+
       ' L'+(cs.x-sxEnd*rvTurnOut)+','+turnY+
       ' Q'+cs.x+','+turnY+' '+cs.x+','+(turnY+ey*rvTurnOut)+
       ' L'+cs.x+','+cs.y;
-    handle={x:routeX,y:(ps.y+turnY)/2,axis:'x'};
+    handle={x:routeX,y:(startY+turnY)/2,axis:'x'};
     handle2={x:(routeX+cs.x)/2,y:turnY,axis:'y'};
-    startAngle=Math.abs(routeX-ps.x)>1?Math.atan2(0,routeX-ps.x):Math.atan2(turnY-ps.y,0);
+    handle3={x:(ps.x+routeX)/2,y:startY,axis:'startY'};
+    startAngle=Math.abs(startY-ps.y)>1?Math.atan2(ps.y-startY,0):(Math.abs(routeX-ps.x)>1?Math.atan2(0,ps.x-routeX):Math.atan2(ps.y-turnY,0));
     endAngle=Math.atan2(cs.y-turnY,0);
   }
-  return {d:d,handle:handle,handle2:handle2,startAngle:startAngle,endAngle:endAngle};
+  return {
+    d:d,handle:handle,handle2:handle2,handle3:handle3,
+    startAngle:startAngle,endAngle:endAngle,
+    horizontalFirst:horizontalFirst,
+    routeY:routeY,turnX:turnX,startX:startX,
+    routeX:routeX,turnY:turnY,startY:startY
+  };
 }
 
 function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,peerEl,peerKey){
@@ -2013,15 +2071,26 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
     hEl.setAttribute('stroke','#7dd8ff');
     hEl.setAttribute('opacity','1');
     var startX=e.clientX,startY=e.clientY;
-    var orig=edgeObj.cp?{dx:edgeObj.cp.dx||0,dy:edgeObj.cp.dy||0}:{dx:0,dy:0};
+    var orig=edgeObj.cp?{
+      dx:edgeObj.cp.dx||0,
+      dy:edgeObj.cp.dy||0,
+      startDx:edgeObj.cp.startDx||0,
+      startDy:edgeObj.cp.startDy||0
+    }:{dx:0,dy:0,startDx:0,startDy:0};
     var rafId=null;
     function onMove(ev){
       var nextDx=orig.dx+(ev.clientX-startX)/cam.z;
       var nextDy=orig.dy+(ev.clientY-startY)/cam.z;
+      var nextStartDx=orig.startDx+(ev.clientX-startX)/cam.z;
+      var nextStartDy=orig.startDy+(ev.clientY-startY)/cam.z;
       var next={
         dx:(axis==='y')?orig.dx:nextDx,
-        dy:(axis==='x')?orig.dy:nextDy
+        dy:(axis==='x')?orig.dy:nextDy,
+        startDx:orig.startDx,
+        startDy:orig.startDy
       };
+      if(axis==='startX')next.startDx=nextStartDx;
+      if(axis==='startY')next.startDy=nextStartDy;
       edgeObj.cp=next;
       if(rafId)cancelAnimationFrame(rafId);
       rafId=requestAnimationFrame(function(){
@@ -2035,6 +2104,10 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
         if(peerEl&&peerKey&&info[peerKey]){
           peerEl.setAttribute('cx',info[peerKey].x);
           peerEl.setAttribute('cy',info[peerKey].y);
+        }
+        if(hEl._peer2&&hEl._peer2Key&&info[hEl._peer2Key]){
+          hEl._peer2.setAttribute('cx',info[hEl._peer2Key].x);
+          hEl._peer2.setAttribute('cy',info[hEl._peer2Key].y);
         }
       });
     }
@@ -2171,21 +2244,49 @@ function renderCurves(){
     cp2x=cs.x+cMainX*dist+cpOff.dx*cam.z;
     cp2y=cs.y+cMainY*dist+cpOff.dy*cam.z;
     var arr=c.arrow||'none';
-    if(arr==='forward'||arr==='both'){
-      var fwTipAngle=Math.atan2(cs.y-cp2y, cs.x-cp2x);
-      cs=getArrowTipForNode(c,cw,ch,fwTipAngle);
-    }
-    if(arr==='backward'||arr==='both'){
-      var bwTipAngle=Math.atan2(ps.y-cp1y, ps.x-cp1x);
-      ps=getArrowTipForNode(p,pw,ph,bwTipAngle);
-    }
     var edgeLineType=c.lineType||'curve';
+    if(edgeLineType!=='elbow'){
+      if(arr==='forward'||arr==='both'){
+        var fwTipAngle=Math.atan2(cs.y-cp2y, cs.x-cp2x);
+        cs=getArrowTipForNode(c,cw,ch,fwTipAngle);
+      }
+      if(arr==='backward'||arr==='both'){
+        var bwTipAngle=Math.atan2(ps.y-cp1y, ps.x-cp1x);
+        ps=getArrowTipForNode(p,pw,ph,bwTipAngle);
+      }
+    }
     var edgePathInfo=roundedElbowPath(ps,cs,cpOff,edgeLineType)||{
       d:'M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y,
       handle:{x:(cp1x+cp2x)/2,y:(cp1y+cp2y)/2},
       startAngle:Math.atan2(ps.y-cp1y,ps.x-cp1x),
       endAngle:Math.atan2(cs.y-cp2y,cs.x-cp2x)
     };
+    if(edgeLineType==='elbow'&&arr!=='none'){
+      var startAutoPort=!c.parentPort?getElbowAutoPortAngle(p,pw,ph,edgePathInfo,true):null;
+      var endAutoPort=!c.childPort?getElbowAutoPortAngle(c,cw,ch,edgePathInfo,false):null;
+      if(startAutoPort){edgePathInfo.startAngle=startAutoPort.angle;}
+      if(endAutoPort){edgePathInfo.endAngle=endAutoPort.angle;}
+      var edgeCpForPath=cpOff;
+      if(arr==='forward'||arr==='both'){
+        if(endAutoPort&&endAutoPort.mode==='vertical'){
+          cs=endAutoPort.point;
+          edgeCpForPath=Object.assign({},cpOff,{endVertical:true});
+        }else{
+          cs=getArrowTipForNode(c,cw,ch,edgePathInfo.endAngle);
+        }
+      }
+      if(arr==='backward'||arr==='both'){
+        if(startAutoPort&&startAutoPort.mode==='vertical'){
+          ps=startAutoPort.point;
+          edgeCpForPath=Object.assign({},edgeCpForPath,{startVertical:true});
+        }else{
+          ps=getArrowTipForNode(p,pw,ph,edgePathInfo.startAngle);
+        }
+      }
+      edgePathInfo=roundedElbowPath(ps,cs,edgeCpForPath,edgeLineType)||edgePathInfo;
+      if(startAutoPort){edgePathInfo.startAngle=startAutoPort.angle;}
+      if(endAutoPort){edgePathInfo.endAngle=endAutoPort.angle;}
+    }
     /* 교차 구분용 배경 외곽선 path */
     var bgPath=document.createElementNS('http://www.w3.org/2000/svg','path');
     bgPath.setAttribute('d',edgePathInfo.d);
@@ -2205,13 +2306,12 @@ function renderCurves(){
     if(arr!=='none'){
       /* 화살촉을 별도 레이어(svgA)에 그림 → 노드 위에 항상 표시 */
       if(arr==='forward'||arr==='both'){
-        /* 도착점 cs, 방향: cp2→cs */
-        var fwAngle=Math.atan2(cs.y-cp2y, cs.x-cp2x);
+        /* 실제 경로의 마지막 진행 방향 기준 */
+        var fwAngle=edgePathInfo.endAngle;
         drawArrowHead(svgA, cs.x, cs.y, fwAngle, color);
       }
       if(arr==='backward'||arr==='both'){
-        /* 도착점 ps, 방향: cp1→ps */
-        var bwAngle=Math.atan2(ps.y-cp1y, ps.x-cp1x);
+        var bwAngle=edgePathInfo.startAngle;
         drawArrowHead(svgA, ps.x, ps.y, bwAngle, color);
       }
     }
@@ -2259,15 +2359,32 @@ function renderCurves(){
       handle2.setAttribute('data-handle','tree-'+c.id+'-x');
       var hAxis=(edgePathInfo.handle&&edgePathInfo.handle.axis)||'y';
       var h2Axis=(edgePathInfo.handle2&&edgePathInfo.handle2.axis)||'x';
+      var h3Info=edgePathInfo.handle3||edgePathInfo.handle;
+      var handle3=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      handle3.setAttribute('cx',h3Info.x); handle3.setAttribute('cy',h3Info.y);
+      handle3.setAttribute('r','7');
+      handle3.setAttribute('fill','rgba(56,178,255,0.22)');
+      handle3.setAttribute('stroke','#38b2ff');
+      handle3.setAttribute('stroke-width','2');
+      handle3.setAttribute('data-handle','tree-'+c.id+'-start');
+      var h3Axis=(edgePathInfo.handle3&&edgePathInfo.handle3.axis)||'startX';
+      handle3.style.cursor=(h3Axis==='startX')?'ew-resize':'ns-resize'; handle3.style.pointerEvents='all';
+      handle3.setAttribute('opacity','0');
+      handle3.style.transition='r .15s,opacity .15s';
       handle2.style.cursor=(h2Axis==='x')?'ew-resize':'ns-resize'; handle2.style.pointerEvents='all';
       handle2.setAttribute('opacity','0');
       handle2.style.transition='r .15s,opacity .15s';
       handle.style.cursor=(hAxis==='x')?'ew-resize':'ns-resize';
       handle.setAttribute('data-handle','tree-'+c.id+'-y');
+      handle._peer2=handle3; handle._peer2Key='handle3';
+      handle2._peer2=handle3; handle2._peer2Key='handle3';
+      handle3._peer2=handle2; handle3._peer2Key='handle2';
       bindRoundedElbowHandle(handle,path,bgPath,c,ps,cs,hAxis,'handle',handle2,'handle2');
       bindRoundedElbowHandle(handle2,path,bgPath,c,ps,cs,h2Axis,'handle2',handle,'handle');
+      bindRoundedElbowHandle(handle3,path,bgPath,c,ps,cs,h3Axis,'handle3',handle,'handle');
       svgH.appendChild(handle);
       svgH.appendChild(handle2);
+      svgH.appendChild(handle3);
       continue;
     }
     /* hover show/hide */
@@ -2399,22 +2516,50 @@ function renderCurves(){
     lcp2x=sc2.x+ltMX*ldist+lcpOff.dx*cam.z;
     lcp2y=sc2.y+ltMY*ldist+lcpOff.dy*cam.z;
     var larr=lk.arrow||'none';
-    if(larr==='forward'||larr==='both'){
-      var lfwTipAngle=Math.atan2(sc2.y-lcp2y, sc2.x-lcp2x);
-      sc2=getArrowTipForNode(ta,tw,th,lfwTipAngle);
-    }
-    if(larr==='backward'||larr==='both'){
-      var lbwTipAngle=Math.atan2(sc1.y-lcp1y, sc1.x-lcp1x);
-      sc1=getArrowTipForNode(fa,fw,fh,lbwTipAngle);
-    }
     var linkColor=lk.color||getColor(lk.from);
     var linkLineType=lk.lineType||'curve';
+    if(linkLineType!=='elbow'){
+      if(larr==='forward'||larr==='both'){
+        var lfwTipAngle=Math.atan2(sc2.y-lcp2y, sc2.x-lcp2x);
+        sc2=getArrowTipForNode(ta,tw,th,lfwTipAngle);
+      }
+      if(larr==='backward'||larr==='both'){
+        var lbwTipAngle=Math.atan2(sc1.y-lcp1y, sc1.x-lcp1x);
+        sc1=getArrowTipForNode(fa,fw,fh,lbwTipAngle);
+      }
+    }
     var linkPathInfo=roundedElbowPath(sc1,sc2,lcpOff,linkLineType)||{
       d:'M'+sc1.x+','+sc1.y+' C'+lcp1x+','+lcp1y+' '+lcp2x+','+lcp2y+' '+sc2.x+','+sc2.y,
       handle:{x:(lcp1x+lcp2x)/2,y:(lcp1y+lcp2y)/2},
       startAngle:Math.atan2(sc1.y-lcp1y,sc1.x-lcp1x),
       endAngle:Math.atan2(sc2.y-lcp2y,sc2.x-lcp2x)
     };
+    if(linkLineType==='elbow'&&larr!=='none'){
+      var lStartAutoPort=!lk.fromPort?getElbowAutoPortAngle(fa,fw,fh,linkPathInfo,true):null;
+      var lEndAutoPort=!lk.toPort?getElbowAutoPortAngle(ta,tw,th,linkPathInfo,false):null;
+      if(lStartAutoPort){linkPathInfo.startAngle=lStartAutoPort.angle;}
+      if(lEndAutoPort){linkPathInfo.endAngle=lEndAutoPort.angle;}
+      var linkCpForPath=lcpOff;
+      if(larr==='forward'||larr==='both'){
+        if(lEndAutoPort&&lEndAutoPort.mode==='vertical'){
+          sc2=lEndAutoPort.point;
+          linkCpForPath=Object.assign({},lcpOff,{endVertical:true});
+        }else{
+          sc2=getArrowTipForNode(ta,tw,th,linkPathInfo.endAngle);
+        }
+      }
+      if(larr==='backward'||larr==='both'){
+        if(lStartAutoPort&&lStartAutoPort.mode==='vertical'){
+          sc1=lStartAutoPort.point;
+          linkCpForPath=Object.assign({},linkCpForPath,{startVertical:true});
+        }else{
+          sc1=getArrowTipForNode(fa,fw,fh,linkPathInfo.startAngle);
+        }
+      }
+      linkPathInfo=roundedElbowPath(sc1,sc2,linkCpForPath,linkLineType)||linkPathInfo;
+      if(lStartAutoPort){linkPathInfo.startAngle=lStartAutoPort.angle;}
+      if(lEndAutoPort){linkPathInfo.endAngle=lEndAutoPort.angle;}
+    }
     /* 교차 구분용 배경 외곽선 */
     var lbgPath=document.createElementNS('http://www.w3.org/2000/svg','path');
     lbgPath.setAttribute('d',linkPathInfo.d);
@@ -2439,11 +2584,11 @@ function renderCurves(){
          backward(to→from): marker-start(from쪽) 고정
          위치 변경에 무관하게 방향 유지 */
       if(larr==='forward'||larr==='both'){
-        var lfwAngle=Math.atan2(sc2.y-lcp2y, sc2.x-lcp2x);
+        var lfwAngle=linkPathInfo.endAngle;
         drawArrowHead(svgA, sc2.x, sc2.y, lfwAngle, linkColor);
       }
       if(larr==='backward'||larr==='both'){
-        var lbwAngle=Math.atan2(sc1.y-lcp1y, sc1.x-lcp1x);
+        var lbwAngle=linkPathInfo.startAngle;
         drawArrowHead(svgA, sc1.x, sc1.y, lbwAngle, linkColor);
       }
     }
@@ -2490,14 +2635,30 @@ function renderCurves(){
       lhandle2.setAttribute('stroke-width','2');
       var lhAxis=(linkPathInfo.handle&&linkPathInfo.handle.axis)||'y';
       var lh2Axis=(linkPathInfo.handle2&&linkPathInfo.handle2.axis)||'x';
+      var lh3Info=linkPathInfo.handle3||linkPathInfo.handle;
+      var lhandle3=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      lhandle3.setAttribute('cx',lh3Info.x); lhandle3.setAttribute('cy',lh3Info.y);
+      lhandle3.setAttribute('r','7');
+      lhandle3.setAttribute('fill','rgba(56,178,255,0.22)');
+      lhandle3.setAttribute('stroke','#38b2ff');
+      lhandle3.setAttribute('stroke-width','2');
+      var lh3Axis=(linkPathInfo.handle3&&linkPathInfo.handle3.axis)||'startX';
+      lhandle3.style.cursor=(lh3Axis==='startX')?'ew-resize':'ns-resize'; lhandle3.style.pointerEvents='all';
+      lhandle3.setAttribute('opacity','0');
+      lhandle3._elbow=true;
       lhandle2.style.cursor=(lh2Axis==='x')?'ew-resize':'ns-resize'; lhandle2.style.pointerEvents='all';
       lhandle2.setAttribute('opacity','0');
       lhandle2._elbow=true;
       lhandle.style.cursor=(lhAxis==='x')?'ew-resize':'ns-resize';
+      lhandle._peer2=lhandle3; lhandle._peer2Key='handle3';
+      lhandle2._peer2=lhandle3; lhandle2._peer2Key='handle3';
+      lhandle3._peer2=lhandle2; lhandle3._peer2Key='handle2';
       bindRoundedElbowHandle(lhandle,lpath,lbgPath,lk,sc1,sc2,lhAxis,'handle',lhandle2,'handle2');
       bindRoundedElbowHandle(lhandle2,lpath,lbgPath,lk,sc1,sc2,lh2Axis,'handle2',lhandle,'handle');
+      bindRoundedElbowHandle(lhandle3,lpath,lbgPath,lk,sc1,sc2,lh3Axis,'handle3',lhandle,'handle');
       svgH.appendChild(lhandle);
       svgH.appendChild(lhandle2);
+      svgH.appendChild(lhandle3);
     }
     (function(lhEl,lpathEl){
       lpathEl.addEventListener('mouseenter',function(){lhEl.setAttribute('opacity','1');lpathEl.setAttribute('stroke-width','3');});
