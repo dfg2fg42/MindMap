@@ -995,7 +995,16 @@ function pushUndoState(){
 }
 
 /* ════════════════ HELPERS ════════════════ */
-function gn(id){for(var i=0;i<nodes.length;i++)if(nodes[i].id===id)return nodes[i];return null;}
+var _nodeMap=null,_nodeMapRef=null,_nodeMapLen=-1;
+function rebuildNodeMap(){
+  _nodeMap={};
+  for(var i=0;i<nodes.length;i++)_nodeMap[nodes[i].id]=nodes[i];
+  _nodeMapRef=nodes;_nodeMapLen=nodes.length;
+}
+function gn(id){
+  if(_nodeMapRef!==nodes||_nodeMapLen!==nodes.length||!_nodeMap)rebuildNodeMap();
+  return _nodeMap[id]||null;
+}
 function gr(){for(var i=0;i<nodes.length;i++)if(nodes[i].pid===null)return nodes[i];return null;}
 function gc(id){return nodes.filter(function(n){return n.pid===id;});}
 function nw(t,sc){
@@ -1518,6 +1527,10 @@ function edgeMaybeVisible(a,b,bounds){
   var minX=Math.min(a.x,b.x), maxX=Math.max(a.x,b.x);
   var minY=Math.min(a.y,b.y), maxY=Math.max(a.y,b.y);
   return !(maxX<bounds.x1||minX>bounds.x2||maxY<bounds.y1||minY>bounds.y2);
+}
+function nodeMaybeVisible(n,bounds){
+  var w=nwFull(n), h=nhFull(n);
+  return !(n.x+w/2<bounds.x1||n.x-w/2>bounds.x2||n.y+h/2<bounds.y1||n.y-h/2>bounds.y2);
 }
 
 /* ════════════════ LAYOUT ════════════════ */
@@ -2780,6 +2793,14 @@ function renderCurves(){
 
 function renderNodes(){
   var world=document.getElementById('world');
+  var nodeBounds=getWorldViewportBounds(760);
+  var visibleNodes={};
+  for(var vi=0;vi<nodes.length;vi++){
+    var vn=nodes[vi];
+    if(nodeMaybeVisible(vn,nodeBounds)||vn.id===sel||multiSel.indexOf(vn.id)>=0||isEdgePortTarget(vn.id)){
+      visibleNodes[vn.id]=true;
+    }
+  }
 
 /* ── 그룹 박스 렌더링 ── */
   var exG={};var gEls=world.querySelectorAll('.group-box-wrap');
@@ -2789,7 +2810,6 @@ function renderNodes(){
   for(var gi=0; gi<groups.length; gi++){
     // [수정 핵심] 즉시 실행 함수로 각 그룹의 데이터를 독립적으로 고정합니다.
     (function(grp) {
-      aliveG[grp.id]=true;
       var PAD=28;
       var minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
       var validNodes=0;
@@ -2806,6 +2826,10 @@ function renderNodes(){
       if(validNodes===0) return;
 
       minX-=PAD; minY-=PAD+22; maxX+=PAD; maxY+=PAD;
+      if(selGroup!==grp.id&&(maxX<nodeBounds.x1||minX>nodeBounds.x2||maxY<nodeBounds.y1||minY>nodeBounds.y2)){
+        return;
+      }
+      aliveG[grp.id]=true;
       var bw=maxX-minX, bh=maxY-minY;
       var bsx=minX, bsy=minY;
       var gc2=grp.color||'#7c6fcd';
@@ -2930,10 +2954,11 @@ function renderNodes(){
 
   var ex={};var els=world.querySelectorAll('.node');
   for(var i=0;i<els.length;i++)ex[els[i].dataset.id]=els[i];
-  var alive={};for(var i=0;i<nodes.length;i++)alive[nodes[i].id]=true;
+  var alive=visibleNodes;
   for(var k in ex)if(!alive[k])world.removeChild(ex[k]);
   for(var i=0;i<nodes.length;i++){
     var n=nodes[i];var el=ex[String(n.id)];
+    if(!alive[n.id])continue;
     if(!el){
       el=document.createElement('div');
       el.className='node'+(n.pid===null?' root-node':'');
