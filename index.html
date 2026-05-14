@@ -504,6 +504,8 @@ body.link-mode .node{outline:1.5px dashed #38b2ff;outline-offset:2px;}
   pointer-events:all;box-shadow:0 0 6px rgba(56,178,255,.8);}
 body.link-mode .node:hover .link-port{opacity:1;}
 body.link-mode .node:hover .link-port:hover{transform:translate(-50%,-50%) scale(1.4);background:#fff;border-color:#38b2ff;}
+body.link-mode .node.port-edit-target .link-port{opacity:.72;}
+body.link-mode .node.port-edit-target{outline:2px dashed #38b2ff;outline-offset:4px;}
 
 body.link-mode .node.link-from{
   outline:2.5px solid #38b2ff!important;
@@ -974,6 +976,7 @@ var nextGid=1;        // 그룹 id 카운터
 var linkMode=false;
 var linkFromPort=null;  // 연결 시작 포트 방향
 var selEdge=null;       // 선택된 선 {type:'tree'|'ref', id}
+var edgePortEdit=null;  // 선택된 선의 연결점 수정 모드 {type:'tree'|'ref', id}
 var panelVisible=false;   // 연결 모드 상태
 var linkFrom=null;    // 연결 시작 노드 id
 var memoOpen=false,isLight=false;
@@ -1729,7 +1732,90 @@ function showGroupPanel(gid){
 
 
 /* ════════════════ LINK MODE ════════════════ */
+function getRefLinkByEdgeId(edgeId){
+  edgeId=String(edgeId||'');
+  for(var i=0;i<links.length;i++){
+    if((links[i].from+'_'+links[i].to)===edgeId)return links[i];
+  }
+  return null;
+}
+function getEdgeEndpointIds(edge){
+  if(!edge)return [];
+  if(edge.type==='tree'){
+    var child=gn(edge.id);
+    return (child&&child.pid!==null)?[child.pid,child.id]:[];
+  }
+  if(edge.type==='ref'){
+    var lk=getRefLinkByEdgeId(edge.id);
+    return lk?[lk.from,lk.to]:[];
+  }
+  return [];
+}
+function isEdgePortTarget(nodeId){
+  var ids=getEdgeEndpointIds(edgePortEdit);
+  return ids.indexOf(nodeId)>=0;
+}
+function clearLinkModeUi(){
+  document.body.classList.remove('link-mode');
+  document.getElementById('btn-link-mode').classList.remove('link-active');
+  document.querySelectorAll('.node.link-from,.node.port-edit-target').forEach(function(el){
+    el.classList.remove('link-from','port-edit-target');
+  });
+}
+function exitLinkMode(msg){
+  linkMode=false;linkFrom=null;linkFromPort=null;edgePortEdit=null;
+  clearLinkModeUi();
+  renderNodes();
+  if(msg)showToast(msg);
+}
+function beginEdgePortEdit(){
+  if(!selEdge)return false;
+  var endpoints=getEdgeEndpointIds(selEdge);
+  if(endpoints.length<2){
+    showToast('⚠️ 수정할 연결선을 다시 선택해 주세요');
+    return false;
+  }
+  edgePortEdit={type:selEdge.type,id:selEdge.id};
+  linkMode=true;linkFrom=null;linkFromPort=null;
+  document.body.classList.add('link-mode');
+  document.getElementById('btn-link-mode').classList.add('link-active');
+  document.querySelectorAll('.node.link-from').forEach(function(el){el.classList.remove('link-from');});
+  renderNodes();
+  showToast('🔗 연결점 수정: 표시된 양끝 노드의 포트 점을 클릭하세요');
+  return true;
+}
+function applyEdgePortEdit(nodeId, port){
+  if(!edgePortEdit)return false;
+  if(edgePortEdit.type==='tree'){
+    var child=gn(edgePortEdit.id);
+    if(!child||child.pid===null){showToast('⚠️ 수정할 연결선을 다시 선택해 주세요');return true;}
+    if(nodeId!==child.pid&&nodeId!==child.id){
+      showToast('⚠️ 이 선에 연결된 노드의 포트만 선택할 수 있습니다');
+      return true;
+    }
+    var key=(nodeId===child.pid)?'parentPort':'childPort';
+    if(child[key]===port){showToast('이미 선택된 연결점입니다');return true;}
+    pushUndoState();
+    child[key]=port;
+  } else if(edgePortEdit.type==='ref'){
+    var lk=getRefLinkByEdgeId(edgePortEdit.id);
+    if(!lk){showToast('⚠️ 수정할 연결선을 다시 선택해 주세요');return true;}
+    if(nodeId!==lk.from&&nodeId!==lk.to){
+      showToast('⚠️ 이 선에 연결된 노드의 포트만 선택할 수 있습니다');
+      return true;
+    }
+    var lkey=(nodeId===lk.from)?'fromPort':'toPort';
+    if(lk[lkey]===port){showToast('이미 선택된 연결점입니다');return true;}
+    pushUndoState();
+    lk[lkey]=port;
+  }
+  saveAll();renderAll();
+  showToast('✅ 연결점이 변경되었습니다');
+  return true;
+}
 function toggleLinkMode(){
+  if(edgePortEdit){exitLinkMode('연결점 수정 종료');return;}
+  if(selEdge&&beginEdgePortEdit())return;
   linkMode=!linkMode;linkFrom=null;linkFromPort=null;
   document.body.classList.toggle('link-mode',linkMode);
   document.getElementById('btn-link-mode').classList.toggle('link-active',linkMode);
@@ -1819,48 +1905,91 @@ function getArrowTipForNode(node, nodeW, nodeH, angle){
 function roundedElbowPath(ps,cs,cpOff,lineType){
   if(lineType!=='elbow')return null;
   cpOff=cpOff||{dx:0,dy:0};
+  var z=Math.max(0.15,cam.z||1);
+  function zs(v){return v*z;}
   var dx=cs.x-ps.x, dy=cs.y-ps.y;
   var offX=(cpOff.dx||0)*cam.z, offY=(cpOff.dy||0)*cam.z;
-  var horizontalFirst;
-  if(Math.abs(offX)>Math.abs(offY)+2) horizontalFirst=true;
-  else if(Math.abs(offY)>Math.abs(offX)+2) horizontalFirst=false;
-  else horizontalFirst=Math.abs(dx)>=Math.abs(dy);
-  var r=Math.min(22, Math.max(6, Math.min(Math.abs(dx),Math.abs(dy))/3));
-  if(!isFinite(r))r=10;
-  var d,handle,startAngle,endAngle;
+  var horizontalFirst=Math.abs(dx)>=Math.abs(dy);
+  var r=Math.min(zs(22), Math.max(zs(6), Math.min(Math.abs(dx),Math.abs(dy))/3));
+  if(!isFinite(r))r=zs(10);
+  var d,handle,handle2,startAngle,endAngle;
   if(horizontalFirst){
-    var mx=(ps.x+cs.x)/2+offX;
-    var sx=mx>=ps.x?1:-1, sy=cs.y>=ps.y?1:-1, ex=cs.x>=mx?1:-1;
-    var r1=Math.min(r,Math.abs(mx-ps.x)/2,Math.abs(cs.y-ps.y)/2);
-    var r2=Math.min(r,Math.abs(cs.x-mx)/2,Math.abs(cs.y-ps.y)/2);
+    var dirX=dx>=0?1:-1;
+    var startGapX=Math.min(zs(28), Math.max(zs(10), Math.abs(dx)*0.06));
+    var endGapX=Math.min(zs(58), Math.max(zs(30), Math.abs(dx)*0.16));
+    var baseY=ps.y;
+    if(Math.abs(dy)>zs(18)){
+      baseY=Math.min(ps.y,cs.y)-Math.min(zs(90),Math.max(zs(44),Math.abs(dy)*0.35));
+    }
+    var routeY=baseY+offY;
+    /*
+      가로로 긴 꺾은선은 가운데 가로 줄(routeY)을 기준으로 그린다.
+      이 값에 offY를 반영해 사용자가 선을 상하로 직접 조절할 수 있게 한다.
+    */
+    var turnX=cs.x-dirX*endGapX+offX;
+    if(Math.abs(dx)>startGapX+endGapX+zs(8)){
+      if((turnX-ps.x)*dirX<startGapX)turnX=ps.x+dirX*startGapX;
+      if((cpOff.dx||0)===0 && (cs.x-turnX)*dirX<endGapX)turnX=cs.x-dirX*endGapX;
+    }
+    var syStart=routeY>=ps.y?1:-1;
+    var hxDir=turnX>=ps.x?1:-1;
+    var syEnd=cs.y>=routeY?1:-1;
+    var ex=cs.x>=turnX?1:-1;
+    var rStart=Math.min(r,Math.abs(routeY-ps.y)/2,Math.abs(turnX-ps.x)/2);
+    var rTurnIn=Math.min(r,Math.abs(cs.y-routeY)/2,Math.abs(turnX-ps.x)/2);
+    var rTurnOut=Math.min(r,Math.abs(cs.y-routeY)/2,Math.abs(cs.x-turnX)/2);
     d='M'+ps.x+','+ps.y+
-      ' L'+(mx-sx*r1)+','+ps.y+
-      ' Q'+mx+','+ps.y+' '+mx+','+(ps.y+sy*r1)+
-      ' L'+mx+','+(cs.y-sy*r2)+
-      ' Q'+mx+','+cs.y+' '+(mx+ex*r2)+','+cs.y+
+      ' L'+ps.x+','+(routeY-syStart*rStart)+
+      ' Q'+ps.x+','+routeY+' '+(ps.x+hxDir*rStart)+','+routeY+
+      ' L'+(turnX-hxDir*rTurnIn)+','+routeY+
+      ' Q'+turnX+','+routeY+' '+turnX+','+(routeY+syEnd*rTurnIn)+
+      ' L'+turnX+','+(cs.y-syEnd*rTurnOut)+
+      ' Q'+turnX+','+cs.y+' '+(turnX+ex*rTurnOut)+','+cs.y+
       ' L'+cs.x+','+cs.y;
-    handle={x:mx,y:(ps.y+cs.y)/2};
-    startAngle=Math.atan2(0, ps.x-mx);
-    endAngle=Math.atan2(0, cs.x-mx);
+    handle={x:(ps.x+turnX)/2,y:routeY,axis:'y'};
+    handle2={x:turnX,y:(routeY+cs.y)/2,axis:'x'};
+    startAngle=Math.abs(routeY-ps.y)>1?Math.atan2(routeY-ps.y,0):Math.atan2(0,turnX-ps.x);
+    endAngle=Math.atan2(0,cs.x-turnX);
   }else{
-    var my=(ps.y+cs.y)/2+offY;
-    var sy1=my>=ps.y?1:-1, sx1=cs.x>=ps.x?1:-1, ey=cs.y>=my?1:-1;
-    var rv1=Math.min(r,Math.abs(my-ps.y)/2,Math.abs(cs.x-ps.x)/2);
-    var rv2=Math.min(r,Math.abs(cs.y-my)/2,Math.abs(cs.x-ps.x)/2);
+    var dirY=dy>=0?1:-1;
+    var startGapY=Math.min(zs(28), Math.max(zs(10), Math.abs(dy)*0.06));
+    var endGapY=Math.min(zs(58), Math.max(zs(30), Math.abs(dy)*0.16));
+    var baseX=ps.x;
+    if(Math.abs(dx)>zs(18)){
+      baseX=Math.min(ps.x,cs.x)-Math.min(zs(90),Math.max(zs(44),Math.abs(dx)*0.35));
+    }
+    var routeX=baseX+offX;
+    var turnY=cs.y-dirY*endGapY+offY;
+    if(Math.abs(dy)>startGapY+endGapY+zs(8)){
+      if((turnY-ps.y)*dirY<startGapY)turnY=ps.y+dirY*startGapY;
+      if((cpOff.dy||0)===0 && (cs.y-turnY)*dirY<endGapY)turnY=cs.y-dirY*endGapY;
+    }
+    var sxStart=routeX>=ps.x?1:-1;
+    var vyDir=turnY>=ps.y?1:-1;
+    var sxEnd=cs.x>=routeX?1:-1;
+    var ey=cs.y>=turnY?1:-1;
+    var rvStart=Math.min(r,Math.abs(routeX-ps.x)/2,Math.abs(turnY-ps.y)/2);
+    var rvTurnIn=Math.min(r,Math.abs(cs.x-routeX)/2,Math.abs(turnY-ps.y)/2);
+    var rvTurnOut=Math.min(r,Math.abs(cs.x-routeX)/2,Math.abs(cs.y-turnY)/2);
     d='M'+ps.x+','+ps.y+
-      ' L'+ps.x+','+(my-sy1*rv1)+
-      ' Q'+ps.x+','+my+' '+(ps.x+sx1*rv1)+','+my+
-      ' L'+(cs.x-sx1*rv2)+','+my+
-      ' Q'+cs.x+','+my+' '+cs.x+','+(my+ey*rv2)+
+      ' L'+(routeX-sxStart*rvStart)+','+ps.y+
+      ' Q'+routeX+','+ps.y+' '+routeX+','+(ps.y+vyDir*rvStart)+
+      ' L'+routeX+','+(turnY-vyDir*rvTurnIn)+
+      ' Q'+routeX+','+turnY+' '+(routeX+sxEnd*rvTurnIn)+','+turnY+
+      ' L'+(cs.x-sxEnd*rvTurnOut)+','+turnY+
+      ' Q'+cs.x+','+turnY+' '+cs.x+','+(turnY+ey*rvTurnOut)+
       ' L'+cs.x+','+cs.y;
-    handle={x:(ps.x+cs.x)/2,y:my};
-    startAngle=Math.atan2(ps.y-my,0);
-    endAngle=Math.atan2(cs.y-my,0);
+    handle={x:routeX,y:(ps.y+turnY)/2,axis:'x'};
+    handle2={x:(routeX+cs.x)/2,y:turnY,axis:'y'};
+    startAngle=Math.abs(routeX-ps.x)>1?Math.atan2(0,routeX-ps.x):Math.atan2(turnY-ps.y,0);
+    endAngle=Math.atan2(cs.y-turnY,0);
   }
-  return {d:d,handle:handle,startAngle:startAngle,endAngle:endAngle};
+  return {d:d,handle:handle,handle2:handle2,startAngle:startAngle,endAngle:endAngle};
 }
 
-function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs){
+function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,peerEl,peerKey){
+  axis=axis||'both';
+  handleKey=handleKey||'handle';
   pathEl.addEventListener('mouseenter',function(){hEl.setAttribute('opacity','1');pathEl.setAttribute('stroke-width','3');});
   pathEl.addEventListener('mouseleave',function(){if(!hEl._dragging){hEl.setAttribute('opacity','0');pathEl.setAttribute('stroke-width','2');}});
   hEl.addEventListener('mouseenter',function(){hEl.setAttribute('opacity','1');});
@@ -1887,9 +2016,11 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs){
     var orig=edgeObj.cp?{dx:edgeObj.cp.dx||0,dy:edgeObj.cp.dy||0}:{dx:0,dy:0};
     var rafId=null;
     function onMove(ev){
+      var nextDx=orig.dx+(ev.clientX-startX)/cam.z;
+      var nextDy=orig.dy+(ev.clientY-startY)/cam.z;
       var next={
-        dx:orig.dx+(ev.clientX-startX)/cam.z,
-        dy:orig.dy+(ev.clientY-startY)/cam.z
+        dx:(axis==='y')?orig.dx:nextDx,
+        dy:(axis==='x')?orig.dy:nextDy
       };
       edgeObj.cp=next;
       if(rafId)cancelAnimationFrame(rafId);
@@ -1898,8 +2029,13 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs){
         if(!info)return;
         pathEl.setAttribute('d',info.d);
         if(bgPath)bgPath.setAttribute('d',info.d);
-        hEl.setAttribute('cx',info.handle.x);
-        hEl.setAttribute('cy',info.handle.y);
+        var hp=info[handleKey]||info.handle;
+        hEl.setAttribute('cx',hp.x);
+        hEl.setAttribute('cy',hp.y);
+        if(peerEl&&peerKey&&info[peerKey]){
+          peerEl.setAttribute('cx',info[peerKey].x);
+          peerEl.setAttribute('cy',info[peerKey].y);
+        }
       });
     }
     function onUp(){
@@ -1988,14 +2124,22 @@ function renderCurves(){
     var arr0=c.arr||'forward';
     var pEpIsTarget=(arr0==='backward');
     var cEpIsTarget=(arr0==='forward'||arr0==='both');
-    var pEp=getEdgePoint(p.x,p.y,pw,ph,c.x,c.y,pEpIsTarget);
-    var cEp=getEdgePoint(c.x,c.y,cw,ch,p.x,p.y,cEpIsTarget);
+    var pEp=c.parentPort
+      ? getPortPoint(p.x,p.y,pw,ph,c.parentPort,pEpIsTarget,c.x,c.y)
+      : getEdgePoint(p.x,p.y,pw,ph,c.x,c.y,pEpIsTarget);
+    var cEp=c.childPort
+      ? getPortPoint(c.x,c.y,cw,ch,c.childPort,cEpIsTarget,p.x,p.y)
+      : getEdgePoint(c.x,c.y,cw,ch,p.x,p.y,cEpIsTarget);
     /* 같은 방향 출발일 때만 분산 적용 */
     var allSameSide=true;
-    for(var si=0;si<siblings.length;si++){
-      var sn=gn(siblings[si]); if(!sn)continue;
-      var sep=getEdgePoint(p.x,p.y,pw,ph,sn.x,sn.y);
-      if(sep.x!==pEp.x||sep.y!==pEp.y){allSameSide=false;break;}
+    if(!c.parentPort){
+      for(var si=0;si<siblings.length;si++){
+        var sn=gn(siblings[si]); if(!sn)continue;
+        var sep=getEdgePoint(p.x,p.y,pw,ph,sn.x,sn.y);
+        if(sep.x!==pEp.x||sep.y!==pEp.y){allSameSide=false;break;}
+      }
+    } else {
+      allSameSide=false;
     }
     if(allSameSide&&sibCount>1){
       /* 출발면이 좌/우이면 Y분산, 상/하이면 X분산 */
@@ -2105,8 +2249,25 @@ function renderCurves(){
     handle.style.transition='r .15s,opacity .15s';
     path.setAttribute('data-edge','tree-'+c.id);
     if(edgeLineType==='elbow'){
-      bindRoundedElbowHandle(handle,path,bgPath,c,ps,cs);
+      var h2Info=edgePathInfo.handle2||edgePathInfo.handle;
+      var handle2=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      handle2.setAttribute('cx',h2Info.x); handle2.setAttribute('cy',h2Info.y);
+      handle2.setAttribute('r','7');
+      handle2.setAttribute('fill','rgba(56,178,255,0.22)');
+      handle2.setAttribute('stroke','#38b2ff');
+      handle2.setAttribute('stroke-width','2');
+      handle2.setAttribute('data-handle','tree-'+c.id+'-x');
+      var hAxis=(edgePathInfo.handle&&edgePathInfo.handle.axis)||'y';
+      var h2Axis=(edgePathInfo.handle2&&edgePathInfo.handle2.axis)||'x';
+      handle2.style.cursor=(h2Axis==='x')?'ew-resize':'ns-resize'; handle2.style.pointerEvents='all';
+      handle2.setAttribute('opacity','0');
+      handle2.style.transition='r .15s,opacity .15s';
+      handle.style.cursor=(hAxis==='x')?'ew-resize':'ns-resize';
+      handle.setAttribute('data-handle','tree-'+c.id+'-y');
+      bindRoundedElbowHandle(handle,path,bgPath,c,ps,cs,hAxis,'handle',handle2,'handle2');
+      bindRoundedElbowHandle(handle2,path,bgPath,c,ps,cs,h2Axis,'handle2',handle,'handle');
       svgH.appendChild(handle);
+      svgH.appendChild(handle2);
       continue;
     }
     /* hover show/hide */
@@ -2319,9 +2480,24 @@ function renderCurves(){
     lhandle.setAttribute('opacity','0');
     lpath.setAttribute('data-edge','link-'+lk.from+'-'+lk.to);
     if(linkLineType==='elbow'){
-      bindRoundedElbowHandle(lhandle,lpath,lbgPath,lk,sc1,sc2);
       lhandle._elbow=true;
-      svg.appendChild(lhandle);
+      var lh2Info=linkPathInfo.handle2||linkPathInfo.handle;
+      var lhandle2=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      lhandle2.setAttribute('cx',lh2Info.x); lhandle2.setAttribute('cy',lh2Info.y);
+      lhandle2.setAttribute('r','7');
+      lhandle2.setAttribute('fill','rgba(56,178,255,0.22)');
+      lhandle2.setAttribute('stroke','#38b2ff');
+      lhandle2.setAttribute('stroke-width','2');
+      var lhAxis=(linkPathInfo.handle&&linkPathInfo.handle.axis)||'y';
+      var lh2Axis=(linkPathInfo.handle2&&linkPathInfo.handle2.axis)||'x';
+      lhandle2.style.cursor=(lh2Axis==='x')?'ew-resize':'ns-resize'; lhandle2.style.pointerEvents='all';
+      lhandle2.setAttribute('opacity','0');
+      lhandle2._elbow=true;
+      lhandle.style.cursor=(lhAxis==='x')?'ew-resize':'ns-resize';
+      bindRoundedElbowHandle(lhandle,lpath,lbgPath,lk,sc1,sc2,lhAxis,'handle',lhandle2,'handle2');
+      bindRoundedElbowHandle(lhandle2,lpath,lbgPath,lk,sc1,sc2,lh2Axis,'handle2',lhandle,'handle');
+      svgH.appendChild(lhandle);
+      svgH.appendChild(lhandle2);
     }
     (function(lhEl,lpathEl){
       lpathEl.addEventListener('mouseenter',function(){lhEl.setAttribute('opacity','1');lpathEl.setAttribute('stroke-width','3');});
@@ -2417,7 +2593,7 @@ function renderCurves(){
         document.addEventListener('mouseup',onUp);
       });
     })(lk,lhandle,lpath,lhmx,lhmy);
-    svg.appendChild(lhandle);
+    if(!lhandle._elbow)svg.appendChild(lhandle);
     /* 연결선 중간 × 삭제 버튼 */
     var bmx=(sc1.x+sc2.x)/2,bmy=(sc1.y+sc2.y)/2;
     var g=document.createElementNS('http://www.w3.org/2000/svg','g');
@@ -2623,6 +2799,12 @@ function renderNodes(){
         dot.style.left=pd.sx; dot.style.top=pd.sy;
         (function(capturedDir, capturedNode){
           dot.addEventListener('mousedown',function(e){
+            if(edgePortEdit){
+              e.stopPropagation();
+              e.preventDefault();
+              applyEdgePortEdit(parseInt(capturedNode.dataset.id), capturedDir);
+              return;
+            }
             if(!linkMode)return;
             e.stopPropagation();
             e.preventDefault();
@@ -2672,6 +2854,7 @@ function renderNodes(){
     }
     el.style.color=getNodeFontColor(el.style.background||getColor(n.id), n.fontColor);
     el.classList.toggle('selected',sel===n.id);el.classList.toggle('starred',!!n.star);el.classList.toggle('multi-sel',multiSel.indexOf(n.id)>=0&&n.id!==sel);
+    el.classList.toggle('port-edit-target',isEdgePortTarget(n.id));
     /* ── 연결 노드 하이라이트 ── */
     el.classList.remove('node-conn-parent','node-conn-child','node-conn-ref','node-dimmed');
     var sb=el.querySelector('.star-badge');
@@ -3498,6 +3681,10 @@ function bindNode(el,id){
       return;
     }
     /* ── 연결 모드 ── */
+    if(edgePortEdit){
+      showToast('표시된 포트 점을 클릭해 연결점을 바꿔주세요');
+      return;
+    }
     if(linkMode){
       if(linkFrom===null){
         linkFrom=id; linkFromPort=null;
@@ -3819,7 +4006,7 @@ document.addEventListener('keydown',function(e){
   else if(e.altKey&&e.key==='ArrowDown'){e.preventDefault();if(sel)moveSibling(sel,1);}
   else if(e.key==='m'||e.key==='M'){if(sel){if(memoOpen)closeMemo();else openMemo(sel);}}
   else if(e.key==='Escape'){
-    if(linkMode){linkMode=false;linkFrom=null;document.body.classList.remove('link-mode');document.getElementById('btn-link-mode').classList.remove('link-active');document.querySelectorAll('.node.link-from').forEach(function(el){el.classList.remove('link-from');});showToast('연결 모드 종료');return;}
+    if(linkMode){exitLinkMode(edgePortEdit?'연결점 수정 종료':'연결 모드 종료');return;}
     if(multiSel.length){multiSel=[];renderAll();return;}sel=null;selEdge=null;renderAll();if(memoOpen)closeMemo();}
   else if(e.key==='F2'){if(sel)startEdit(sel);}
 });
