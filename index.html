@@ -1859,6 +1859,27 @@ function removeLink(fromId, toId){
 function getLinksOf(id){
   return links.filter(function(l){return l.from===id||l.to===id;});
 }
+function getShiftAlignTargetId(id){
+  var n=gn(id);if(!n)return null;
+  if(n.pid!==null)return n.pid;
+  var candidates=[];
+  gc(id).forEach(function(c){candidates.push(c.id);});
+  getLinksOf(id).forEach(function(l){candidates.push(l.from===id?l.to:l.from);});
+  var best=null,bestDist=Infinity;
+  for(var i=0;i<candidates.length;i++){
+    var t=gn(candidates[i]);if(!t)continue;
+    var dx=t.x-n.x,dy=t.y-n.y;
+    var d=dx*dx+dy*dy;
+    if(d<bestDist){bestDist=d;best=t.id;}
+  }
+  return best;
+}
+function applyShiftDragAlignment(n,targetId){
+  var t=gn(targetId);if(!n||!t)return;
+  var dx=Math.abs(n.x-t.x),dy=Math.abs(n.y-t.y);
+  if(dx>=dy)n.y=t.y;
+  else n.x=t.x;
+}
 
 /* ════════════════ RENDER CURVES ════════════════ */
 /* ── 노드의 4방향 중 target에 가장 가까운 면의 연결점 반환 ── */
@@ -3902,7 +3923,7 @@ function bindNode(el,id){
     sel=id;panelVisible=false;
     var wp=s2w(e.clientX,e.clientY),n=gn(id);
     if(!lockMode){
-      movSt={id:id,ox:n.x,oy:n.y,mx:wp.x,my:wp.y,undoPushed:false};
+      movSt={id:id,ox:n.x,oy:n.y,mx:wp.x,my:wp.y,undoPushed:false,alignId:getShiftAlignTargetId(id)};
       document.getElementById('viewport').classList.add('moving');
     }
     if(memoOpen){saveMemoTxt();document.getElementById('memo-node-name').textContent=n.text;document.getElementById('memo-ta').value=n.memo||'';document.getElementById('memo-ta').dataset.nid=id;renderMemoImgs(n);}
@@ -4143,7 +4164,10 @@ document.addEventListener('mousemove',function(e){
   if(movSt){
     var wp=s2w(e.clientX,e.clientY),n=gn(movSt.id);
     if(!movSt.undoPushed){pushUndoState();movSt.undoPushed=true;}
-    if(n){n.x=movSt.ox+(wp.x-movSt.mx);n.y=movSt.oy+(wp.y-movSt.my);}
+    if(n){
+      n.x=movSt.ox+(wp.x-movSt.mx);n.y=movSt.oy+(wp.y-movSt.my);
+      if(e.shiftKey)applyShiftDragAlignment(n,movSt.alignId);
+    }
     requestFastRender({forceCurves:true,drawMM:false});return;
   }
   if(panSt){cam.x=panSt.cx+(e.clientX-panSt.sx);cam.y=panSt.cy+(e.clientY-panSt.sy);requestViewportRender();}
