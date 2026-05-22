@@ -1947,6 +1947,16 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
   }
   return null;
 }
+function shouldUseElbowAutoPort(manualPort,autoPort){
+  if(!autoPort)return false;
+  if(!manualPort)return true;
+  if(autoPort.mode==='vertical'){
+    return manualPort==='left'||manualPort==='right'||
+      manualPort==='top-left'||manualPort==='top-right'||
+      manualPort==='bottom-left'||manualPort==='bottom-right';
+  }
+  return false;
+}
 
 function roundedElbowPath(ps,cs,cpOff,lineType){
   if(lineType!=='elbow')return null;
@@ -2275,8 +2285,10 @@ function renderCurves(){
       endAngle:Math.atan2(cs.y-cp2y,cs.x-cp2x)
     };
     if(edgeLineType==='elbow'&&arr!=='none'){
-      var startAutoPort=!c.parentPort?getElbowAutoPortAngle(p,pw,ph,edgePathInfo,true):null;
-      var endAutoPort=!c.childPort?getElbowAutoPortAngle(c,cw,ch,edgePathInfo,false):null;
+      var startAutoPort=getElbowAutoPortAngle(p,pw,ph,edgePathInfo,true);
+      var endAutoPort=getElbowAutoPortAngle(c,cw,ch,edgePathInfo,false);
+      if(!shouldUseElbowAutoPort(c.parentPort,startAutoPort))startAutoPort=null;
+      if(!shouldUseElbowAutoPort(c.childPort,endAutoPort))endAutoPort=null;
       if(startAutoPort){edgePathInfo.startAngle=startAutoPort.angle;}
       if(endAutoPort){edgePathInfo.endAngle=endAutoPort.angle;}
       var edgeCpForPath=cpOff;
@@ -2548,8 +2560,10 @@ function renderCurves(){
       endAngle:Math.atan2(sc2.y-lcp2y,sc2.x-lcp2x)
     };
     if(linkLineType==='elbow'&&larr!=='none'){
-      var lStartAutoPort=!lk.fromPort?getElbowAutoPortAngle(fa,fw,fh,linkPathInfo,true):null;
-      var lEndAutoPort=!lk.toPort?getElbowAutoPortAngle(ta,tw,th,linkPathInfo,false):null;
+      var lStartAutoPort=getElbowAutoPortAngle(fa,fw,fh,linkPathInfo,true);
+      var lEndAutoPort=getElbowAutoPortAngle(ta,tw,th,linkPathInfo,false);
+      if(!shouldUseElbowAutoPort(lk.fromPort,lStartAutoPort))lStartAutoPort=null;
+      if(!shouldUseElbowAutoPort(lk.toPort,lEndAutoPort))lEndAutoPort=null;
       if(lStartAutoPort){linkPathInfo.startAngle=lStartAutoPort.angle;}
       if(lEndAutoPort){linkPathInfo.endAngle=lEndAutoPort.angle;}
       var linkCpForPath=lcpOff;
