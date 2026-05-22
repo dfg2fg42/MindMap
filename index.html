@@ -769,13 +769,30 @@ body.link-mode .link-del-btn{display:block;}
       <div class="help-table">
         <div class="hr"><span class="hk">Alt + ↑</span><span class="hd">같은 단계 노드 위로 이동</span></div>
         <div class="hr"><span class="hk">Alt + ↓</span><span class="hd">같은 단계 노드 아래로 이동</span></div>
+        <div class="hr"><span class="hk">노드 드래그 + Shift</span><span class="hd">연결된 노드와 수평/수직 정렬 가이드 표시 및 자석 정렬</span></div>
+        <div class="hr"><span class="hk">Shift + 영역 드래그</span><span class="hd">여러 노드 선택 후 이동·그룹·삭제 가능</span></div>
+        <div class="hr"><span class="hk">Delete / Backspace</span><span class="hd">다중 선택 노드 삭제 전 확인창 표시</span></div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <div class="help-title">🔗 연결선 편집</div>
+      <div class="help-table">
+        <div class="hr"><span class="hk">연결선 클릭</span><span class="hd">화살표 방향, 선 색상, 선 타입 메뉴 열기</span></div>
+        <div class="hr"><span class="hk">∿ / ┐ 버튼</span><span class="hd">곡선 연결 / 라운드 꺾은선 연결 전환</span></div>
+        <div class="hr"><span class="hk">연결선 조절점 드래그</span><span class="hd">꺾은선 위치 조정, 가까운 같은 축 선에는 자동 스냅</span></div>
+        <div class="hr"><span class="hk">연결선 조절점 더블클릭</span><span class="hd">해당 연결선 조정값 초기화</span></div>
+        <div class="hr"><span class="hk">선 선택 후 🔗 연결 버튼</span><span class="hd">양 끝 노드의 연결 포인트 수정 모드</span></div>
+        <div class="hr"><span class="hk">포트 점 클릭</span><span class="hd">상/하/좌/우/모서리 중 원하는 연결점 지정</span></div>
+        <div class="hr"><span class="hk">연결선 중앙 ×</span><span class="hd">참조 연결선 삭제</span></div>
+        <div class="hr"><span class="hk">Delete / Backspace</span><span class="hd">선택된 연결선 삭제 또는 트리 연결 끊기</span></div>
       </div>
     </div>
 
     <div class="help-section">
       <div class="help-title">⚡ 단축키 모음</div>
       <div class="help-table">
-        <div class="hr"><span class="hk">Ctrl + Z</span><span class="hd">삭제 실행 취소 (최대 30단계)</span></div>
+        <div class="hr"><span class="hk">Ctrl + Z</span><span class="hd">삭제·이동·선 조정 등 주요 작업 되돌리기 (최대 30단계)</span></div>
         <div class="hr"><span class="hk">Ctrl + F</span><span class="hd">노드 검색창 열기</span></div>
         <div class="hr"><span class="hk">Ctrl + B</span><span class="hd">선택 노드 글자 굵게 토글</span></div>
         <div class="hr"><span class="hk">Ctrl + U</span><span class="hd">선택 노드 글자 밑줄 토글</span></div>
@@ -783,7 +800,7 @@ body.link-mode .link-del-btn{display:block;}
         <div class="hr"><span class="hk">M</span><span class="hd">메모창 열기 / 닫기</span></div>
         <div class="hr"><span class="hk">?</span><span class="hd">도움말 열기</span></div>
         <div class="hr"><span class="hk">🔗 연결 버튼</span><span class="hd">참조 연결 모드 — 시작 노드 → 대상 노드 클릭</span></div>
-        <div class="hr"><span class="hk">연결선 중앙 ×</span><span class="hd">참조 연결선 삭제</span></div>
+        <div class="hr"><span class="hk">🔒 잠금 버튼</span><span class="hd">노드 이동과 연결선 조정을 함께 잠금</span></div>
       </div>
     </div>
 
@@ -801,8 +818,11 @@ body.link-mode .link-del-btn{display:block;}
       <div class="help-title">📁 카테고리 &amp; 노드 방향</div>
       <div class="help-table">
         <div class="hr"><span class="hk">사이드바 (마우스 왼쪽)</span><span class="hd">카테고리 슬라이드 메뉴</span></div>
+        <div class="hr"><span class="hk">사이드바 핸들 클릭</span><span class="hd">사이드바 고정 / 고정 해제</span></div>
+        <div class="hr"><span class="hk">카테고리 드래그</span><span class="hd">카테고리 순서 변경 또는 하위 카테고리로 이동</span></div>
+        <div class="hr"><span class="hk">카테고리 아이콘 클릭</span><span class="hd">카테고리 아이콘 변경</span></div>
         <div class="hr"><span class="hk">⇄ / → / ← 방향 버튼</span><span class="hd">새 하위 노드 생성 방향 설정</span></div>
-        <div class="hr"><span class="hk">⟳ 정렬 버튼</span><span class="hd">전체 노드 자동 재배치</span></div>
+        <div class="hr"><span class="hk">⟳ 정렬 버튼</span><span class="hd">전체 자동 재배치 또는 다중 선택 노드 수직 정렬</span></div>
         <div class="hr"><span class="hk">⊡ 맞춤 버튼</span><span class="hd">전체 노드 화면에 맞추기</span></div>
       </div>
     </div>
@@ -3794,6 +3814,7 @@ function requestViewportRender(){
   _fastRenderRAF=requestAnimationFrame(function(){
     _fastRenderRAF=null;
     applyCamera();
+    renderNodes();
     renderCurves();
     updatePanel();
     if(!(panSt||movSt||multiDrag))drawMM();
@@ -4428,7 +4449,7 @@ function zoomAt(sx,sy,up){
   var rx=sx-vp.left,ry=sy-vp.top,f=up?1.13:0.885;
   var nz=Math.max(0.15,Math.min(3.5,cam.z*f));
   cam.x=rx-(rx-cam.x)*nz/cam.z;cam.y=ry-(ry-cam.y)*nz/cam.z;cam.z=nz;
-  applyCamera();renderCurves();updatePanel();drawMM();
+  applyCamera();renderNodes();renderCurves();updatePanel();drawMM();
 }
 function fitView(){
   if(!nodes.length)return;
