@@ -3792,6 +3792,8 @@ function blendColors(colors){
 var _fastRenderRAF=null;
 var _fastCurveLast=0;
 var _fullRenderRAF=null;
+var _viewportNodeLast=0;
+var _zoomRenderTimer=null;
 
 function requestFastRender(opts){
   opts=opts||{};
@@ -3809,12 +3811,17 @@ function requestFastRender(opts){
   });
 }
 
-function requestViewportRender(){
+function requestViewportRender(opts){
+  opts=opts||{};
   if(_fastRenderRAF)return;
   _fastRenderRAF=requestAnimationFrame(function(){
     _fastRenderRAF=null;
     applyCamera();
-    renderNodes();
+    var now=performance.now?performance.now():Date.now();
+    if(opts.forceNodes || now-_viewportNodeLast>80){
+      renderNodes();
+      _viewportNodeLast=now;
+    }
     renderCurves();
     updatePanel();
     if(!(panSt||movSt||multiDrag))drawMM();
@@ -4449,7 +4456,15 @@ function zoomAt(sx,sy,up){
   var rx=sx-vp.left,ry=sy-vp.top,f=up?1.13:0.885;
   var nz=Math.max(0.15,Math.min(3.5,cam.z*f));
   cam.x=rx-(rx-cam.x)*nz/cam.z;cam.y=ry-(ry-cam.y)*nz/cam.z;cam.z=nz;
-  applyCamera();renderNodes();renderCurves();updatePanel();drawMM();
+  requestViewportRender();
+  clearTimeout(_zoomRenderTimer);
+  _zoomRenderTimer=setTimeout(function(){
+    applyCamera();
+    renderNodes();
+    renderCurves();
+    updatePanel();
+    drawMM();
+  },120);
 }
 function fitView(){
   if(!nodes.length)return;
@@ -4657,7 +4672,7 @@ document.addEventListener('mouseup',function(){
   }
   if(multiDrag){multiDrag=null;document.getElementById('viewport').classList.remove('moving');saveAll();renderAll();return;}
   if(movSt){hideShiftAlignGuide();movSt=null;document.getElementById('viewport').classList.remove('moving');saveAll();renderAll();}
-  if(panSt){hideShiftAlignGuide();panSt=null;document.getElementById('viewport').classList.remove('panning');}
+  if(panSt){hideShiftAlignGuide();panSt=null;document.getElementById('viewport').classList.remove('panning');requestViewportRender({forceNodes:true});}
 });
 document.getElementById('viewport').addEventListener('wheel',function(e){e.preventDefault();zoomAt(e.clientX,e.clientY,e.deltaY<0);},{passive:false});
 document.addEventListener('click',function(e){
