@@ -2322,6 +2322,51 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
       finalDy:edgeObj.cp.finalDy||0
     }:{dx:0,dy:0,startDx:0,startDy:0,endDx:0,endDy:0,finalDx:0,finalDy:0};
     var rafId=null;
+    function snapElbowControl(next){
+      var info=roundedElbowPath(ps,cs,next,'elbow');
+      if(!info)return next;
+      var snapPx=Math.max(6,10*cam.z);
+      function nearest(v,targets){
+        var best=null,bestD=snapPx;
+        for(var i=0;i<targets.length;i++){
+          var t=targets[i];
+          if(t===undefined||!isFinite(t))continue;
+          var d=Math.abs(v-t);
+          if(d>0.5&&d<=bestD){best=t;bestD=d;}
+        }
+        return best;
+      }
+      function snapProp(prop,current,target){
+        if(target===null)return;
+        next[prop]=(next[prop]||0)+(target-current)/cam.z;
+      }
+      if(info.horizontalFirst){
+        if(axis==='y'){
+          snapProp('dy',info.routeY,nearest(info.routeY,[ps.y,info.endY,info.finalY,cs.y]));
+        }else if(axis==='endY'){
+          snapProp('endDy',info.endY,nearest(info.endY,[ps.y,info.routeY,info.finalY,cs.y]));
+        }else if(axis==='finalY'){
+          snapProp('finalDy',info.finalY,nearest(info.finalY,[ps.y,info.routeY,info.endY,cs.y]));
+        }else if(axis==='x'){
+          snapProp('dx',info.turnX,nearest(info.turnX,[ps.x,info.startX,info.endX,info.finalX,cs.x]));
+        }else if(axis==='startX'){
+          snapProp('startDx',info.startX,nearest(info.startX,[ps.x,info.turnX,info.endX,info.finalX,cs.x]));
+        }else if(axis==='endX'){
+          snapProp('endDx',info.endX,nearest(info.endX,[ps.x,info.startX,info.turnX,info.finalX,cs.x]));
+        }else if(axis==='finalX'){
+          snapProp('finalDx',info.finalX,nearest(info.finalX,[ps.x,info.startX,info.turnX,info.endX,cs.x]));
+        }
+      }else{
+        if(axis==='x'){
+          snapProp('dx',info.routeX,nearest(info.routeX,[ps.x,cs.x]));
+        }else if(axis==='y'){
+          snapProp('dy',info.turnY,nearest(info.turnY,[ps.y,info.startY,cs.y]));
+        }else if(axis==='startY'){
+          snapProp('startDy',info.startY,nearest(info.startY,[ps.y,info.turnY,cs.y]));
+        }
+      }
+      return next;
+    }
     function onMove(ev){
       var nextDx=orig.dx+(ev.clientX-startX)/cam.z;
       var nextDy=orig.dy+(ev.clientY-startY)/cam.z;
@@ -2347,6 +2392,7 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
       if(axis==='endY')next.endDy=nextEndDy;
       if(axis==='finalX')next.finalDx=nextFinalDx;
       if(axis==='finalY')next.finalDy=nextFinalDy;
+      next=snapElbowControl(next);
       edgeObj.cp=next;
       if(rafId)cancelAnimationFrame(rafId);
       rafId=requestAnimationFrame(function(){
