@@ -745,7 +745,7 @@ body.link-mode .link-del-btn{display:block;}
         <div class="hr"><span class="hk">F2</span><span class="hd">노드 이름 편집 시작</span></div>
         <div class="hr"><span class="hk">Alt + Enter</span><span class="hd">편집 중 줄바꿈 (다음 줄 추가)</span></div>
         <div class="hr"><span class="hk">Enter (편집 중)</span><span class="hd">편집 완료</span></div>
-        <div class="hr"><span class="hk">Delete / Backspace</span><span class="hd">선택 노드 삭제</span></div>
+        <div class="hr"><span class="hk">Delete / Backspace</span><span class="hd">선택 노드 또는 다중 선택 노드 삭제</span></div>
         <div class="hr"><span class="hk">Esc</span><span class="hd">편집 취소 / 선택 해제</span></div>
       </div>
     </div>
@@ -990,7 +990,15 @@ var iconPickerTarget=null;
 var sbPinned=false;
 
 function pushUndoState(){
-  undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
+  undoStack.push({
+    nodes:JSON.parse(JSON.stringify(nodes)),
+    links:JSON.parse(JSON.stringify(links)),
+    groups:JSON.parse(JSON.stringify(groups)),
+    nextGid:nextGid,
+    nid:nid,
+    sel:sel,
+    multiSel:multiSel.slice()
+  });
   if(undoStack.length>30)undoStack.shift();
 }
 
@@ -2225,6 +2233,58 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
   };
 }
 
+function getLiveRoundedElbowInfo(edgeObj,ps,cs,cpOff){
+  var info=roundedElbowPath(ps,cs,cpOff,'elbow');
+  if(!info||!edgeObj)return info;
+  var arr=edgeObj.arrow||'none';
+  var ps2={x:ps.x,y:ps.y}, cs2={x:cs.x,y:cs.y};
+  var cpForPath=cpOff||{};
+  var startAuto=null,endAuto=null;
+
+  if(edgeObj.pid!==undefined){
+    var child=edgeObj, parent=gn(child.pid);
+    if(parent){
+      var pel=document.getElementById('n'+parent.id);
+      var cel=document.getElementById('n'+child.id);
+      var pw=pel?pel.offsetWidth:nwFull(parent), ph=nhFull(parent);
+      var cw=cel?cel.offsetWidth:nwFull(child), ch=nhFull(child);
+      startAuto=getElbowAutoPortAngle(parent,pw,ph,info,true);
+      endAuto=getElbowAutoPortAngle(child,cw,ch,info,false);
+      if(!shouldUseElbowAutoPort(child.parentPort,startAuto))startAuto=null;
+      if(!shouldUseElbowAutoPort(child.childPort,endAuto))endAuto=null;
+    }
+  }else if(edgeObj.from!==undefined&&edgeObj.to!==undefined){
+    var fromN=gn(edgeObj.from), toN=gn(edgeObj.to);
+    if(fromN&&toN){
+      var fel=document.getElementById('n'+fromN.id);
+      var tel=document.getElementById('n'+toN.id);
+      var fw=fel?fel.offsetWidth:nwFull(fromN), fh=nhFull(fromN);
+      var tw=tel?tel.offsetWidth:nwFull(toN), th=nhFull(toN);
+      startAuto=getElbowAutoPortAngle(fromN,fw,fh,info,true);
+      endAuto=getElbowAutoPortAngle(toN,tw,th,info,false);
+      if(!shouldUseElbowAutoPort(edgeObj.fromPort,startAuto))startAuto=null;
+      if(!shouldUseElbowAutoPort(edgeObj.toPort,endAuto))endAuto=null;
+    }
+  }
+
+  if(startAuto)info.startAngle=startAuto.angle;
+  if(endAuto)info.endAngle=endAuto.angle;
+  if((arr==='forward'||arr==='both')&&endAuto){
+    cs2=endAuto.point;
+    if(endAuto.mode==='vertical')cpForPath=Object.assign({},cpForPath,{endVertical:true});
+  }
+  if((arr==='backward'||arr==='both')&&startAuto){
+    ps2=startAuto.point;
+    if(startAuto.mode==='vertical')cpForPath=Object.assign({},cpForPath,{startVertical:true});
+  }
+  if(ps2.x!==ps.x||ps2.y!==ps.y||cs2.x!==cs.x||cs2.y!==cs.y||cpForPath!==cpOff){
+    info=roundedElbowPath(ps2,cs2,cpForPath,'elbow')||info;
+    if(startAuto)info.startAngle=startAuto.angle;
+    if(endAuto)info.endAngle=endAuto.angle;
+  }
+  return info;
+}
+
 function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,peerEl,peerKey){
   axis=axis||'both';
   handleKey=handleKey||'handle';
@@ -2290,28 +2350,12 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
       edgeObj.cp=next;
       if(rafId)cancelAnimationFrame(rafId);
       rafId=requestAnimationFrame(function(){
-        var info=roundedElbowPath(ps,cs,next,'elbow');
-        if(!info)return;
-        pathEl.setAttribute('d',info.d);
-        if(bgPath)bgPath.setAttribute('d',info.d);
-        var hp=info[handleKey]||info.handle;
-        hEl.setAttribute('cx',hp.x);
-        hEl.setAttribute('cy',hp.y);
-        if(peerEl&&peerKey&&info[peerKey]){
-          peerEl.setAttribute('cx',info[peerKey].x);
-          peerEl.setAttribute('cy',info[peerKey].y);
-        }
-        if(hEl._peer2&&hEl._peer2Key&&info[hEl._peer2Key]){
-          hEl._peer2.setAttribute('cx',info[hEl._peer2Key].x);
-          hEl._peer2.setAttribute('cy',info[hEl._peer2Key].y);
-        }
-        if(hEl._peers){
-          hEl._peers.forEach(function(p){
-            if(!p.el||!p.key||!info[p.key])return;
-            p.el.setAttribute('cx',info[p.key].x);
-            p.el.setAttribute('cy',info[p.key].y);
-          });
-        }
+        /*
+          선 편집 중에는 부분 경로만 갱신하면 최종 렌더와 다른 피드백이 보일 수 있다.
+          실제 renderCurves()가 쓰는 화살표/포트/핸들 계산을 그대로 태워서
+          드래그 중 모양과 마우스를 놓은 뒤 결과가 일치하도록 한다.
+        */
+        renderCurves();
       });
     }
     function onUp(){
@@ -4013,19 +4057,62 @@ function delNode(id){
   var msg=delCount>1?'"'+n.text+'" 및 하위 '+(delCount-1)+'개 노드를 삭제할까요?':'"'+n.text+'" 노드를 삭제할까요?';
   if(!confirm('🗑 '+msg))return;
   /* undo 스택에 현재 상태 저장 */
-  undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
-  if(undoStack.length>30)undoStack.shift();
+  pushUndoState();
   nodes=nodes.filter(function(n){return del.indexOf(n.id)<0;});
   links=links.filter(function(l){return del.indexOf(l.from)<0&&del.indexOf(l.to)<0;});
+  groups=groups.map(function(g){
+    var ng=Object.assign({},g);
+    ng.nodeIds=g.nodeIds.filter(function(id){return del.indexOf(id)<0;});
+    return ng;
+  }).filter(function(g){return g.nodeIds.length>0;});
   if(del.indexOf(sel)>=0){sel=null;if(memoOpen)closeMemo();}
   /* 위치 재정렬 없이 그냥 삭제 — 남은 노드 위치 그대로 유지 */
   renderAll();saveAll();
+}
+function deleteSelectedNodes(){
+  if(!multiSel.length)return false;
+  var delMap={},selectedCount=0;
+  function collectSelected(x){
+    if(delMap[x])return;
+    delMap[x]=true;
+    gc(x).forEach(function(c){collectSelected(c.id);});
+  }
+  multiSel.forEach(function(id){
+    if(gn(id)){
+      selectedCount++;
+      collectSelected(id);
+    }
+  });
+  var del=Object.keys(delMap).map(function(v){return parseInt(v);}).filter(function(v){return !isNaN(v);});
+  if(!del.length)return false;
+  var extraCount=del.length-selectedCount;
+  var msg='선택한 '+selectedCount+'개 노드를 삭제할까요?';
+  if(extraCount>0)msg+='\n\n하위 노드 '+extraCount+'개도 함께 삭제됩니다.';
+  if(!confirm('🗑 '+msg))return true;
+  pushUndoState();
+  nodes=nodes.filter(function(n){return !delMap[n.id];});
+  links=links.filter(function(l){return !delMap[l.from]&&!delMap[l.to];});
+  groups=groups.map(function(g){
+    var kept=g.nodeIds.filter(function(id){return !delMap[id];});
+    var ng=Object.assign({},g);
+    ng.nodeIds=kept;
+    return ng;
+  }).filter(function(g){return g.nodeIds.length>0;});
+  if(delMap[sel])sel=null;
+  selEdge=null;selGroup=null;multiSel=[];
+  if(memoOpen)closeMemo();
+  renderAll();saveAll();
+  showToast('🗑 선택한 노드가 삭제되었습니다');
+  return true;
 }
 function undoDelete(){
   if(!undoStack.length){showToast('↩ 되돌릴 내용이 없습니다');return;}
   var prev=undoStack.pop();
   nodes=prev.nodes;nid=prev.nid;sel=prev.sel;
   if(prev.links!==undefined) links=prev.links;
+  if(prev.groups!==undefined) groups=prev.groups;
+  if(prev.nextGid!==undefined) nextGid=prev.nextGid;
+  multiSel=prev.multiSel||[];
   saveAll();renderAll();
   showToast('↩ 복구되었습니다');
 }
@@ -4515,7 +4602,10 @@ document.addEventListener('keydown',function(e){
   if(e.key==='Tab'){e.preventDefault();if(sel)addChild(sel);}
   else if(e.key==='Enter'){if(sel)addSibling(sel);}
   else if(e.key==='Delete'||e.key==='Backspace'){
-    if(selEdge){
+    e.preventDefault();
+    if(multiSel.length){
+      deleteSelectedNodes();
+    } else if(selEdge){
       /* 선택된 선 삭제 */
       if(selEdge.type==='ref'){
         var ids=selEdge.id.split('_');
@@ -4957,6 +5047,10 @@ document.getElementById('ctx-del').onclick=function(){
   var m=document.getElementById('ctx');
   var id=parseInt(m.dataset.nid);
   hideCtx();
+  if(multiSel.length&&multiSel.indexOf(id)>=0){
+    deleteSelectedNodes();
+    return;
+  }
   var n=gn(id);if(!n)return;
   if(n.pid===null){
     /* 독립/루트 노드 삭제 */
@@ -4965,10 +5059,14 @@ document.getElementById('ctx-del').onclick=function(){
     collectR(id);
     var msg=del.length>1?'"'+n.text+'" 및 하위 '+(del.length-1)+'개 노드를 삭제할까요?':'"'+n.text+'" 노드를 삭제할까요?';
     if(!confirm('🗑 '+msg))return;
-    undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
-    if(undoStack.length>30)undoStack.shift();
+    pushUndoState();
     nodes=nodes.filter(function(x){return del.indexOf(x.id)<0;});
     links=links.filter(function(l){return del.indexOf(l.from)<0&&del.indexOf(l.to)<0;});
+    groups=groups.map(function(g){
+      var ng=Object.assign({},g);
+      ng.nodeIds=g.nodeIds.filter(function(id){return del.indexOf(id)<0;});
+      return ng;
+    }).filter(function(g){return g.nodeIds.length>0;});
     if(del.indexOf(sel)>=0){sel=null;}
     renderAll();saveAll();
   } else {
