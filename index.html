@@ -2036,6 +2036,42 @@ function shouldUseElbowAutoPort(manualPort,autoPort){
   }
   return false;
 }
+function buildRoundedOrthogonalPath(rawPoints,r){
+  var pts=[];
+  rawPoints.forEach(function(p){
+    if(!pts.length||Math.abs(pts[pts.length-1].x-p.x)>0.5||Math.abs(pts[pts.length-1].y-p.y)>0.5){
+      pts.push({x:p.x,y:p.y});
+    }
+  });
+  for(var i=1;i<pts.length-1;i++){
+    var a=pts[i-1],b=pts[i],c=pts[i+1];
+    if((Math.abs(a.x-b.x)<0.5&&Math.abs(b.x-c.x)<0.5)||(Math.abs(a.y-b.y)<0.5&&Math.abs(b.y-c.y)<0.5)){
+      pts.splice(i,1);i--;
+    }
+  }
+  if(pts.length<2)return {d:'',startAngle:0,endAngle:0};
+  function dist(a,b){var dx=b.x-a.x,dy=b.y-a.y;return Math.sqrt(dx*dx+dy*dy);}
+  var d='M'+pts[0].x+','+pts[0].y;
+  for(var j=1;j<pts.length-1;j++){
+    var p0=pts[j-1],p1=pts[j],p2=pts[j+1];
+    var d1=dist(p0,p1),d2=dist(p1,p2);
+    var cut=Math.min(r,d1/2,d2/2);
+    if(cut<1){
+      d+=' L'+p1.x+','+p1.y;
+      continue;
+    }
+    var bx=p1.x+(p0.x-p1.x)/d1*cut, by=p1.y+(p0.y-p1.y)/d1*cut;
+    var ax=p1.x+(p2.x-p1.x)/d2*cut, ay=p1.y+(p2.y-p1.y)/d2*cut;
+    d+=' L'+bx+','+by+' Q'+p1.x+','+p1.y+' '+ax+','+ay;
+  }
+  var last=pts[pts.length-1],prev=pts[pts.length-2],next=pts[1];
+  d+=' L'+last.x+','+last.y;
+  return {
+    d:d,
+    startAngle:Math.atan2(pts[0].y-next.y,pts[0].x-next.x),
+    endAngle:Math.atan2(last.y-prev.y,last.x-prev.x)
+  };
+}
 
 function roundedElbowPath(ps,cs,cpOff,lineType){
   if(lineType!=='elbow')return null;
@@ -2045,10 +2081,14 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
   var dx=cs.x-ps.x, dy=cs.y-ps.y;
   var offX=(cpOff.dx||0)*cam.z, offY=(cpOff.dy||0)*cam.z;
   var startOffX=(cpOff.startDx||0)*cam.z, startOffY=(cpOff.startDy||0)*cam.z;
+  var endOffX=(cpOff.endDx||0)*cam.z;
+  var endOffY=(cpOff.endDy||0)*cam.z;
+  var finalOffX=(cpOff.finalDx||0)*cam.z;
+  var finalOffY=(cpOff.finalDy||0)*cam.z;
   var horizontalFirst=Math.abs(dx)>=Math.abs(dy);
   var r=Math.min(zs(22), Math.max(zs(6), Math.min(Math.abs(dx),Math.abs(dy))/3));
   if(!isFinite(r))r=zs(10);
-  var d,handle,handle2,handle3,startAngle,endAngle;
+  var d,handle,handle2,handle3,handle4,handle5,handle6,handle7,startAngle,endAngle;
   if(horizontalFirst){
     var dirX=dx>=0?1:-1;
     var startGapX=Math.min(zs(28), Math.max(zs(10), Math.abs(dx)*0.06));
@@ -2072,31 +2112,33 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
     var syStart=routeY>=ps.y?1:-1;
     var outDir=startX>=ps.x?1:-1;
     var hxDir=turnX>=startX?1:-1;
-    var syEnd=cs.y>=routeY?1:-1;
-    var ex=cs.x>=turnX?1:-1;
-    var rOut=Math.min(r,Math.abs(startX-ps.x)/2,Math.abs(routeY-ps.y)/2);
-    var rStart=Math.min(r,Math.abs(routeY-ps.y)/2,Math.abs(turnX-startX)/2);
-    var rTurnIn=Math.min(r,Math.abs(cs.y-routeY)/2,Math.abs(turnX-startX)/2);
-    var rTurnOut=cpOff.endVertical?0:Math.min(r,Math.abs(cs.y-routeY)/2,Math.abs(cs.x-turnX)/2);
-    d='M'+ps.x+','+ps.y+
-      ' L'+(startX-outDir*rOut)+','+ps.y+
-      ' Q'+startX+','+ps.y+' '+startX+','+(ps.y+syStart*rOut)+
-      ' L'+startX+','+(routeY-syStart*rStart)+
-      ' Q'+startX+','+routeY+' '+(startX+hxDir*rStart)+','+routeY+
-      ' L'+(turnX-hxDir*rTurnIn)+','+routeY+
-      ' Q'+turnX+','+routeY+' '+turnX+','+(routeY+syEnd*rTurnIn);
-    if(cpOff.endVertical){
-      d+=' L'+cs.x+','+cs.y;
-    }else{
-      d+=' L'+turnX+','+(cs.y-syEnd*rTurnOut)+
-        ' Q'+turnX+','+cs.y+' '+(turnX+ex*rTurnOut)+','+cs.y+
-        ' L'+cs.x+','+cs.y;
-    }
+    var endY=cpOff.endVertical?cs.y:(cs.y+endOffY);
+    var syEnd=endY>=routeY?1:-1;
+    var endX=cpOff.endVertical?cs.x:(cs.x+endOffX);
+    var finalY=cpOff.endVertical?cs.y:(cs.y+finalOffY);
+    var finalX=cpOff.endVertical?cs.x:(cs.x+finalOffX);
+    var pathInfo=buildRoundedOrthogonalPath([
+      {x:ps.x,y:ps.y},
+      {x:startX,y:ps.y},
+      {x:startX,y:routeY},
+      {x:turnX,y:routeY},
+      {x:turnX,y:endY},
+      {x:endX,y:endY},
+      {x:endX,y:finalY},
+      {x:finalX,y:finalY},
+      {x:finalX,y:cs.y},
+      {x:cs.x,y:cs.y}
+    ],r);
+    d=pathInfo.d;
     handle={x:(startX+turnX)/2,y:routeY,axis:'y'};
-    handle2={x:turnX,y:(routeY+cs.y)/2,axis:'x'};
+    handle2={x:turnX,y:(routeY+endY)/2,axis:'x'};
     handle3={x:startX,y:(ps.y+routeY)/2,axis:'startX'};
-    startAngle=Math.abs(startX-ps.x)>1?Math.atan2(0,ps.x-startX):(Math.abs(routeY-ps.y)>1?Math.atan2(ps.y-routeY,0):Math.atan2(0,ps.x-turnX));
-    endAngle=cpOff.endVertical?Math.atan2(cs.y-routeY,0):Math.atan2(0,cs.x-turnX);
+    if(!cpOff.endVertical)handle4={x:(turnX+endX)/2,y:endY,axis:'endY'};
+    if(!cpOff.endVertical&&Math.abs(cs.y-endY)>1)handle5={x:endX,y:(endY+cs.y)/2,axis:'endX'};
+    if(!cpOff.endVertical&&Math.abs(finalX-endX)>1)handle6={x:(endX+finalX)/2,y:finalY,axis:'finalY'};
+    if(!cpOff.endVertical&&Math.abs(cs.y-finalY)>1)handle7={x:finalX,y:(finalY+cs.y)/2,axis:'finalX'};
+    startAngle=pathInfo.startAngle;
+    endAngle=pathInfo.endAngle;
   }else{
     var dirY=dy>=0?1:-1;
     var startGapY=Math.min(zs(28), Math.max(zs(10), Math.abs(dy)*0.06));
@@ -2139,7 +2181,7 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
     endAngle=Math.atan2(cs.y-turnY,0);
   }
   return {
-    d:d,handle:handle,handle2:handle2,handle3:handle3,
+    d:d,handle:handle,handle2:handle2,handle3:handle3,handle4:handle4,handle5:handle5,handle6:handle6,handle7:handle7,
     startAngle:startAngle,endAngle:endAngle,
     horizontalFirst:horizontalFirst,
     routeY:routeY,turnX:turnX,startX:startX,
@@ -2177,22 +2219,38 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
       dx:edgeObj.cp.dx||0,
       dy:edgeObj.cp.dy||0,
       startDx:edgeObj.cp.startDx||0,
-      startDy:edgeObj.cp.startDy||0
-    }:{dx:0,dy:0,startDx:0,startDy:0};
+      startDy:edgeObj.cp.startDy||0,
+      endDx:edgeObj.cp.endDx||0,
+      endDy:edgeObj.cp.endDy||0,
+      finalDx:edgeObj.cp.finalDx||0,
+      finalDy:edgeObj.cp.finalDy||0
+    }:{dx:0,dy:0,startDx:0,startDy:0,endDx:0,endDy:0,finalDx:0,finalDy:0};
     var rafId=null;
     function onMove(ev){
       var nextDx=orig.dx+(ev.clientX-startX)/cam.z;
       var nextDy=orig.dy+(ev.clientY-startY)/cam.z;
       var nextStartDx=orig.startDx+(ev.clientX-startX)/cam.z;
       var nextStartDy=orig.startDy+(ev.clientY-startY)/cam.z;
+      var nextEndDx=orig.endDx+(ev.clientX-startX)/cam.z;
+      var nextEndDy=orig.endDy+(ev.clientY-startY)/cam.z;
+      var nextFinalDx=orig.finalDx+(ev.clientX-startX)/cam.z;
+      var nextFinalDy=orig.finalDy+(ev.clientY-startY)/cam.z;
       var next={
-        dx:(axis==='y')?orig.dx:nextDx,
-        dy:(axis==='x')?orig.dy:nextDy,
+        dx:(axis==='x'||axis==='both')?nextDx:orig.dx,
+        dy:(axis==='y'||axis==='both')?nextDy:orig.dy,
         startDx:orig.startDx,
-        startDy:orig.startDy
+        startDy:orig.startDy,
+        endDx:orig.endDx,
+        endDy:orig.endDy,
+        finalDx:orig.finalDx,
+        finalDy:orig.finalDy
       };
       if(axis==='startX')next.startDx=nextStartDx;
       if(axis==='startY')next.startDy=nextStartDy;
+      if(axis==='endX')next.endDx=nextEndDx;
+      if(axis==='endY')next.endDy=nextEndDy;
+      if(axis==='finalX')next.finalDx=nextFinalDx;
+      if(axis==='finalY')next.finalDy=nextFinalDy;
       edgeObj.cp=next;
       if(rafId)cancelAnimationFrame(rafId);
       rafId=requestAnimationFrame(function(){
@@ -2210,6 +2268,13 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
         if(hEl._peer2&&hEl._peer2Key&&info[hEl._peer2Key]){
           hEl._peer2.setAttribute('cx',info[hEl._peer2Key].x);
           hEl._peer2.setAttribute('cy',info[hEl._peer2Key].y);
+        }
+        if(hEl._peers){
+          hEl._peers.forEach(function(p){
+            if(!p.el||!p.key||!info[p.key])return;
+            p.el.setAttribute('cx',info[p.key].x);
+            p.el.setAttribute('cy',info[p.key].y);
+          });
         }
       });
     }
@@ -2472,6 +2537,66 @@ function renderCurves(){
       handle3.setAttribute('stroke-width','2');
       handle3.setAttribute('data-handle','tree-'+c.id+'-start');
       var h3Axis=(edgePathInfo.handle3&&edgePathInfo.handle3.axis)||'startX';
+      var handle4=null,h4Axis=null;
+      if(edgePathInfo.handle4){
+        var h4Info=edgePathInfo.handle4;
+        handle4=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        handle4.setAttribute('cx',h4Info.x); handle4.setAttribute('cy',h4Info.y);
+        handle4.setAttribute('r','7');
+        handle4.setAttribute('fill','rgba(56,178,255,0.22)');
+        handle4.setAttribute('stroke','#38b2ff');
+        handle4.setAttribute('stroke-width','2');
+        handle4.setAttribute('data-handle','tree-'+c.id+'-end');
+        h4Axis=h4Info.axis||'endY';
+        handle4.style.cursor='ns-resize'; handle4.style.pointerEvents='all';
+        handle4.setAttribute('opacity','0');
+        handle4.style.transition='r .15s,opacity .15s';
+      }
+      var handle5=null,h5Axis=null;
+      if(edgePathInfo.handle5){
+        var h5Info=edgePathInfo.handle5;
+        handle5=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        handle5.setAttribute('cx',h5Info.x); handle5.setAttribute('cy',h5Info.y);
+        handle5.setAttribute('r','7');
+        handle5.setAttribute('fill','rgba(56,178,255,0.22)');
+        handle5.setAttribute('stroke','#38b2ff');
+        handle5.setAttribute('stroke-width','2');
+        handle5.setAttribute('data-handle','tree-'+c.id+'-end-x');
+        h5Axis=h5Info.axis||'endX';
+        handle5.style.cursor='ew-resize'; handle5.style.pointerEvents='all';
+        handle5.setAttribute('opacity','0');
+        handle5.style.transition='r .15s,opacity .15s';
+      }
+      var handle6=null,h6Axis=null;
+      if(edgePathInfo.handle6){
+        var h6Info=edgePathInfo.handle6;
+        handle6=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        handle6.setAttribute('cx',h6Info.x); handle6.setAttribute('cy',h6Info.y);
+        handle6.setAttribute('r','7');
+        handle6.setAttribute('fill','rgba(56,178,255,0.22)');
+        handle6.setAttribute('stroke','#38b2ff');
+        handle6.setAttribute('stroke-width','2');
+        handle6.setAttribute('data-handle','tree-'+c.id+'-final-y');
+        h6Axis=h6Info.axis||'finalY';
+        handle6.style.cursor='ns-resize'; handle6.style.pointerEvents='all';
+        handle6.setAttribute('opacity','0');
+        handle6.style.transition='r .15s,opacity .15s';
+      }
+      var handle7=null,h7Axis=null;
+      if(edgePathInfo.handle7){
+        var h7Info=edgePathInfo.handle7;
+        handle7=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        handle7.setAttribute('cx',h7Info.x); handle7.setAttribute('cy',h7Info.y);
+        handle7.setAttribute('r','7');
+        handle7.setAttribute('fill','rgba(56,178,255,0.22)');
+        handle7.setAttribute('stroke','#38b2ff');
+        handle7.setAttribute('stroke-width','2');
+        handle7.setAttribute('data-handle','tree-'+c.id+'-final-x');
+        h7Axis=h7Info.axis||'finalX';
+        handle7.style.cursor='ew-resize'; handle7.style.pointerEvents='all';
+        handle7.setAttribute('opacity','0');
+        handle7.style.transition='r .15s,opacity .15s';
+      }
       handle3.style.cursor=(h3Axis==='startX')?'ew-resize':'ns-resize'; handle3.style.pointerEvents='all';
       handle3.setAttribute('opacity','0');
       handle3.style.transition='r .15s,opacity .15s';
@@ -2480,15 +2605,32 @@ function renderCurves(){
       handle2.style.transition='r .15s,opacity .15s';
       handle.style.cursor=(hAxis==='x')?'ew-resize':'ns-resize';
       handle.setAttribute('data-handle','tree-'+c.id+'-y');
-      handle._peer2=handle3; handle._peer2Key='handle3';
-      handle2._peer2=handle3; handle2._peer2Key='handle3';
-      handle3._peer2=handle2; handle3._peer2Key='handle2';
+      var treeHandlePeers=[
+        {el:handle,key:'handle'},
+        {el:handle2,key:'handle2'},
+        {el:handle3,key:'handle3'}
+      ];
+      if(handle4)treeHandlePeers.push({el:handle4,key:'handle4'});
+      if(handle5)treeHandlePeers.push({el:handle5,key:'handle5'});
+      if(handle6)treeHandlePeers.push({el:handle6,key:'handle6'});
+      if(handle7)treeHandlePeers.push({el:handle7,key:'handle7'});
+      [handle,handle2,handle3].concat(handle4?[handle4]:[]).concat(handle5?[handle5]:[]).concat(handle6?[handle6]:[]).concat(handle7?[handle7]:[]).forEach(function(hh){
+        hh._peers=treeHandlePeers.filter(function(p){return p.el!==hh;});
+      });
       bindRoundedElbowHandle(handle,path,bgPath,c,ps,cs,hAxis,'handle',handle2,'handle2');
       bindRoundedElbowHandle(handle2,path,bgPath,c,ps,cs,h2Axis,'handle2',handle,'handle');
       bindRoundedElbowHandle(handle3,path,bgPath,c,ps,cs,h3Axis,'handle3',handle,'handle');
+      if(handle4)bindRoundedElbowHandle(handle4,path,bgPath,c,ps,cs,h4Axis,'handle4',handle,'handle');
+      if(handle5)bindRoundedElbowHandle(handle5,path,bgPath,c,ps,cs,h5Axis,'handle5',handle,'handle');
+      if(handle6)bindRoundedElbowHandle(handle6,path,bgPath,c,ps,cs,h6Axis,'handle6',handle,'handle');
+      if(handle7)bindRoundedElbowHandle(handle7,path,bgPath,c,ps,cs,h7Axis,'handle7',handle,'handle');
       svgH.appendChild(handle);
       svgH.appendChild(handle2);
       svgH.appendChild(handle3);
+      if(handle4)svgH.appendChild(handle4);
+      if(handle5)svgH.appendChild(handle5);
+      if(handle6)svgH.appendChild(handle6);
+      if(handle7)svgH.appendChild(handle7);
       continue;
     }
     /* hover show/hide */
@@ -2749,6 +2891,61 @@ function renderCurves(){
       lhandle3.setAttribute('stroke','#38b2ff');
       lhandle3.setAttribute('stroke-width','2');
       var lh3Axis=(linkPathInfo.handle3&&linkPathInfo.handle3.axis)||'startX';
+      var lhandle4=null,lh4Axis=null;
+      if(linkPathInfo.handle4){
+        var lh4Info=linkPathInfo.handle4;
+        lhandle4=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        lhandle4.setAttribute('cx',lh4Info.x); lhandle4.setAttribute('cy',lh4Info.y);
+        lhandle4.setAttribute('r','7');
+        lhandle4.setAttribute('fill','rgba(56,178,255,0.22)');
+        lhandle4.setAttribute('stroke','#38b2ff');
+        lhandle4.setAttribute('stroke-width','2');
+        lhandle4.style.cursor='ns-resize'; lhandle4.style.pointerEvents='all';
+        lhandle4.setAttribute('opacity','0');
+        lhandle4._elbow=true;
+      }
+      var lhandle5=null,lh5Axis=null;
+      if(linkPathInfo.handle5){
+        var lh5Info=linkPathInfo.handle5;
+        lhandle5=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        lhandle5.setAttribute('cx',lh5Info.x); lhandle5.setAttribute('cy',lh5Info.y);
+        lhandle5.setAttribute('r','7');
+        lhandle5.setAttribute('fill','rgba(56,178,255,0.22)');
+        lhandle5.setAttribute('stroke','#38b2ff');
+        lhandle5.setAttribute('stroke-width','2');
+        lhandle5.style.cursor='ew-resize'; lhandle5.style.pointerEvents='all';
+        lhandle5.setAttribute('opacity','0');
+        lhandle5._elbow=true;
+        lh5Axis=lh5Info.axis||'endX';
+      }
+      var lhandle6=null,lh6Axis=null;
+      if(linkPathInfo.handle6){
+        var lh6Info=linkPathInfo.handle6;
+        lhandle6=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        lhandle6.setAttribute('cx',lh6Info.x); lhandle6.setAttribute('cy',lh6Info.y);
+        lhandle6.setAttribute('r','7');
+        lhandle6.setAttribute('fill','rgba(56,178,255,0.22)');
+        lhandle6.setAttribute('stroke','#38b2ff');
+        lhandle6.setAttribute('stroke-width','2');
+        lhandle6.style.cursor='ns-resize'; lhandle6.style.pointerEvents='all';
+        lhandle6.setAttribute('opacity','0');
+        lhandle6._elbow=true;
+        lh6Axis=lh6Info.axis||'finalY';
+      }
+      var lhandle7=null,lh7Axis=null;
+      if(linkPathInfo.handle7){
+        var lh7Info=linkPathInfo.handle7;
+        lhandle7=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        lhandle7.setAttribute('cx',lh7Info.x); lhandle7.setAttribute('cy',lh7Info.y);
+        lhandle7.setAttribute('r','7');
+        lhandle7.setAttribute('fill','rgba(56,178,255,0.22)');
+        lhandle7.setAttribute('stroke','#38b2ff');
+        lhandle7.setAttribute('stroke-width','2');
+        lhandle7.style.cursor='ew-resize'; lhandle7.style.pointerEvents='all';
+        lhandle7.setAttribute('opacity','0');
+        lhandle7._elbow=true;
+        lh7Axis=lh7Info.axis||'finalX';
+      }
       lhandle3.style.cursor=(lh3Axis==='startX')?'ew-resize':'ns-resize'; lhandle3.style.pointerEvents='all';
       lhandle3.setAttribute('opacity','0');
       lhandle3._elbow=true;
@@ -2756,15 +2953,32 @@ function renderCurves(){
       lhandle2.setAttribute('opacity','0');
       lhandle2._elbow=true;
       lhandle.style.cursor=(lhAxis==='x')?'ew-resize':'ns-resize';
-      lhandle._peer2=lhandle3; lhandle._peer2Key='handle3';
-      lhandle2._peer2=lhandle3; lhandle2._peer2Key='handle3';
-      lhandle3._peer2=lhandle2; lhandle3._peer2Key='handle2';
+      var linkHandlePeers=[
+        {el:lhandle,key:'handle'},
+        {el:lhandle2,key:'handle2'},
+        {el:lhandle3,key:'handle3'}
+      ];
+      if(lhandle4)linkHandlePeers.push({el:lhandle4,key:'handle4'});
+      if(lhandle5)linkHandlePeers.push({el:lhandle5,key:'handle5'});
+      if(lhandle6)linkHandlePeers.push({el:lhandle6,key:'handle6'});
+      if(lhandle7)linkHandlePeers.push({el:lhandle7,key:'handle7'});
+      [lhandle,lhandle2,lhandle3].concat(lhandle4?[lhandle4]:[]).concat(lhandle5?[lhandle5]:[]).concat(lhandle6?[lhandle6]:[]).concat(lhandle7?[lhandle7]:[]).forEach(function(hh){
+        hh._peers=linkHandlePeers.filter(function(p){return p.el!==hh;});
+      });
       bindRoundedElbowHandle(lhandle,lpath,lbgPath,lk,sc1,sc2,lhAxis,'handle',lhandle2,'handle2');
       bindRoundedElbowHandle(lhandle2,lpath,lbgPath,lk,sc1,sc2,lh2Axis,'handle2',lhandle,'handle');
       bindRoundedElbowHandle(lhandle3,lpath,lbgPath,lk,sc1,sc2,lh3Axis,'handle3',lhandle,'handle');
+      if(lhandle4)bindRoundedElbowHandle(lhandle4,lpath,lbgPath,lk,sc1,sc2,lh4Axis||'endY','handle4',lhandle,'handle');
+      if(lhandle5)bindRoundedElbowHandle(lhandle5,lpath,lbgPath,lk,sc1,sc2,lh5Axis||'endX','handle5',lhandle,'handle');
+      if(lhandle6)bindRoundedElbowHandle(lhandle6,lpath,lbgPath,lk,sc1,sc2,lh6Axis||'finalY','handle6',lhandle,'handle');
+      if(lhandle7)bindRoundedElbowHandle(lhandle7,lpath,lbgPath,lk,sc1,sc2,lh7Axis||'finalX','handle7',lhandle,'handle');
       svgH.appendChild(lhandle);
       svgH.appendChild(lhandle2);
       svgH.appendChild(lhandle3);
+      if(lhandle4)svgH.appendChild(lhandle4);
+      if(lhandle5)svgH.appendChild(lhandle5);
+      if(lhandle6)svgH.appendChild(lhandle6);
+      if(lhandle7)svgH.appendChild(lhandle7);
     }
     (function(lhEl,lpathEl){
       lpathEl.addEventListener('mouseenter',function(){lhEl.setAttribute('opacity','1');lpathEl.setAttribute('stroke-width','3');});
