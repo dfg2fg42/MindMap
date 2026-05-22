@@ -2484,6 +2484,34 @@ function renderCurves(){
   }
   svg.appendChild(defs);
 
+  /* 같은 노드의 같은 면으로 들어오는 화살표가 겹치지 않도록 끝점을 분산 */
+  var arrowSlotCounter={};
+  function arrowSideFromAngle(angle){
+    var ax=Math.cos(angle), ay=Math.sin(angle);
+    if(Math.abs(ax)>=Math.abs(ay)) return ax>=0?'left':'right';
+    return ay>=0?'top':'bottom';
+  }
+  function arrowSlotOffset(idx,gap){
+    if(idx===0)return 0;
+    var step=Math.ceil(idx/2);
+    return (idx%2===1?1:-1)*step*gap;
+  }
+  function spreadArrowTip(pt,nodeId,angle,nodeW,nodeH){
+    if(!pt||nodeId===undefined||nodeId===null)return pt;
+    var side=arrowSideFromAngle(angle);
+    var key=nodeId+'_'+side;
+    var idx=arrowSlotCounter[key]||0;
+    arrowSlotCounter[key]=idx+1;
+    var gap=Math.max(12,14*cam.z);
+    var limit=(side==='top'||side==='bottom')
+      ? Math.max(0,(nodeW*cam.z)/2-18)
+      : Math.max(0,(nodeH*cam.z)/2-14);
+    var off=clampVal(arrowSlotOffset(idx,gap),-limit,limit);
+    if(!off)return {x:pt.x,y:pt.y};
+    if(side==='top'||side==='bottom')return {x:pt.x+off,y:pt.y};
+    return {x:pt.x,y:pt.y+off};
+  }
+
   /* ── 트리 연결선 ── */
   /* ── 포트 분산: 부모당 자식 목록 사전 계산 ── */
   var childMap={};
@@ -2562,10 +2590,12 @@ function renderCurves(){
       if(arr==='forward'||arr==='both'){
         var fwTipAngle=Math.atan2(cs.y-cp2y, cs.x-cp2x);
         cs=getArrowTipForNode(c,cw,ch,fwTipAngle);
+        cs=spreadArrowTip(cs,c.id,fwTipAngle,cw,ch);
       }
       if(arr==='backward'||arr==='both'){
         var bwTipAngle=Math.atan2(ps.y-cp1y, ps.x-cp1x);
         ps=getArrowTipForNode(p,pw,ph,bwTipAngle);
+        ps=spreadArrowTip(ps,p.id,bwTipAngle,pw,ph);
       }
     }
     var edgePathInfo=roundedElbowPath(ps,cs,cpOff,edgeLineType)||{
@@ -2589,6 +2619,7 @@ function renderCurves(){
         }else{
           cs=getArrowTipForNode(c,cw,ch,edgePathInfo.endAngle);
         }
+        cs=spreadArrowTip(cs,c.id,edgePathInfo.endAngle,cw,ch);
       }
       if(arr==='backward'||arr==='both'){
         if(startAutoPort){
@@ -2597,6 +2628,7 @@ function renderCurves(){
         }else{
           ps=getArrowTipForNode(p,pw,ph,edgePathInfo.startAngle);
         }
+        ps=spreadArrowTip(ps,p.id,edgePathInfo.startAngle,pw,ph);
       }
       edgePathInfo=roundedElbowPath(ps,cs,edgeCpForPath,edgeLineType)||edgePathInfo;
       if(startAutoPort){edgePathInfo.startAngle=startAutoPort.angle;}
@@ -2914,10 +2946,12 @@ function renderCurves(){
       if(larr==='forward'||larr==='both'){
         var lfwTipAngle=Math.atan2(sc2.y-lcp2y, sc2.x-lcp2x);
         sc2=getArrowTipForNode(ta,tw,th,lfwTipAngle);
+        sc2=spreadArrowTip(sc2,ta.id,lfwTipAngle,tw,th);
       }
       if(larr==='backward'||larr==='both'){
         var lbwTipAngle=Math.atan2(sc1.y-lcp1y, sc1.x-lcp1x);
         sc1=getArrowTipForNode(fa,fw,fh,lbwTipAngle);
+        sc1=spreadArrowTip(sc1,fa.id,lbwTipAngle,fw,fh);
       }
     }
     var linkPathInfo=roundedElbowPath(sc1,sc2,lcpOff,linkLineType)||{
@@ -2941,6 +2975,7 @@ function renderCurves(){
         }else{
           sc2=getArrowTipForNode(ta,tw,th,linkPathInfo.endAngle);
         }
+        sc2=spreadArrowTip(sc2,ta.id,linkPathInfo.endAngle,tw,th);
       }
       if(larr==='backward'||larr==='both'){
         if(lStartAutoPort){
@@ -2949,6 +2984,7 @@ function renderCurves(){
         }else{
           sc1=getArrowTipForNode(fa,fw,fh,linkPathInfo.startAngle);
         }
+        sc1=spreadArrowTip(sc1,fa.id,linkPathInfo.startAngle,fw,fh);
       }
       linkPathInfo=roundedElbowPath(sc1,sc2,linkCpForPath,linkLineType)||linkPathInfo;
       if(lStartAutoPort){linkPathInfo.startAngle=lStartAutoPort.angle;}
