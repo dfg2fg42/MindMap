@@ -2002,6 +2002,36 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
   var left=center.x-hw, right=center.x+hw, top=center.y-hh, bottom=center.y+hh;
   var margin=Math.max(10,18*cam.z);
   var pad=Math.max(6,10*cam.z);
+  var usableTop=top+pad, usableBottom=bottom-pad;
+
+  function horizontalPortFromSegment(x1,x2,y){
+    if(x1===undefined||x2===undefined||y===undefined)return null;
+    if(Math.abs(x2-x1)<1)return null;
+    if(y<top-margin||y>bottom+margin)return null;
+    var segMinH=Math.min(x1,x2), segMaxH=Math.max(x1,x2);
+    if(segMaxH<left-margin||segMinH>right+margin)return null;
+    var attachY=clampVal(y,usableTop,usableBottom);
+    if(x2>x1&&segMinH<=left+margin&&segMaxH>=left-margin){
+      return {angle:0, mode:'horizontal', side:'left', point:{x:left-ARROW_TIP_GAP,y:attachY}};
+    }
+    if(x2<x1&&segMinH<=right+margin&&segMaxH>=right-margin){
+      return {angle:Math.PI, mode:'horizontal', side:'right', point:{x:right+ARROW_TIP_GAP,y:attachY}};
+    }
+    return null;
+  }
+
+  if(!isStart){
+    var tailCandidates=[
+      {x1:info.endX, x2:info.finalX, y:info.finalY},
+      {x1:info.finalX, x2:info.csX, y:info.csY},
+      {x1:info.turnX, x2:info.csX, y:info.csY}
+    ];
+    for(var ti=0;ti<tailCandidates.length;ti++){
+      var hp=horizontalPortFromSegment(tailCandidates[ti].x1,tailCandidates[ti].x2,tailCandidates[ti].y);
+      if(hp)return hp;
+    }
+  }
+
   var probeY=info.routeY;
   var legX=isStart?info.startX:info.turnX;
   var segMin=Math.min(info.startX,info.turnX);
@@ -2031,6 +2061,11 @@ function shouldUseElbowAutoPort(manualPort,autoPort){
   if(!manualPort)return true;
   if(autoPort.mode==='vertical'){
     return manualPort==='left'||manualPort==='right'||
+      manualPort==='top-left'||manualPort==='top-right'||
+      manualPort==='bottom-left'||manualPort==='bottom-right';
+  }
+  if(autoPort.mode==='horizontal'){
+    return manualPort==='top'||manualPort==='bottom'||
       manualPort==='top-left'||manualPort==='top-right'||
       manualPort==='bottom-left'||manualPort==='bottom-right';
   }
@@ -2185,7 +2220,8 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
     startAngle:startAngle,endAngle:endAngle,
     horizontalFirst:horizontalFirst,
     routeY:routeY,turnX:turnX,startX:startX,
-    routeX:routeX,turnY:turnY,startY:startY
+    routeX:routeX,turnY:turnY,startY:startY,
+    endX:endX,endY:endY,finalX:finalX,finalY:finalY,csX:cs.x,csY:cs.y
   };
 }
 
@@ -2437,17 +2473,17 @@ function renderCurves(){
       if(endAutoPort){edgePathInfo.endAngle=endAutoPort.angle;}
       var edgeCpForPath=cpOff;
       if(arr==='forward'||arr==='both'){
-        if(endAutoPort&&endAutoPort.mode==='vertical'){
+        if(endAutoPort){
           cs=endAutoPort.point;
-          edgeCpForPath=Object.assign({},cpOff,{endVertical:true});
+          if(endAutoPort.mode==='vertical')edgeCpForPath=Object.assign({},cpOff,{endVertical:true});
         }else{
           cs=getArrowTipForNode(c,cw,ch,edgePathInfo.endAngle);
         }
       }
       if(arr==='backward'||arr==='both'){
-        if(startAutoPort&&startAutoPort.mode==='vertical'){
+        if(startAutoPort){
           ps=startAutoPort.point;
-          edgeCpForPath=Object.assign({},edgeCpForPath,{startVertical:true});
+          if(startAutoPort.mode==='vertical')edgeCpForPath=Object.assign({},edgeCpForPath,{startVertical:true});
         }else{
           ps=getArrowTipForNode(p,pw,ph,edgePathInfo.startAngle);
         }
@@ -2789,17 +2825,17 @@ function renderCurves(){
       if(lEndAutoPort){linkPathInfo.endAngle=lEndAutoPort.angle;}
       var linkCpForPath=lcpOff;
       if(larr==='forward'||larr==='both'){
-        if(lEndAutoPort&&lEndAutoPort.mode==='vertical'){
+        if(lEndAutoPort){
           sc2=lEndAutoPort.point;
-          linkCpForPath=Object.assign({},lcpOff,{endVertical:true});
+          if(lEndAutoPort.mode==='vertical')linkCpForPath=Object.assign({},lcpOff,{endVertical:true});
         }else{
           sc2=getArrowTipForNode(ta,tw,th,linkPathInfo.endAngle);
         }
       }
       if(larr==='backward'||larr==='both'){
-        if(lStartAutoPort&&lStartAutoPort.mode==='vertical'){
+        if(lStartAutoPort){
           sc1=lStartAutoPort.point;
-          linkCpForPath=Object.assign({},linkCpForPath,{startVertical:true});
+          if(lStartAutoPort.mode==='vertical')linkCpForPath=Object.assign({},linkCpForPath,{startVertical:true});
         }else{
           sc1=getArrowTipForNode(fa,fw,fh,linkPathInfo.startAngle);
         }
