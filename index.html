@@ -2170,13 +2170,30 @@ function getArrowTipForNode(node, nodeW, nodeH, angle){
 
 function clampVal(v,min,max){return Math.max(min,Math.min(max,v));}
 function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
-  if(!info||!info.horizontalFirst)return null;
+  if(!info)return null;
   var center=w2s(node.x,node.y);
   var hw=(nodeW*cam.z)/2, hh=(nodeH*cam.z)/2;
   var left=center.x-hw, right=center.x+hw, top=center.y-hh, bottom=center.y+hh;
-  var margin=Math.max(10,18*cam.z);
-  var pad=Math.max(6,10*cam.z);
+  var margin=18*cam.z;
+  var pad=10*cam.z;
   var usableTop=top+pad, usableBottom=bottom-pad;
+  var usableLeft=left+pad, usableRight=right-pad;
+
+  function horizontalPort(side,y,score){
+    var attachY=clampVal(y,usableTop,usableBottom);
+    if(side==='right'){
+      return {angle:Math.PI, mode:'horizontal', side:'right', score:score||0, point:{x:right+ARROW_TIP_GAP,y:attachY}};
+    }
+    return {angle:0, mode:'horizontal', side:'left', score:score||0, point:{x:left-ARROW_TIP_GAP,y:attachY}};
+  }
+
+  function verticalPort(side,x,score){
+    var attachX=clampVal(x,usableLeft,usableRight);
+    if(side==='bottom'){
+      return {angle:-Math.PI/2, mode:'vertical', side:'bottom', score:score||0, point:{x:attachX,y:bottom+ARROW_TIP_GAP}};
+    }
+    return {angle:Math.PI/2, mode:'vertical', side:'top', score:score||0, point:{x:attachX,y:top-ARROW_TIP_GAP}};
+  }
 
   function horizontalPortFromSegment(x1,x2,y){
     if(x1===undefined||x2===undefined||y===undefined)return null;
@@ -2184,26 +2201,66 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
     if(y<top-margin||y>bottom+margin)return null;
     var segMinH=Math.min(x1,x2), segMaxH=Math.max(x1,x2);
     if(segMaxH<left-margin||segMinH>right+margin)return null;
-    var attachY=clampVal(y,usableTop,usableBottom);
-    if(x2>x1&&segMinH<=left+margin&&segMaxH>=left-margin){
-      return {angle:0, mode:'horizontal', side:'left', point:{x:left-ARROW_TIP_GAP,y:attachY}};
+    var touchesLeft=segMinH<=left+margin&&segMaxH>=left-margin;
+    var touchesRight=segMinH<=right+margin&&segMaxH>=right-margin;
+    if(!touchesLeft&&!touchesRight)return null;
+
+    /*
+      수동으로 꺾은선을 우회시킨 경우에는 선분 진행 방향보다
+      노드의 어느 바깥쪽을 더 많이 지나가는지가 자연스러운 연결면이다.
+      예: 오른쪽으로 우회해 들어온 선은 오른쪽 면에 붙고 왼쪽을 향해야 한다.
+    */
+    var leftReach=touchesLeft?Math.max(0,left-segMinH):0;
+    var rightReach=touchesRight?Math.max(0,segMaxH-right):0;
+    var segCenter=(x1+x2)/2;
+    var side;
+    if(touchesLeft&&touchesRight){
+      side=Math.abs(rightReach-leftReach)>1
+        ? (rightReach>leftReach?'right':'left')
+        : (segCenter>=center.x?'right':'left');
+    }else{
+      side=touchesRight?'right':'left';
     }
-    if(x2<x1&&segMinH<=right+margin&&segMaxH>=right-margin){
-      return {angle:Math.PI, mode:'horizontal', side:'right', point:{x:right+ARROW_TIP_GAP,y:attachY}};
+    return horizontalPort(side,y,side==='right'?rightReach:leftReach);
+  }
+
+  if(!info.horizontalFirst){
+    if(!isStart){
+      var approachY=(info.turnY!==undefined)?info.turnY:info.csY;
+      if(approachY!==undefined&&approachY>=top-margin*2&&approachY<=bottom+margin*2){
+        if(info.routeX!==undefined&&info.routeX>right+margin)return horizontalPort('right',approachY,info.routeX-right);
+        if(info.routeX!==undefined&&info.routeX<left-margin)return horizontalPort('left',approachY,left-info.routeX);
+      }
+      var approachX=(info.routeX!==undefined)?info.routeX:info.csX;
+      if(info.turnY!==undefined&&info.turnY<top-margin)return verticalPort('top',approachX,top-info.turnY);
+      if(info.turnY!==undefined&&info.turnY>bottom+margin)return verticalPort('bottom',approachX,info.turnY-bottom);
     }
     return null;
   }
 
   if(!isStart){
+    /*
+      끝 노드보다 바깥쪽으로 크게 우회한 꺾은선은 우회한 쪽 면에 붙이는 것이
+      가장 예측 가능하다. 이 판단을 먼저 고정해야 줌/이동 시 포트가 흔들리지 않는다.
+    */
+    var preferredY=(info.finalY!==undefined)?info.finalY:((info.endY!==undefined)?info.endY:info.csY);
+    if(preferredY!==undefined&&preferredY>=top-margin*2&&preferredY<=bottom+margin*2){
+      var rightBypass=Math.max(info.turnX||-Infinity,info.endX||-Infinity,info.finalX||-Infinity);
+      var leftBypass=Math.min(info.turnX||Infinity,info.endX||Infinity,info.finalX||Infinity);
+      if(rightBypass>right+margin)return horizontalPort('right',preferredY,rightBypass-right);
+      if(leftBypass<left-margin)return horizontalPort('left',preferredY,left-leftBypass);
+    }
     var tailCandidates=[
       {x1:info.endX, x2:info.finalX, y:info.finalY},
       {x1:info.finalX, x2:info.csX, y:info.csY},
       {x1:info.turnX, x2:info.csX, y:info.csY}
     ];
+    var bestHp=null;
     for(var ti=0;ti<tailCandidates.length;ti++){
       var hp=horizontalPortFromSegment(tailCandidates[ti].x1,tailCandidates[ti].x2,tailCandidates[ti].y);
-      if(hp)return hp;
+      if(hp&&(!bestHp||hp.score>bestHp.score))bestHp=hp;
     }
+    if(bestHp)return bestHp;
   }
 
   var probeY=info.routeY;
@@ -2211,7 +2268,6 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
   var segMin=Math.min(info.startX,info.turnX);
   var segMax=Math.max(info.startX,info.turnX);
   if(segMax<left-margin||segMin>right+margin)return null;
-  var usableLeft=left+pad, usableRight=right-pad;
   var overlapLeft=Math.max(usableLeft,segMin);
   var overlapRight=Math.min(usableRight,segMax);
   var attachX;
@@ -2233,17 +2289,12 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
 function shouldUseElbowAutoPort(manualPort,autoPort){
   if(!autoPort)return false;
   if(!manualPort)return true;
-  if(autoPort.mode==='vertical'){
-    return manualPort==='left'||manualPort==='right'||
-      manualPort==='top-left'||manualPort==='top-right'||
-      manualPort==='bottom-left'||manualPort==='bottom-right';
-  }
-  if(autoPort.mode==='horizontal'){
-    return manualPort==='top'||manualPort==='bottom'||
-      manualPort==='top-left'||manualPort==='top-right'||
-      manualPort==='bottom-left'||manualPort==='bottom-right';
-  }
-  return false;
+  /*
+    꺾은선은 사용자가 선을 움직이면서 실제 접근 방향이 계속 바뀐다.
+    기존 포트(left/right/top/bottom)가 남아 있어도, 현재 선 모양에서 계산한
+    자동 포트가 있으면 그쪽을 우선해야 확대/축소 때 화살표가 튀지 않는다.
+  */
+  return true;
 }
 function buildRoundedOrthogonalPath(rawPoints,r){
   var z=Math.max(0.15,cam&&cam.z?cam.z:1);
@@ -2387,30 +2438,24 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
       if((turnY-ps.y)*dirY<startGapY)turnY=ps.y+dirY*startGapY;
       if((cpOff.dy||0)===0 && (cs.y-turnY)*dirY<endGapY)turnY=cs.y-dirY*endGapY;
     }
-    var sxStart=routeX>=ps.x?1:-1;
-    var outYDir=startY>=ps.y?1:-1;
-    var vyDir=turnY>=startY?1:-1;
-    var sxEnd=cs.x>=routeX?1:-1;
-    var ey=cs.y>=turnY?1:-1;
-    var rvOut=Math.min(r,Math.abs(startY-ps.y)/2,Math.abs(routeX-ps.x)/2);
-    var rvStart=Math.min(r,Math.abs(routeX-ps.x)/2,Math.abs(turnY-startY)/2);
-    var rvTurnIn=Math.min(r,Math.abs(cs.x-routeX)/2,Math.abs(turnY-startY)/2);
-    var rvTurnOut=Math.min(r,Math.abs(cs.x-routeX)/2,Math.abs(cs.y-turnY)/2);
-    d='M'+ps.x+','+ps.y+
-      ' L'+ps.x+','+(startY-outYDir*rvOut)+
-      ' Q'+ps.x+','+startY+' '+(ps.x+sxStart*rvOut)+','+startY+
-      ' L'+(routeX-sxStart*rvStart)+','+startY+
-      ' Q'+routeX+','+startY+' '+routeX+','+(startY+vyDir*rvStart)+
-      ' L'+routeX+','+(turnY-vyDir*rvTurnIn)+
-      ' Q'+routeX+','+turnY+' '+(routeX+sxEnd*rvTurnIn)+','+turnY+
-      ' L'+(cs.x-sxEnd*rvTurnOut)+','+turnY+
-      ' Q'+cs.x+','+turnY+' '+cs.x+','+(turnY+ey*rvTurnOut)+
-      ' L'+cs.x+','+cs.y;
+    endX=cs.x+endOffX;
+    if((cpOff.endDx||0)===0)endX=cs.x;
+    var vPathInfo=buildRoundedOrthogonalPath([
+      {x:ps.x,y:ps.y},
+      {x:ps.x,y:startY},
+      {x:routeX,y:startY},
+      {x:routeX,y:turnY},
+      {x:endX,y:turnY},
+      {x:endX,y:cs.y},
+      {x:cs.x,y:cs.y}
+    ],r);
+    d=vPathInfo.d;
     handle={x:routeX,y:(startY+turnY)/2,axis:'x'};
-    handle2={x:(routeX+cs.x)/2,y:turnY,axis:'y'};
+    handle2={x:(routeX+endX)/2,y:turnY,axis:'y'};
     handle3={x:(ps.x+routeX)/2,y:startY,axis:'startY'};
-    startAngle=Math.abs(startY-ps.y)>1?Math.atan2(ps.y-startY,0):(Math.abs(routeX-ps.x)>1?Math.atan2(0,ps.x-routeX):Math.atan2(ps.y-turnY,0));
-    endAngle=Math.atan2(cs.y-turnY,0);
+    if(Math.abs(cs.y-turnY)>1)handle4={x:endX,y:(turnY+cs.y)/2,axis:'endX'};
+    startAngle=vPathInfo.startAngle;
+    endAngle=vPathInfo.endAngle;
   }
   return {
     d:d,handle:handle,handle2:handle2,handle3:handle3,handle4:handle4,handle5:handle5,handle6:handle6,handle7:handle7,
@@ -2547,11 +2592,13 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
         }
       }else{
         if(axis==='x'){
-          snapProp('dx',info.routeX,nearest(info.routeX,[ps.x,cs.x]));
+          snapProp('dx',info.routeX,nearest(info.routeX,[ps.x,info.endX,cs.x]));
         }else if(axis==='y'){
           snapProp('dy',info.turnY,nearest(info.turnY,[ps.y,info.startY,cs.y]));
         }else if(axis==='startY'){
           snapProp('startDy',info.startY,nearest(info.startY,[ps.y,info.turnY,cs.y]));
+        }else if(axis==='endX'){
+          snapProp('endDx',info.endX,nearest(info.endX,[ps.x,info.routeX,cs.x]));
         }
       }
       return next;
@@ -2671,7 +2718,7 @@ function renderCurves(){
     var key=nodeId+'_'+side;
     var idx=arrowSlotCounter[key]||0;
     arrowSlotCounter[key]=idx+1;
-    var gap=Math.max(12,14*cam.z);
+    var gap=14*cam.z;
     var limit=(side==='top'||side==='bottom')
       ? Math.max(0,(nodeW*cam.z)/2-18)
       : Math.max(0,(nodeH*cam.z)/2-14);
@@ -2937,7 +2984,8 @@ function renderCurves(){
         handle4.setAttribute('stroke-width','2');
         handle4.setAttribute('data-handle','tree-'+c.id+'-end');
         h4Axis=h4Info.axis||'endY';
-        handle4.style.cursor='ns-resize'; handle4.style.pointerEvents='all';
+        handle4.style.cursor=(h4Axis==='endX'||h4Axis==='finalX'||h4Axis==='x')?'ew-resize':'ns-resize';
+        handle4.style.pointerEvents='all';
         handle4.setAttribute('opacity','0');
         handle4.style.transition='r .15s,opacity .15s';
       }
@@ -3292,7 +3340,9 @@ function renderCurves(){
         lhandle4.setAttribute('fill','rgba(56,178,255,0.22)');
         lhandle4.setAttribute('stroke','#38b2ff');
         lhandle4.setAttribute('stroke-width','2');
-        lhandle4.style.cursor='ns-resize'; lhandle4.style.pointerEvents='all';
+        lh4Axis=lh4Info.axis||'endY';
+        lhandle4.style.cursor=(lh4Axis==='endX'||lh4Axis==='finalX'||lh4Axis==='x')?'ew-resize':'ns-resize';
+        lhandle4.style.pointerEvents='all';
         lhandle4.setAttribute('opacity','0');
         lhandle4._elbow=true;
       }
