@@ -4555,7 +4555,13 @@ function addChild(pid){
 
   var newN={id:nid++,text:'새 아이디어',
     x:newX, y:newY,
-    pid:pid,star:false,customColor:null,memo:'',imgs:[],scale:1};
+    pid:pid,star:false,
+    customColor:par.customColor||null,
+    fontColor:par.fontColor||null,
+    bold:!!par.bold,
+    underline:!!par.underline,
+    fsize:(par.fsize!==undefined)?par.fsize:undefined,
+    memo:'',imgs:[],scale:1};
   nodes.push(newN);
   sel=newN.id;
 
