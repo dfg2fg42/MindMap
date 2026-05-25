@@ -2195,6 +2195,12 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
     return {angle:Math.PI/2, mode:'vertical', side:'top', score:score||0, point:{x:attachX,y:top-ARROW_TIP_GAP}};
   }
 
+  function verticalPortOnFace(side,x,score){
+    var cornerRange=26*cam.z;
+    if(x<left-cornerRange||x>right+cornerRange)return null;
+    return verticalPort(side,x,score);
+  }
+
   function horizontalPortFromSegment(x1,x2,y){
     if(x1===undefined||x2===undefined||y===undefined)return null;
     if(Math.abs(x2-x1)<1)return null;
@@ -2224,6 +2230,63 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
     return horizontalPort(side,y,side==='right'?rightReach:leftReach);
   }
 
+  function portFromActualSegments(){
+    if(!info.points||info.points.length<2)return null;
+    var pts=info.points, eps=Math.max(1,1.5*cam.z);
+    function checkVerticalSegment(a,b){
+      var dx=b.x-a.x, dy=b.y-a.y;
+      if(Math.abs(dx)<=eps){
+        var x=(a.x+b.x)/2;
+        var minY=Math.min(a.y,b.y), maxY=Math.max(a.y,b.y);
+        var topHit=(minY<=top+margin&&maxY>=top-margin);
+        var bottomHit=(minY<=bottom+margin&&maxY>=bottom-margin);
+        if(topHit){
+          var tp=verticalPortOnFace('top',x,Math.abs(maxY-top));
+          if(tp)return tp;
+        }
+        if(bottomHit){
+          var bp=verticalPortOnFace('bottom',x,Math.abs(bottom-minY));
+          if(bp)return bp;
+        }
+      }
+      return null;
+    }
+    function checkHorizontalSegment(a,b){
+      var dy=b.y-a.y;
+      if(Math.abs(dy)<=eps){
+        return horizontalPortFromSegment(a.x,b.x,(a.y+b.y)/2);
+      }
+      return null;
+    }
+    /*
+      수동으로 선을 위/아래 면 쪽으로 옮긴 경우, 마지막 짧은 수평 꼬리보다
+      실제로 면을 지나가는 수직 구간을 우선해야 화살표가 면 위에서 자연스럽게 미끄러진다.
+    */
+    if(isStart){
+      for(var si=0;si<pts.length-1;si++){
+        var sp=checkVerticalSegment(pts[si],pts[si+1]);
+        if(sp)return sp;
+      }
+      for(var shi=0;shi<pts.length-1;shi++){
+        var shp=checkHorizontalSegment(pts[shi],pts[shi+1]);
+        if(shp)return shp;
+      }
+    }else{
+      for(var ei=pts.length-2;ei>=0;ei--){
+        var ep=checkVerticalSegment(pts[ei],pts[ei+1]);
+        if(ep)return ep;
+      }
+      for(var ehi=pts.length-2;ehi>=0;ehi--){
+        var ehp=checkHorizontalSegment(pts[ehi],pts[ehi+1]);
+        if(ehp)return ehp;
+      }
+    }
+    return null;
+  }
+
+  var actualPort=portFromActualSegments();
+  if(actualPort)return actualPort;
+
   if(!info.horizontalFirst){
     if(!isStart){
       var approachY=(info.turnY!==undefined)?info.turnY:info.csY;
@@ -2232,8 +2295,14 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
         if(info.routeX!==undefined&&info.routeX<left-margin)return horizontalPort('left',approachY,left-info.routeX);
       }
       var approachX=(info.routeX!==undefined)?info.routeX:info.csX;
-      if(info.turnY!==undefined&&info.turnY<top-margin)return verticalPort('top',approachX,top-info.turnY);
-      if(info.turnY!==undefined&&info.turnY>bottom+margin)return verticalPort('bottom',approachX,info.turnY-bottom);
+      if(info.turnY!==undefined&&info.turnY<top-margin){
+        var topPort=verticalPortOnFace('top',approachX,top-info.turnY);
+        if(topPort)return topPort;
+      }
+      if(info.turnY!==undefined&&info.turnY>bottom+margin){
+        var bottomPort=verticalPortOnFace('bottom',approachX,info.turnY-bottom);
+        if(bottomPort)return bottomPort;
+      }
     }
     return null;
   }
@@ -2279,10 +2348,10 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
     attachX=clampVal(center.x,usableLeft,usableRight);
   }
   if(probeY<top-margin){
-    return {angle:Math.PI/2, mode:'vertical', side:'top', point:{x:attachX,y:top-ARROW_TIP_GAP}};
+    return verticalPortOnFace('top',attachX,top-probeY);
   }
   if(probeY>bottom+margin){
-    return {angle:-Math.PI/2, mode:'vertical', side:'bottom', point:{x:attachX,y:bottom+ARROW_TIP_GAP}};
+    return verticalPortOnFace('bottom',attachX,probeY-bottom);
   }
   return null;
 }
@@ -2334,6 +2403,24 @@ function buildRoundedOrthogonalPath(rawPoints,r){
   }
   if(pts.length<2)return {d:'',startAngle:0,endAngle:0};
   function dist(a,b){var dx=b.x-a.x,dy=b.y-a.y;return Math.sqrt(dx*dx+dy*dy);}
+  function angleFromMeaningfulSegment(fromEnd){
+    if(pts.length<2)return 0;
+    var minLen=Math.max(14,18*z);
+    if(fromEnd){
+      for(var ai=pts.length-1;ai>0;ai--){
+        if(dist(pts[ai-1],pts[ai])>=minLen){
+          return Math.atan2(pts[ai].y-pts[ai-1].y,pts[ai].x-pts[ai-1].x);
+        }
+      }
+      return Math.atan2(pts[pts.length-1].y-pts[pts.length-2].y,pts[pts.length-1].x-pts[pts.length-2].x);
+    }
+    for(var aj=0;aj<pts.length-1;aj++){
+      if(dist(pts[aj],pts[aj+1])>=minLen){
+        return Math.atan2(pts[aj].y-pts[aj+1].y,pts[aj].x-pts[aj+1].x);
+      }
+    }
+    return Math.atan2(pts[0].y-pts[1].y,pts[0].x-pts[1].x);
+  }
   var d='M'+pts[0].x+','+pts[0].y;
   for(var j=1;j<pts.length-1;j++){
     var p0=pts[j-1],p1=pts[j],p2=pts[j+1];
@@ -2352,8 +2439,8 @@ function buildRoundedOrthogonalPath(rawPoints,r){
   return {
     d:d,
     points:pts,
-    startAngle:Math.atan2(pts[0].y-next.y,pts[0].x-next.x),
-    endAngle:Math.atan2(last.y-prev.y,last.x-prev.x)
+    startAngle:angleFromMeaningfulSegment(false),
+    endAngle:angleFromMeaningfulSegment(true)
   };
 }
 
@@ -2666,19 +2753,31 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
         var dxScreen=ev.clientX-startX;
         var dyScreen=ev.clientY-startY;
         var moved=origSegPoints.map(function(p){return {x:p.x,y:p.y};});
+        var lastIdx=moved.length-1;
         if(moveAxis==='X'){
           if(segIdx>0)moved[segIdx].x+=dxScreen;
-          if(segIdx+1<moved.length-1)moved[segIdx+1].x+=dxScreen;
+          if(segIdx+1<=lastIdx)moved[segIdx+1].x+=dxScreen;
         }else{
           if(segIdx>0)moved[segIdx].y+=dyScreen;
-          if(segIdx+1<moved.length-1)moved[segIdx+1].y+=dyScreen;
+          if(segIdx+1<=lastIdx)moved[segIdx+1].y+=dyScreen;
+        }
+        var inner=moved.slice(1,-1);
+        /*
+          노드에 바로 붙은 끝 구간을 움직일 때도 그 구간 전체가 평행 이동하도록
+          이동된 끝점을 내부 경유점으로 보존한다. 실제 노드 접점은 마지막에 짧게 이어진다.
+        */
+        if(segIdx===0){
+          inner.unshift(moved[0]);
+        }
+        if(segIdx+1===lastIdx){
+          inner.push(moved[lastIdx]);
         }
         var nextSeg={
           dx:orig.dx,dy:orig.dy,
           startDx:orig.startDx,startDy:orig.startDy,
           endDx:orig.endDx,endDy:orig.endDy,
           finalDx:orig.finalDx,finalDy:orig.finalDy,
-          points:moved.slice(1,-1).map(screenLocalToWorld)
+          points:inner.map(screenLocalToWorld)
         };
         edgeObj.cp=nextSeg;
         if(rafId)cancelAnimationFrame(rafId);
@@ -2766,6 +2865,76 @@ function appendDynamicElbowHandles(svgH,edgePathInfo,pathEl,bgPath,edgeObj,ps,cs
     bindRoundedElbowHandle(item.el,pathEl,bgPath,edgeObj,ps,cs,item.axis,item.key,null,null);
     svgH.appendChild(item.el);
   });
+}
+
+function cubicPoint(p0,p1,p2,p3,t){
+  var mt=1-t,mt2=mt*mt,t2=t*t;
+  return {
+    x:mt2*mt*p0.x+3*mt2*t*p1.x+3*mt*t2*p2.x+t2*t*p3.x,
+    y:mt2*mt*p0.y+3*mt2*t*p1.y+3*mt*t2*p2.y+t2*t*p3.y
+  };
+}
+
+function appendCurveAxisHandle(svgH,pathEl,edgeObj,ps,cs,cp1,cp2,keyPrefix){
+  var bend=cubicPoint(ps,cp1,cp2,cs,0.42);
+  var h=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  h.setAttribute('cx',bend.x);h.setAttribute('cy',bend.y);
+  h.setAttribute('r','7');
+  h.setAttribute('fill','rgba(56,178,255,0.22)');
+  h.setAttribute('stroke','#38b2ff');
+  h.setAttribute('stroke-width','2');
+  h.setAttribute('data-handle',keyPrefix+'-curve-x');
+  h.style.cursor='ew-resize';
+  h.style.pointerEvents='all';
+  h.setAttribute('opacity','0');
+  h.style.transition='r .15s,opacity .15s';
+  pathEl.addEventListener('mouseenter',function(){h.setAttribute('opacity','1');});
+  pathEl.addEventListener('mouseleave',function(){if(!h._dragging)h.setAttribute('opacity','0');});
+  h.addEventListener('mouseenter',function(){h.setAttribute('opacity','1');});
+  h.addEventListener('mouseleave',function(){if(!h._dragging)h.setAttribute('opacity','0');});
+  h.addEventListener('dblclick',function(e){
+    e.stopPropagation();
+    if(lockMode){showToast('🔒 잠금 모드 — 선을 조정할 수 없습니다');return;}
+    pushUndoState();
+    edgeObj.cp=Object.assign({},edgeObj.cp||{},{dx:0});
+    saveAll();renderCurves();drawMM();
+  });
+  h.addEventListener('mousedown',function(e){
+    if(lockMode){e.stopPropagation();showToast('🔒 잠금 모드 — 선을 조정할 수 없습니다');return;}
+    if(e.button!==0)return;
+    e.stopPropagation();e.preventDefault();
+    pushUndoState();
+    h._dragging=true;
+    h.style.cursor='grabbing';
+    h.setAttribute('r','9');
+    h.setAttribute('fill','rgba(56,178,255,0.45)');
+    h.setAttribute('stroke','#7dd8ff');
+    h.setAttribute('opacity','1');
+    var startX=e.clientX;
+    var orig=edgeObj.cp||{};
+    var origDx=orig.dx||0;
+    var keepDy=orig.dy||0;
+    var rafId=null;
+    function onMove(ev){
+      edgeObj.cp={dx:origDx+(ev.clientX-startX)/cam.z,dy:keepDy};
+      if(rafId)cancelAnimationFrame(rafId);
+      rafId=requestAnimationFrame(function(){renderCurves();});
+    }
+    function onUp(){
+      h._dragging=false;
+      if(rafId)cancelAnimationFrame(rafId);
+      h.style.cursor='ew-resize';
+      h.setAttribute('r','7');
+      h.setAttribute('fill','rgba(56,178,255,0.22)');
+      h.setAttribute('stroke','#38b2ff');
+      saveAll();renderCurves();drawMM();
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+    }
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+  svgH.appendChild(h);
 }
 
 /* ── 포트 or 자동 스마트 연결점 ── */
@@ -3283,6 +3452,16 @@ function renderCurves(){
       });
     })(c.id,handle,path,ps.x,ps.y,cs.x,cs.y);
     svgH.appendChild(handle);
+    if(edgeLineType!=='elbow'){
+      appendCurveAxisHandle(
+        svgH,path,c,
+        {x:ps.x,y:ps.y},
+        {x:cs.x,y:cs.y},
+        {x:cp1x,y:cp1y},
+        {x:cp2x,y:cp2y},
+        'tree-'+c.id
+      );
+    }
   }
 
   /* ── 참조 연결선 ── */
@@ -3635,6 +3814,16 @@ function renderCurves(){
       });
     })(lk,lhandle,lpath,lhmx,lhmy);
     if(!lhandle._elbow)svg.appendChild(lhandle);
+    if(linkLineType!=='elbow'){
+      appendCurveAxisHandle(
+        svgH,lpath,lk,
+        {x:sc1.x,y:sc1.y},
+        {x:sc2.x,y:sc2.y},
+        {x:lcp1x,y:lcp1y},
+        {x:lcp2x,y:lcp2y},
+        'link-'+lk.from+'-'+lk.to
+      );
+    }
     /* 연결선 중간 × 삭제 버튼 */
     var bmx=(sc1.x+sc2.x)/2,bmy=(sc1.y+sc2.y)/2;
     var g=document.createElementNS('http://www.w3.org/2000/svg','g');
