@@ -2400,6 +2400,32 @@ function buildRoundedOrthogonalPath(rawPoints,r){
       pts.push({x:p.x,y:p.y});
     }
   });
+  /*
+    수동 조절 중 경유점과 노드 접점 사이에 대각선이 생기면,
+    꺾은선 편집 포인트를 붙일 수 없고 최종 모양도 예측하기 어렵다.
+    꺾은선 타입에서는 대각 구간을 즉시 직각 구간으로 분해해서
+    이후 각 가로/세로 구간에 수정 포인트가 자동으로 생기게 한다.
+  */
+  for(var oi=0;oi<pts.length-1;oi++){
+    var oa=pts[oi], ob=pts[oi+1];
+    var odx=ob.x-oa.x, ody=ob.y-oa.y;
+    if(Math.abs(odx)>collinearEps&&Math.abs(ody)>collinearEps){
+      var prev=pts[oi-1], next=pts[oi+2], corner;
+      if(prev&&Math.abs(prev.y-oa.y)<=collinearEps){
+        corner={x:oa.x,y:ob.y};
+      }else if(prev&&Math.abs(prev.x-oa.x)<=collinearEps){
+        corner={x:ob.x,y:oa.y};
+      }else if(next&&Math.abs(next.y-ob.y)<=collinearEps){
+        corner={x:oa.x,y:ob.y};
+      }else if(next&&Math.abs(next.x-ob.x)<=collinearEps){
+        corner={x:ob.x,y:oa.y};
+      }else{
+        corner=Math.abs(odx)>=Math.abs(ody)?{x:ob.x,y:oa.y}:{x:oa.x,y:ob.y};
+      }
+      pts.splice(oi+1,0,corner);
+      oi++;
+    }
+  }
   /* 확대/축소와 무관하게 실제 좌표 기준의 아주 짧은 계단 턱은 같은 직선으로 흡착 */
   for(var pass=0;pass<2;pass++){
     for(var mi=1;mi<pts.length-2;mi++){
@@ -2530,7 +2556,13 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
     var startGapX=Math.min(zs(28), Math.max(zs(10), Math.abs(dx)*0.06));
     var endGapX=Math.min(zs(58), Math.max(zs(30), Math.abs(dx)*0.16));
     var baseY=ps.y;
-    if(Math.abs(dy)>zs(18)){
+    if(Math.abs(dy)<=zs(18)){
+      /*
+        같은 높이의 노드를 꺾은선으로 바꿀 때 선이 노드 중앙을 관통하면
+        수정 포인트를 클릭하기 어렵다. 기본 경로는 노드 위쪽으로 우회시킨다.
+      */
+      baseY=Math.min(ps.y,cs.y)-zs(56);
+    }else{
       baseY=Math.min(ps.y,cs.y)-Math.min(zs(90),Math.max(zs(44),Math.abs(dy)*0.35));
     }
     var routeY=baseY+offY;
@@ -6315,6 +6347,4 @@ function updateNodeConnHighlight(){
 
 </body>
 </html>
-
-
 
