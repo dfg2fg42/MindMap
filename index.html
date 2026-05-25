@@ -296,6 +296,18 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 .dir-opt:hover{background:var(--sur2);}
 .dir-opt.active{color:var(--acc);font-weight:700;}
 #btn-dir.on{border-color:var(--acc);color:var(--acc);}
+#align-menu{
+  position:fixed;z-index:260;display:none;
+  background:var(--sur);border:1.5px solid var(--bdr);border-radius:10px;
+  padding:6px 0;min-width:172px;box-shadow:0 8px 24px rgba(0,0,0,.5);
+}
+.align-gap-row{display:flex;align-items:center;gap:6px;padding:6px 10px 8px;border-bottom:1px solid var(--bdr);margin-bottom:2px;}
+.align-gap-row label{font-size:.72rem;font-weight:800;color:var(--mut);white-space:nowrap;}
+#align-gap-input{width:72px;background:var(--bg);border:1.5px solid var(--bdr);border-radius:7px;color:var(--txt);font-size:.8rem;font-weight:700;padding:4px 6px;outline:none;}
+#align-gap-input:focus{border-color:var(--acc);}
+.align-gap-unit{font-size:.72rem;color:var(--mut);}
+.align-opt{padding:8px 14px;cursor:pointer;font-size:.83rem;color:var(--txt);transition:background .12s;display:flex;align-items:center;gap:7px;white-space:nowrap;}
+.align-opt:hover{background:var(--sur2);color:var(--acc);}
 
 /* ══ SEARCH BAR ══ */
 #search-bar{
@@ -585,6 +597,17 @@ body.link-mode .link-del-btn{display:block;}
   <div class="tinfo">노드 <b id="ncnt">1</b>개</div>
 </div>
 
+<!-- ALIGN MENU -->
+<div id="align-menu">
+  <div class="align-gap-row">
+    <label for="align-gap-input">간격</label>
+    <input id="align-gap-input" type="number" min="0" max="1000" step="5" value="100">
+    <span class="align-gap-unit">px</span>
+  </div>
+  <div class="align-opt" data-axis="horizontal">↔ 가로 정렬</div>
+  <div class="align-opt" data-axis="vertical">↕ 세로 정렬</div>
+</div>
+
 <!-- VIEWPORT -->
 <div id="viewport">
   <svg id="svg-layer"></svg>
@@ -841,7 +864,7 @@ body.link-mode .link-del-btn{display:block;}
         <div class="hr"><span class="hk">카테고리 드래그</span><span class="hd">카테고리 순서 변경 또는 하위 카테고리로 이동</span></div>
         <div class="hr"><span class="hk">카테고리 아이콘 클릭</span><span class="hd">카테고리 아이콘 변경</span></div>
         <div class="hr"><span class="hk">⇄ / → / ← 방향 버튼</span><span class="hd">새 하위 노드 생성 방향 설정</span></div>
-        <div class="hr"><span class="hk">⟳ 정렬 버튼</span><span class="hd">전체 자동 재배치 또는 다중 선택 노드 수직 정렬</span></div>
+        <div class="hr"><span class="hk">⟳ 정렬 버튼</span><span class="hd">전체 자동 재배치 또는 선택/그룹 노드 가로·세로 정렬, 간격 설정</span></div>
         <div class="hr"><span class="hk">⊡ 맞춤 버튼</span><span class="hd">전체 노드 화면에 맞추기</span></div>
       </div>
     </div>
@@ -1032,6 +1055,7 @@ var reconnectNodeId=null; // 변경할 노드 id
 var selGroup=null;        // 선택된 그룹 id
 var lightenStep=0.055;   // 깊이당 밝아지는 비율 (0.01~0.15)
 var lightenMaxDepth=6;   // 최대 적용 깊이
+var alignGap=100;        // 선택/그룹 정렬 시 노드 사이 간격(px)
 var lineCustomColors=[]; // 선 색상 사용자 팔레트
 var nodeCustomColors=[]; // 노드 색상 사용자 팔레트
 var groupCustomColors=[]; // 그룹 박스 색상 사용자 팔레트
@@ -1199,12 +1223,12 @@ function toggleSbPin(){
 function saveAll(){
   var cc=getCat(curCatId);
   if(cc){cc.nodes=nodes;cc.nid=nid;cc.cam=cam;cc.links=links;cc.groups=groups;cc.nextGid=nextGid;}
-  try{localStorage.setItem('msp2',JSON.stringify({cats:cats,curCatId:curCatId,nextCatId:nextCatId,lightenStep:lightenStep,lightenMaxDepth:lightenMaxDepth,lineCustomColors:lineCustomColors,nodeCustomColors:nodeCustomColors,groupCustomColors:groupCustomColors}));}catch(e){}
+  try{localStorage.setItem('msp2',JSON.stringify({cats:cats,curCatId:curCatId,nextCatId:nextCatId,lightenStep:lightenStep,lightenMaxDepth:lightenMaxDepth,alignGap:alignGap,lineCustomColors:lineCustomColors,nodeCustomColors:nodeCustomColors,groupCustomColors:groupCustomColors}));}catch(e){}
 }
 function loadAll(){
   try{
     var d=localStorage.getItem('msp2');
-    if(d){var o=JSON.parse(d);cats=o.cats||[];curCatId=o.curCatId||1;nextCatId=o.nextCatId||1;if(o.lightenStep!==undefined)lightenStep=o.lightenStep;if(o.lightenMaxDepth!==undefined)lightenMaxDepth=o.lightenMaxDepth;if(Array.isArray(o.lineCustomColors))lineCustomColors=cleanCustomColors(o.lineCustomColors);if(Array.isArray(o.nodeCustomColors))nodeCustomColors=cleanCustomColors(o.nodeCustomColors);if(Array.isArray(o.groupCustomColors))groupCustomColors=cleanCustomColors(o.groupCustomColors);}
+    if(d){var o=JSON.parse(d);cats=o.cats||[];curCatId=o.curCatId||1;nextCatId=o.nextCatId||1;if(o.lightenStep!==undefined)lightenStep=o.lightenStep;if(o.lightenMaxDepth!==undefined)lightenMaxDepth=o.lightenMaxDepth;if(o.alignGap!==undefined)alignGap=Math.max(0,Math.min(1000,parseInt(o.alignGap,10)||100));if(Array.isArray(o.lineCustomColors))lineCustomColors=cleanCustomColors(o.lineCustomColors);if(Array.isArray(o.nodeCustomColors))nodeCustomColors=cleanCustomColors(o.nodeCustomColors);if(Array.isArray(o.groupCustomColors))groupCustomColors=cleanCustomColors(o.groupCustomColors);}
   }catch(e){}
   if(!cats.length){
     cats=[{id:nextCatId++,name:'기본',icon:'🗂',parentId:null,collapsed:false,
@@ -5419,43 +5443,104 @@ document.querySelectorAll('.dir-opt').forEach(function(opt){
 /* 메뉴 외부 클릭 시 닫기 */
 document.addEventListener('click',function(){
   var m=document.getElementById('dir-menu');if(m)m.style.display='none';
+  closeAlignMenu();
 });
 document.getElementById('btn-child').onclick=function(){if(sel)addChild(sel);};
 document.getElementById('btn-sibling').onclick=function(){if(sel)addSibling(sel);};
-document.getElementById('btn-layout').onclick=function(){
-  /* 다중 선택된 노드가 있으면 선택 노드만 수직 정렬 */
-  if(multiSel.length>=2){
-    alignSelectedVertical();
+function getAlignTargetIds(){
+  if(multiSel.length>=2)return multiSel.slice();
+  if(selGroup){
+    var grp=groups.filter(function(g){return g.id===selGroup;})[0];
+    if(grp&&grp.nodeIds&&grp.nodeIds.length>=2){
+      return grp.nodeIds.filter(function(id){return !!gn(id);});
+    }
+  }
+  return [];
+}
+function openAlignMenu(btn){
+  var ids=getAlignTargetIds();
+  if(ids.length<2){
+    showToast('⚠️ 2개 이상의 노드를 선택하거나 그룹을 선택하세요');
+    return;
+  }
+  var m=document.getElementById('align-menu');
+  var gapInp=document.getElementById('align-gap-input');
+  if(gapInp)gapInp.value=alignGap;
+  var r=btn.getBoundingClientRect();
+  m.style.display='block';
+  m.style.left=Math.max(8,Math.min(r.left,window.innerWidth-184))+'px';
+  m.style.top=(r.bottom+6)+'px';
+}
+function closeAlignMenu(){document.getElementById('align-menu').style.display='none';}
+function getAlignGapValue(){
+  var inp=document.getElementById('align-gap-input');
+  var v=inp?parseInt(inp.value,10):alignGap;
+  if(isNaN(v))v=100;
+  v=Math.max(0,Math.min(1000,v));
+  alignGap=v;
+  if(inp)inp.value=v;
+  saveAll();
+  return v;
+}
+document.getElementById('btn-layout').onclick=function(e){
+  e.stopPropagation();
+  if(getAlignTargetIds().length>=2){
+    openAlignMenu(this);
     return;
   }
   if(confirm('⚠️ 정렬을 실행하면 모든 노드의 위치가 자동으로 재배치됩니다.\n\n직접 조정한 위치가 초기화될 수 있습니다.\n\n정렬을 실행하시겠습니까?')){
     autoLayout();
   }
 };
-/* ── 선택 노드 수직 정렬 ── */
-function alignSelectedVertical(){
-  if(multiSel.length<2) return;
+/* ── 선택/그룹 노드 가로·세로 정렬 ── */
+function alignSelectedNodes(axis){
+  var ids=getAlignTargetIds();
+  if(ids.length<2) return;
   undoStack.push({nodes:JSON.parse(JSON.stringify(nodes)),links:JSON.parse(JSON.stringify(links)),nid:nid,sel:sel});
   if(undoStack.length>30) undoStack.shift();
-  /* 선택된 노드 객체 수집 */
-  var selNodes=multiSel.map(function(id){return gn(id);}).filter(Boolean);
-  /* 현재 Y 순서 기준으로 정렬 */
-  selNodes.sort(function(a,b){return a.y-b.y;});
-  /* X 중심: 선택 노드들의 평균 X */
-  var avgX=selNodes.reduce(function(s,n){return s+n.x;},0)/selNodes.length;
-  /* 전체 높이 계산하여 시작 Y 결정 (첫 노드 Y 기준 유지) */
-  var PAD=20;
-  var startY=selNodes[0].y;
-  var curY=startY;
-  for(var i=0;i<selNodes.length;i++){
-    var n=selNodes[i];
-    n.x=avgX;
-    n.y=curY;
-    curY+=nhFull(n)+PAD;
+  var PAD=getAlignGapValue();
+  var selNodes=ids.map(function(id){return gn(id);}).filter(Boolean);
+  if(axis==='horizontal'){
+    selNodes.sort(function(a,b){return a.x-b.x;});
+    var avgY=selNodes.reduce(function(s,n){return s+n.y;},0)/selNodes.length;
+    var curX=selNodes[0].x-nwFull(selNodes[0])/2;
+    for(var hi=0;hi<selNodes.length;hi++){
+      var hn=selNodes[hi], hw=nwFull(hn);
+      hn.x=curX+hw/2;
+      hn.y=avgY;
+      curX+=hw+PAD;
+    }
+  }else{
+    selNodes.sort(function(a,b){return a.y-b.y;});
+    var avgX=selNodes.reduce(function(s,n){return s+n.x;},0)/selNodes.length;
+    var curY=selNodes[0].y-nhFull(selNodes[0])/2;
+    for(var vi=0;vi<selNodes.length;vi++){
+      var vn=selNodes[vi], vh=nhFull(vn);
+      vn.x=avgX;
+      vn.y=curY+vh/2;
+      curY+=vh+PAD;
+    }
   }
   saveAll(); renderAll();
-  showToast('✅ '+selNodes.length+'개 노드 수직 정렬 완료');
+  showToast('✅ '+selNodes.length+'개 노드 '+(axis==='horizontal'?'가로':'세로')+' 정렬 완료 · 간격 '+PAD+'px');
 }
+var alignGapInput=document.getElementById('align-gap-input');
+if(alignGapInput){
+  ['click','mousedown','keydown'].forEach(function(evName){
+    alignGapInput.addEventListener(evName,function(e){e.stopPropagation();});
+  });
+  alignGapInput.addEventListener('change',function(e){
+    e.stopPropagation();
+    getAlignGapValue();
+  });
+}
+document.querySelectorAll('.align-opt').forEach(function(opt){
+  opt.addEventListener('click',function(e){
+    e.stopPropagation();
+    closeAlignMenu();
+    alignSelectedNodes(opt.dataset.axis);
+  });
+});
 document.getElementById('btn-group').onclick=function(){
   var ids=multiSel.length>=2?multiSel:(sel?[sel]:[]);
   if(ids.length<2){showToast('⚠️ 2개 이상의 노드를 선택하세요 (Shift+클릭 또는 드래그 선택)');return;}
@@ -6230,7 +6315,6 @@ function updateNodeConnHighlight(){
 
 </body>
 </html>
-
 
 
 
