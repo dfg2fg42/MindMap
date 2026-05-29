@@ -5434,6 +5434,7 @@ document.addEventListener('mousemove',function(e){
     multiSel.forEach(function(id){
       var n=gn(id);if(n){n.x+=dx;n.y+=dy;}
     });
+    shiftInternalEdgeControls(multiSel,dx,dy);
     requestFastRender({forceCurves:true,drawMM:false});return;
   }
   if(movSt){
@@ -5736,6 +5737,30 @@ function shiftSubtreeY(rootId, dy){
     var kids=gc(cur);
     for(var k=0;k<kids.length;k++)stack.push(kids[k].id);
   }
+}
+
+/* 다중 선택 이동 시 내부 연결선의 수동 꺾임 포인트도 함께 이동 */
+function shiftInternalEdgeControls(selectedIds, dx, dy){
+  if(!selectedIds||!selectedIds.length||(!dx&&!dy))return;
+  var selectedMap={};
+  selectedIds.forEach(function(id){selectedMap[id]=true;});
+  function moveCpPoints(cp){
+    if(!cp||!cp.points||!cp.points.length)return;
+    cp.points.forEach(function(p){
+      p.x+=dx;
+      p.y+=dy;
+    });
+  }
+  nodes.forEach(function(n){
+    if(n.pid!==null&&selectedMap[n.id]&&selectedMap[n.pid]){
+      moveCpPoints(n.cp);
+    }
+  });
+  links.forEach(function(l){
+    if(selectedMap[l.from]&&selectedMap[l.to]){
+      moveCpPoints(l.cp);
+    }
+  });
 }
 
 /* X는 건드리지 않고 Y만 재배치 */
