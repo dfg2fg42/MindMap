@@ -344,14 +344,26 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 #search-close:hover{color:#ff6b6b;}
 /* 검색 매칭 노드 하이라이트 */
 .node.search-match{
-  outline:2.5px solid #ffdd57!important;
-  outline-offset:2px;
-  filter:brightness(1.15);
+  outline:2.5px solid rgba(255,221,87,.85)!important;
+  outline-offset:3px;
+  filter:brightness(1.12);
+  box-shadow:0 0 12px rgba(255,221,87,.35)!important;
 }
 .node.search-current{
-  outline:3px solid #ff9900!important;
-  outline-offset:3px;
-  filter:brightness(1.25);
+  border-color:#fff86a!important;
+  outline:3px solid #ffb000!important;
+  outline-offset:5px;
+  filter:brightness(1.28);
+  z-index:120!important;
+  animation:searchGlow 1.05s ease-in-out infinite!important;
+}
+@keyframes searchGlow{
+  0%,100%{
+    box-shadow:0 0 0 3px rgba(255,248,106,.65),0 0 18px 6px rgba(255,176,0,.75),0 0 38px 12px rgba(255,176,0,.35),0 5px 20px rgba(0,0,0,.45);
+  }
+  50%{
+    box-shadow:0 0 0 4px rgba(255,255,180,.95),0 0 26px 10px rgba(255,214,0,.95),0 0 52px 18px rgba(255,176,0,.55),0 5px 20px rgba(0,0,0,.45);
+  }
 }
 
 /* ══ MULTI SELECT ══ */
@@ -4967,25 +4979,35 @@ function doSearch(){
   });
   jumpToSearch(0);
 }
+function applySearchHighlights(){
+  searchResults.forEach(function(id){
+    var el=document.querySelector('.node[data-id="'+id+'"]');
+    if(el) el.classList.add('search-match');
+  });
+  if(searchResults.length){
+    var curEl=document.querySelector('.node[data-id="'+searchResults[searchIdx]+'"]');
+    if(curEl) curEl.classList.add('search-current');
+  }
+}
 function jumpToSearch(idx){
   if(!searchResults.length)return;
   searchIdx=((idx%searchResults.length)+searchResults.length)%searchResults.length;
   document.getElementById('search-count').textContent=(searchIdx+1)+' / '+searchResults.length;
   clearSearchHL();
-  searchResults.forEach(function(id){
-    var el=document.querySelector('.node[data-id="'+id+'"]');
-    if(el) el.classList.add('search-match');
-  });
   var curId=searchResults[searchIdx];
-  var curEl=document.querySelector('.node[data-id="'+curId+'"]');
-  if(curEl) curEl.classList.add('search-current');
-  /* 해당 노드로 카메라 이동 */
   var n=gn(curId);if(!n)return;
+  /* 해당 노드로 이동하면서 너무 멀리 축소된 상태라면 검색용으로 확대 */
   var vp=document.getElementById('viewport');
   var vw=vp.clientWidth,vh=vp.clientHeight;
+  var targetZoom=Math.max(cam.z,1.2);
+  targetZoom=Math.min(targetZoom,2.2);
+  cam.z=targetZoom;
   cam.x=vw/2 - n.x*cam.z;
   cam.y=vh/2 - n.y*cam.z;
-  applyCamera();renderCurves();updatePanel();drawMM();
+  applyCamera();
+  renderNodes();
+  applySearchHighlights();
+  renderCurves();updatePanel();drawMM();
 }
 function searchNext(){jumpToSearch(searchIdx+1);}
 function searchPrev(){jumpToSearch(searchIdx-1);}
@@ -6347,4 +6369,3 @@ function updateNodeConnHighlight(){
 
 </body>
 </html>
-
