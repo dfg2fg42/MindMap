@@ -147,7 +147,12 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 /* ══ MEMO TOOLTIP ══ */
 #memo-tooltip{position:fixed;z-index:400;background:var(--sur);border:1.5px solid #38b2ff;border-radius:10px;padding:10px 13px;max-width:420px;min-width:180px;box-shadow:0 8px 28px rgba(0,0,0,.6),0 0 12px rgba(56,178,255,.2);pointer-events:auto;display:none;font-size:.81rem;line-height:1.65;color:var(--txt);}
 #memo-tooltip .mtt-title{font-size:.7rem;font-weight:800;color:#38b2ff;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:5px;}
-#memo-tooltip .mtt-body{white-space:pre-wrap;word-break:break-word;color:var(--txt);opacity:.9;}
+#memo-tooltip .mtt-body{white-space:normal;word-break:break-word;color:var(--txt);opacity:.9;}
+#memo-tooltip .mtt-line{min-height:1.35em;margin:1px 0;}
+#memo-tooltip .mtt-list-line{display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:6px;align-items:start;margin:1px 0;}
+#memo-tooltip .mtt-list-marker{color:var(--txt);opacity:.92;white-space:nowrap;text-align:right;}
+#memo-tooltip .mtt-list-text{min-width:0;white-space:normal;word-break:break-word;}
+#memo-tooltip .mtt-checked .mtt-list-text{color:#38b2ff;text-decoration:line-through;opacity:.75;}
 #memo-tooltip .mtt-img-preview{margin-top:7px;display:flex;gap:4px;flex-wrap:wrap;}
 #memo-tooltip .mtt-img-preview img{width:48px;height:48px;object-fit:cover;border-radius:5px;border:1px solid var(--bdr);}
 #memo-tooltip .mtt-title{cursor:move!important;}
@@ -208,6 +213,15 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 #memo-ta{width:100%;box-sizing:border-box;background:var(--sur2);border:1.5px solid var(--bdr);border-radius:10px;color:var(--txt);font-family:inherit;font-size:.88rem;padding:12px;resize:vertical;outline:none;line-height:1.7;transition:border .14s;min-height:200px;height:240px;max-height:600px;}
 #memo-ta:focus{border-color:var(--acc);}
 #memo-ta::placeholder{color:var(--mut);}
+#memo-preview-wrap{margin-top:8px;background:var(--sur2);border:1.5px solid var(--bdr);border-radius:10px;padding:9px 11px;max-height:170px;overflow:auto;font-size:.84rem;line-height:1.65;color:var(--txt);}
+#memo-preview-wrap.empty{display:none;}
+#memo-preview-title{font-size:.68rem;font-weight:800;color:var(--mut);letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px;}
+#memo-preview{opacity:.92;}
+#memo-preview .mtt-line{min-height:1.35em;margin:1px 0;}
+#memo-preview .mtt-list-line{display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:6px;align-items:start;margin:1px 0;}
+#memo-preview .mtt-list-marker{color:var(--txt);opacity:.92;white-space:nowrap;text-align:right;}
+#memo-preview .mtt-list-text{min-width:0;white-space:normal;word-break:break-word;}
+#memo-preview .mtt-checked .mtt-list-text{color:#38b2ff;text-decoration:line-through;opacity:.75;}
 #memo-saved{font-size:.72rem;color:var(--mut);margin-top:5px;text-align:right;}
 /* 이미지 첨부 영역 */
 #memo-img-section{margin-top:10px;flex-shrink:0;}
@@ -716,6 +730,10 @@ body.link-mode .link-del-btn{display:block;}
       <button class="mtb-btn" id="mtb-clear" title="서식 제거" style="margin-left:auto;">✕ 서식제거</button>
     </div>
     <textarea id="memo-ta" placeholder="이 노드에 대한 메모, 아이디어, 참고 내용을 자유롭게 작성하세요..."></textarea>
+    <div id="memo-preview-wrap" class="empty">
+      <div id="memo-preview-title">정렬 미리보기</div>
+      <div id="memo-preview"></div>
+    </div>
     <div id="memo-saved">자동 저장됩니다</div>
     <!-- 이미지 첨부 -->
     <div id="memo-img-section">
@@ -4205,6 +4223,41 @@ function renderNodes(){
   }
 }
 
+/* ════════════════ MEMO FORMATTED PREVIEW / TOOLTIP ════════════════ */
+function escMemoHtml(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function renderMemoFormattedHtml(raw){
+  return (raw||'').split('\n').map(function(l){
+    var esc=escMemoHtml(l);
+    var mCheck=l.match(/^(\s*)- \[([ x])\]\s*(.*)$/);
+    if(mCheck){
+      var checked=mCheck[2]==='x';
+      return '<div class="mtt-list-line '+(checked?'mtt-checked':'')+'"><span class="mtt-list-marker">'+(checked?'☑':'☐')+'</span><span class="mtt-list-text">'+escMemoHtml(mCheck[3])+'</span></div>';
+    }
+    var mBullet=l.match(/^(\s*)-\s+(.*)$/);
+    if(mBullet) return '<div class="mtt-list-line"><span class="mtt-list-marker">•</span><span class="mtt-list-text">'+escMemoHtml(mBullet[2])+'</span></div>';
+    var mNum=l.match(/^(\s*)(\d+)\.\s*(.*)$/);
+    if(mNum) return '<div class="mtt-list-line"><span class="mtt-list-marker">'+mNum[2]+'.</span><span class="mtt-list-text">'+escMemoHtml(mNum[3])+'</span></div>';
+    if(/^────/.test(l)) return '<hr style="border:none;border-top:1px solid var(--bdr);margin:3px 0;">';
+    return '<div class="mtt-line">'+(esc||'&nbsp;')+'</div>';
+  }).join('');
+}
+function renderMemoPreview(){
+  var ta=document.getElementById('memo-ta');
+  var wrap=document.getElementById('memo-preview-wrap');
+  var pv=document.getElementById('memo-preview');
+  if(!ta||!wrap||!pv)return;
+  var raw=ta.value||'';
+  if(!raw.trim()){
+    wrap.classList.add('empty');
+    pv.innerHTML='';
+    return;
+  }
+  wrap.classList.remove('empty');
+  pv.innerHTML=renderMemoFormattedHtml(raw);
+}
+
 /* ════════════════ MEMO TOOLTIP ════════════════ */
 var mttTimer=null;
 function showMemoTooltip(nodeId,clientX,clientY){
@@ -4213,20 +4266,9 @@ function showMemoTooltip(nodeId,clientX,clientY){
   clearTimeout(mttTimer);
   mttTimer=setTimeout(function(){
     var tt=document.getElementById('memo-tooltip');
-    (function(){
     var raw=n.memo||'';
-    var html=raw.split('\n').map(function(l){
-      var esc=l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      if(/^\s*- \[x\]/.test(l)) return '<span style="color:#38b2ff;text-decoration:line-through;opacity:.7">☑ '+esc.replace(/^\s*- \[x\]\s*/,'')+'</span>';
-      if(/^\s*- \[ \]/.test(l)) return '<span>☐ '+esc.replace(/^\s*- \[\s*\]\s*/,'')+'</span>';
-      if(/^\s*- /.test(l))        return '<span>• '+esc.replace(/^\s*- /,'')+'</span>';
-      if(/^\s*\d+\.\s/.test(l)) return '<span>'+esc+'</span>';
-      if(/^────/.test(l))         return '<hr style="border:none;border-top:1px solid var(--bdr);margin:3px 0;">';
-      return '<span>'+esc+'</span>';
-    }).join('\n');
-    document.getElementById('mtt-body').innerHTML=html;
-  })();
-    tt.querySelector('.mtt-title').innerHTML='📝 메모 — <span style="color:var(--txt);font-weight:600;text-transform:none;letter-spacing:0">'+n.text+'</span>';
+    document.getElementById('mtt-body').innerHTML=renderMemoFormattedHtml(raw);
+    tt.querySelector('.mtt-title').innerHTML='📝 메모 — <span style="color:var(--txt);font-weight:600;text-transform:none;letter-spacing:0">'+escMemoHtml(n.text)+'</span>';
     var imgPrev=document.getElementById('mtt-img-preview');imgPrev.innerHTML='';
     if(n.imgs&&n.imgs.length){
       n.imgs.slice(0,4).forEach(function(keyOrSrc){
@@ -4649,6 +4691,7 @@ function openMemo(id){
   document.getElementById('memo-ta').value=n.memo||'';
   document.getElementById('memo-ta').dataset.nid=n.id;
   document.getElementById('memo-ta').focus();
+  renderMemoPreview();
   renderMemoImgs(n);
   updatePanel();
 }
@@ -4661,6 +4704,7 @@ function closeMemo(){
 }
 function saveMemoTxt(){
   var ta=document.getElementById('memo-ta');
+  renderMemoPreview();
   var id2=parseInt(ta.dataset.nid);if(!id2)return;
   var n=gn(id2);if(n){n.memo=ta.value;saveAll();renderNodes();drawMM();}
 }
@@ -5146,7 +5190,7 @@ function bindNode(el,id){
       movSt={id:id,ox:n.x,oy:n.y,mx:wp.x,my:wp.y,undoPushed:false,alignIds:getShiftAlignTargetIds(id)};
       document.getElementById('viewport').classList.add('moving');
     }
-    if(memoOpen){saveMemoTxt();document.getElementById('memo-node-name').textContent=n.text;document.getElementById('memo-ta').value=n.memo||'';document.getElementById('memo-ta').dataset.nid=id;renderMemoImgs(n);}
+    if(memoOpen){saveMemoTxt();document.getElementById('memo-node-name').textContent=n.text;document.getElementById('memo-ta').value=n.memo||'';document.getElementById('memo-ta').dataset.nid=id;renderMemoPreview();renderMemoImgs(n);}
     renderAll();
   });
   el.addEventListener('mouseenter',function(e){
