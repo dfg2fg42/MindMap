@@ -2442,10 +2442,15 @@ function snapOverlappingOrthogonalSegments(pts){
     드래그 중에는 사용자가 선을 자유롭게 옮길 수 있어야 하므로 병합하지 않는다.
     드래그가 끝난 뒤에는 화면상으로 거의 겹쳐 보이는 평행 구간을 한 줄로 정렬한다.
   */
-  var eps=edgeHandleDragging?0:10;
+  /*
+    pts는 화면 좌표라서 줌을 크게 하면 같은 월드 간격도 화면에서는 크게 벌어진다.
+    병합 허용값을 줌에 맞춰 키워야 확대/축소 후에도 같은 공통 라인이 한 줄로 유지된다.
+  */
+  var mergeZ=Math.max(0.15,cam&&cam.z?cam.z:1);
+  var eps=edgeHandleDragging?0:Math.max(12,18*mergeZ);
   if(eps<=0)return;
-  var minLen=70;
-  var minOverlap=45;
+  var minLen=Math.max(30,70*mergeZ);
+  var minOverlap=Math.max(22,45*mergeZ);
   for(var i=0;i<pts.length-1;i++){
     var a=pts[i],b=pts[i+1];
     var dx=b.x-a.x,dy=b.y-a.y;
