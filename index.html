@@ -2243,6 +2243,13 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
 
   function verticalPort(side,x,score){
     var attachX=clampVal(x,usableLeft,usableRight);
+    /*
+      노드 위/아래 중앙 근처로 들어오는 여러 직각선은 접점이 몇 픽셀만 달라도
+      U자처럼 말려 보인다. 중앙 근처에서는 같은 접점으로 흡착시켜 한 줄처럼
+      떨어지게 하고, 충분히 떨어진 곳은 사용자가 옮긴 위치를 유지한다.
+    */
+    var centerSnap=Math.min(44*cam.z, Math.max(14*cam.z, hw*0.42));
+    if(Math.abs(attachX-center.x)<=centerSnap)attachX=center.x;
     if(side==='bottom'){
       return {angle:-Math.PI/2, mode:'vertical', side:'bottom', score:score||0, point:{x:attachX,y:bottom+ARROW_TIP_GAP}};
     }
@@ -2570,7 +2577,13 @@ function buildRoundedOrthogonalPath(rawPoints,r,opts){
   for(var j=1;j<pts.length-1;j++){
     var p0=pts[j-1],p1=pts[j],p2=pts[j+1];
     var d1=dist(p0,p1),d2=dist(p1,p2);
-    var cut=Math.min(r,d1/2,d2/2);
+    /*
+      노드 바로 아래/위 첫 코너까지 크게 둥글게 처리하면,
+      선이 수직으로 떨어지지 않고 노드 밑에서 U자처럼 말려 보인다.
+      양 끝에 가까운 코너는 라운드를 최소화해서 노드 접점에서는 직선감을 유지한다.
+    */
+    var localR=(j===1||j===pts.length-2)?Math.min(r,3*z):r;
+    var cut=Math.min(localR,d1/2,d2/2);
     if(cut<1){
       d+=' L'+p1.x+','+p1.y;
       continue;
@@ -2835,10 +2848,10 @@ function getLiveRoundedElbowInfo(edgeObj,ps,cs,cpOff){
   if(endAuto&&endAuto.mode==='vertical'){
     cpForPath=Object.assign({},cpForPath,{endVertical:true});
   }
-  if((arr==='forward'||arr==='both')&&endAuto){
+  if(endAuto){
     cs2=endAuto.point;
   }
-  if((arr==='backward'||arr==='both')&&startAuto){
+  if(startAuto){
     ps2=startAuto.point;
   }
   if(ps2.x!==ps.x||ps2.y!==ps.y||cs2.x!==cs.x||cs2.y!==cs.y||cpForPath!==cpOff){
@@ -2949,11 +2962,15 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
         var dyScreen=ev.clientY-startY;
         var moved=origSegPoints.map(function(p){return {x:p.x,y:p.y};});
         var lastIdx=moved.length-1;
+      /*
+        세그먼트를 평행 이동할 때는 그 구간의 양 끝점을 같이 움직인다.
+        끝단 세그먼트의 노드 접점도 함께 움직여야 화살표와 선이 분리되지 않는다.
+      */
       if(moveAxis==='X'){
-        if(segIdx>0)moved[segIdx].x+=dxScreen;
+        if(segIdx>=0)moved[segIdx].x+=dxScreen;
         if(segIdx+1<=lastIdx)moved[segIdx+1].x+=dxScreen;
       }else{
-        if(segIdx>0)moved[segIdx].y+=dyScreen;
+        if(segIdx>=0)moved[segIdx].y+=dyScreen;
         if(segIdx+1<=lastIdx)moved[segIdx+1].y+=dyScreen;
       }
       if(false&&(segIdx===0||segIdx+1===lastIdx)){
@@ -3450,19 +3467,17 @@ function renderCurves(){
       if(endAutoPort&&endAutoPort.mode==='vertical'){
         edgeCpForPath=Object.assign({},edgeCpForPath,{endVertical:true});
       }
-      if(arr==='forward'||arr==='both'){
-        if(endAutoPort){
-          cs=endAutoPort.point;
-        }else{
-          cs=getArrowTipForNode(c,cw,ch,edgePathInfo.endAngle);
-        }
+      if(endAutoPort){
+        cs=endAutoPort.point;
       }
-      if(arr==='backward'||arr==='both'){
-        if(startAutoPort){
-          ps=startAutoPort.point;
-        }else{
-          ps=getArrowTipForNode(p,pw,ph,edgePathInfo.startAngle);
-        }
+      if(startAutoPort){
+        ps=startAutoPort.point;
+      }
+      if((arr==='forward'||arr==='both')&&!endAutoPort){
+        cs=getArrowTipForNode(c,cw,ch,edgePathInfo.endAngle);
+      }
+      if((arr==='backward'||arr==='both')&&!startAutoPort){
+        ps=getArrowTipForNode(p,pw,ph,edgePathInfo.startAngle);
       }
       edgePathInfo=roundedElbowPath(ps,cs,edgeCpForPath,edgeLineType)||edgePathInfo;
       if(startAutoPort){edgePathInfo.startAngle=startAutoPort.angle;}
@@ -3969,19 +3984,17 @@ function renderCurves(){
       if(lEndAutoPort&&lEndAutoPort.mode==='vertical'){
         linkCpForPath=Object.assign({},linkCpForPath,{endVertical:true});
       }
-      if(larr==='forward'||larr==='both'){
-        if(lEndAutoPort){
-          sc2=lEndAutoPort.point;
-        }else{
-          sc2=getArrowTipForNode(ta,tw,th,linkPathInfo.endAngle);
-        }
+      if(lEndAutoPort){
+        sc2=lEndAutoPort.point;
       }
-      if(larr==='backward'||larr==='both'){
-        if(lStartAutoPort){
-          sc1=lStartAutoPort.point;
-        }else{
-          sc1=getArrowTipForNode(fa,fw,fh,linkPathInfo.startAngle);
-        }
+      if(lStartAutoPort){
+        sc1=lStartAutoPort.point;
+      }
+      if((larr==='forward'||larr==='both')&&!lEndAutoPort){
+        sc2=getArrowTipForNode(ta,tw,th,linkPathInfo.endAngle);
+      }
+      if((larr==='backward'||larr==='both')&&!lStartAutoPort){
+        sc1=getArrowTipForNode(fa,fw,fh,linkPathInfo.startAngle);
       }
       linkPathInfo=roundedElbowPath(sc1,sc2,linkCpForPath,linkLineType)||linkPathInfo;
       if(lStartAutoPort){linkPathInfo.startAngle=lStartAutoPort.angle;}
