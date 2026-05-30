@@ -1400,6 +1400,27 @@ function showArrowMenu(target, cx, cy, type){
     };
     menu.appendChild(btn);
   });
+  var editSep=document.createElement('div');
+  editSep.style.cssText='width:1px;background:var(--bdr);margin:2px 2px;';
+  menu.appendChild(editSep);
+  var addHandleBtn=document.createElement('button');
+  addHandleBtn.textContent='+';
+  addHandleBtn.title='선 수정 포인트 추가';
+  addHandleBtn.style.cssText='background:var(--sur2);border:1px solid var(--bdr);border-radius:7px;width:34px;height:34px;font-size:1.15rem;cursor:pointer;color:var(--txt);font-weight:900;';
+  addHandleBtn.onclick=function(e){
+    e.stopPropagation();
+    if(lockMode){showToast('🔒 잠금 모드 — 선을 조정할 수 없습니다');return;}
+    var edgeObj=(type==='tree')?gn(target):target;
+    if(!edgeObj)return;
+    pushUndoState();
+    edgeObj.lineType='elbow';
+    edgeObj.cp=Object.assign({},edgeObj.cp||{});
+    var cur=(typeof edgeObj.cp.editHandles==='number')?edgeObj.cp.editHandles:0;
+    edgeObj.cp.editHandles=Math.min(99,cur+1);
+    saveAll();renderAll();closeArrowMenu();
+    showToast('＋ 선 수정 포인트가 추가되었습니다');
+  };
+  menu.appendChild(addHandleBtn);
   var strokeSep=document.createElement('div');
   strokeSep.style.cssText='width:1px;background:var(--bdr);margin:2px 2px;';
   menu.appendChild(strokeSep);
@@ -2539,9 +2560,9 @@ function getElbowSegmentHandles(points){
     var len=Math.sqrt(dx*dx+dy*dy);
     if(len<minLen)continue;
     if(Math.abs(dx)<=eps){
-      handles.push({x:(a.x+b.x)/2,y:(a.y+b.y)/2,axis:'segX:'+i,cursor:'ew-resize'});
+      handles.push({x:(a.x+b.x)/2,y:(a.y+b.y)/2,axis:'segX:'+i,cursor:'ew-resize',len:len,orient:'v'});
     }else if(Math.abs(dy)<=eps){
-      handles.push({x:(a.x+b.x)/2,y:(a.y+b.y)/2,axis:'segY:'+i,cursor:'ns-resize'});
+      handles.push({x:(a.x+b.x)/2,y:(a.y+b.y)/2,axis:'segY:'+i,cursor:'ns-resize',len:len,orient:'h'});
     }
   }
   return handles;
@@ -2690,6 +2711,34 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
   };
 }
 
+function straightAlignedPathInfo(ps,cs,cpOff,lineType){
+  if(lineType==='elbow')return null;
+  cpOff=cpOff||{};
+  if(Math.abs(cpOff.dx||0)>0.0001||Math.abs(cpOff.dy||0)>0.0001)return null;
+  if(cpOff.points&&cpOff.points.length)return null;
+  var snap=Math.max(3,6*Math.max(0.15,cam.z||1));
+  var isVertical=Math.abs(ps.x-cs.x)<=snap;
+  var isHorizontal=Math.abs(ps.y-cs.y)<=snap;
+  if(!isVertical&&!isHorizontal)return null;
+  var p1={x:ps.x,y:ps.y}, p2={x:cs.x,y:cs.y};
+  if(isVertical){
+    var vx=(ps.x+cs.x)/2;
+    p1.x=vx;p2.x=vx;
+  }else{
+    var hy=(ps.y+cs.y)/2;
+    p1.y=hy;p2.y=hy;
+  }
+  var angle=Math.atan2(p2.y-p1.y,p2.x-p1.x);
+  return {
+    d:'M'+p1.x+','+p1.y+' L'+p2.x+','+p2.y,
+    handle:{x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2},
+    handles:[],
+    points:[p1,p2],
+    startAngle:Math.atan2(p1.y-p2.y,p1.x-p2.x),
+    endAngle:angle
+  };
+}
+
 function getLiveRoundedElbowInfo(edgeObj,ps,cs,cpOff){
   var info=roundedElbowPath(ps,cs,cpOff,'elbow');
   if(!info||!edgeObj)return info;
@@ -2726,13 +2775,17 @@ function getLiveRoundedElbowInfo(edgeObj,ps,cs,cpOff){
 
   if(startAuto)info.startAngle=startAuto.angle;
   if(endAuto)info.endAngle=endAuto.angle;
+  if(startAuto&&startAuto.mode==='vertical'){
+    cpForPath=Object.assign({},cpForPath,{startVertical:true});
+  }
+  if(endAuto&&endAuto.mode==='vertical'){
+    cpForPath=Object.assign({},cpForPath,{endVertical:true});
+  }
   if((arr==='forward'||arr==='both')&&endAuto){
     cs2=endAuto.point;
-    if(endAuto.mode==='vertical')cpForPath=Object.assign({},cpForPath,{endVertical:true});
   }
   if((arr==='backward'||arr==='both')&&startAuto){
     ps2=startAuto.point;
-    if(startAuto.mode==='vertical')cpForPath=Object.assign({},cpForPath,{startVertical:true});
   }
   if(ps2.x!==ps.x||ps2.y!==ps.y||cs2.x!==cs.x||cs2.y!==cs.y||cpForPath!==cpOff){
     info=roundedElbowPath(ps2,cs2,cpForPath,'elbow')||info;
@@ -2776,8 +2829,9 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
       endDx:edgeObj.cp.endDx||0,
       endDy:edgeObj.cp.endDy||0,
       finalDx:edgeObj.cp.finalDx||0,
-      finalDy:edgeObj.cp.finalDy||0
-    }:{dx:0,dy:0,startDx:0,startDy:0,endDx:0,endDy:0,finalDx:0,finalDy:0};
+      finalDy:edgeObj.cp.finalDy||0,
+      editHandles:edgeObj.cp.editHandles
+    }:{dx:0,dy:0,startDx:0,startDy:0,endDx:0,endDy:0,finalDx:0,finalDy:0,editHandles:undefined};
     var segMatch=String(axis||'').match(/^seg([XY]):(\d+)$/);
     var origSegPoints=null;
     if(segMatch){
@@ -2863,6 +2917,7 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
           startDx:orig.startDx,startDy:orig.startDy,
           endDx:orig.endDx,endDy:orig.endDy,
           finalDx:orig.finalDx,finalDy:orig.finalDy,
+          editHandles:orig.editHandles,
           points:inner.map(screenLocalToWorld)
         };
         edgeObj.cp=nextSeg;
@@ -2886,7 +2941,8 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
         endDx:orig.endDx,
         endDy:orig.endDy,
         finalDx:orig.finalDx,
-        finalDy:orig.finalDy
+        finalDy:orig.finalDy,
+        editHandles:orig.editHandles
       };
       if(axis==='startX')next.startDx=nextStartDx;
       if(axis==='startY')next.startDy=nextStartDy;
@@ -2896,6 +2952,7 @@ function bindRoundedElbowHandle(hEl,pathEl,bgPath,edgeObj,ps,cs,axis,handleKey,p
       if(axis==='finalY')next.finalDy=nextFinalDy;
       next=snapElbowControl(next);
       edgeObj.cp=next;
+      syncSiblingCommonRoute(edgeObj,next,axis);
       if(rafId)cancelAnimationFrame(rafId);
       rafId=requestAnimationFrame(function(){
         /*
@@ -2938,9 +2995,67 @@ function makeElbowHandleCircle(info,keyPrefix,idx){
   return h;
 }
 
+function getElbowHandleLimit(edgeObj){
+  var cp=edgeObj&&edgeObj.cp;
+  if(!cp)return 0;
+  if(typeof cp.editHandles==='number')return Math.max(0,Math.min(99,cp.editHandles));
+  if(cp.points&&cp.points.length)return Infinity;
+  var keys=['dx','dy','startDx','startDy','endDx','endDy','finalDx','finalDy'];
+  for(var i=0;i<keys.length;i++){
+    if(Math.abs(cp[keys[i]]||0)>0.0001)return Infinity;
+  }
+  return 0;
+}
+
+function prioritizeElbowHandlesForAdding(list){
+  return (list||[]).slice().sort(function(a,b){
+    var ah=a.orient==='h', bh=b.orient==='h';
+    if(ah!==bh)return ah?-1:1;
+    return (b.len||0)-(a.len||0);
+  });
+}
+
+function cursorForElbowAxis(axis){
+  axis=String(axis||'');
+  if(axis==='x'||axis==='startX'||axis==='endX'||axis==='finalX'||axis.indexOf('segX:')===0)return 'ew-resize';
+  if(axis==='y'||axis==='startY'||axis==='endY'||axis==='finalY'||axis.indexOf('segY:')===0)return 'ns-resize';
+  return 'move';
+}
+
+function primaryElbowHandles(edgePathInfo){
+  var list=[];
+  ['handle','handle2','handle3','handle4','handle5','handle6','handle7'].forEach(function(k){
+    var h=edgePathInfo&&edgePathInfo[k];
+    if(!h||!isFinite(h.x)||!isFinite(h.y))return;
+    list.push({x:h.x,y:h.y,axis:h.axis||'both',cursor:cursorForElbowAxis(h.axis)});
+  });
+  return list;
+}
+
+function syncSiblingCommonRoute(edgeObj,next,axis){
+  if(!edgeObj||edgeObj.pid===undefined||axis!=='y')return;
+  var commonDy=next&&isFinite(next.dy)?next.dy:0;
+  for(var i=0;i<nodes.length;i++){
+    var sib=nodes[i];
+    if(!sib||sib.id===edgeObj.id||sib.pid!==edgeObj.pid)continue;
+    if((sib.lineType||'curve')!=='elbow')continue;
+    var cp=Object.assign({},sib.cp||{});
+    if(cp.points&&cp.points.length)continue;
+    cp.dy=commonDy;
+    if(typeof cp.editHandles!=='number')cp.editHandles=0;
+    sib.cp=cp;
+  }
+}
+
 function appendDynamicElbowHandles(svgH,edgePathInfo,pathEl,bgPath,edgeObj,ps,cs,keyPrefix){
   var list=edgePathInfo.handles||[];
   if(!list.length&&edgePathInfo.handle)list=[edgePathInfo.handle];
+  var handleLimit=getElbowHandleLimit(edgeObj);
+  if(handleLimit!==Infinity){
+    if(handleLimit<=0)return;
+    list=primaryElbowHandles(edgePathInfo).concat(prioritizeElbowHandlesForAdding(list));
+    list=list.slice(0,handleLimit);
+  }
   var created=[];
   for(var i=0;i<list.length;i++){
     var h=makeElbowHandleCircle(list[i],keyPrefix,i);
@@ -3083,7 +3198,14 @@ function renderCurves(){
   function spreadArrowTip(pt,nodeId,angle,nodeW,nodeH){
     if(!pt||nodeId===undefined||nodeId===null)return pt;
     var side=arrowSideFromAngle(angle);
-    var key=nodeId+'_'+side;
+    /*
+      같은 면의 모든 화살표를 한꺼번에 분산하면, 서로 멀리 떨어진 화살표까지
+      옆으로 밀려 MSP 아래 화살표처럼 선 중심에서 어긋나 보인다.
+      실제로 거의 겹치는 위치일 때만 같은 슬롯으로 묶어 분산한다.
+    */
+    var bucketSize=Math.max(12,18*cam.z);
+    var baseCoord=(side==='top'||side==='bottom')?pt.x:pt.y;
+    var key=nodeId+'_'+side+'_'+Math.round(baseCoord/bucketSize);
     var idx=arrowSlotCounter[key]||0;
     arrowSlotCounter[key]=idx+1;
     var gap=14*cam.z;
@@ -3225,7 +3347,7 @@ function renderCurves(){
         ps=spreadArrowTip(ps,p.id,bwTipAngle,pw,ph);
       }
     }
-    var edgePathInfo=roundedElbowPath(ps,cs,cpOff,edgeLineType)||{
+    var edgePathInfo=roundedElbowPath(ps,cs,cpOff,edgeLineType)||straightAlignedPathInfo(ps,cs,cpOff,edgeLineType)||{
       d:'M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y,
       handle:{x:(cp1x+cp2x)/2,y:(cp1y+cp2y)/2},
       startAngle:Math.atan2(ps.y-cp1y,ps.x-cp1x),
@@ -3239,10 +3361,15 @@ function renderCurves(){
       if(startAutoPort){edgePathInfo.startAngle=startAutoPort.angle;}
       if(endAutoPort){edgePathInfo.endAngle=endAutoPort.angle;}
       var edgeCpForPath=cpOff;
+      if(startAutoPort&&startAutoPort.mode==='vertical'){
+        edgeCpForPath=Object.assign({},edgeCpForPath,{startVertical:true});
+      }
+      if(endAutoPort&&endAutoPort.mode==='vertical'){
+        edgeCpForPath=Object.assign({},edgeCpForPath,{endVertical:true});
+      }
       if(arr==='forward'||arr==='both'){
         if(endAutoPort){
           cs=endAutoPort.point;
-          if(endAutoPort.mode==='vertical')edgeCpForPath=Object.assign({},cpOff,{endVertical:true});
         }else{
           cs=getArrowTipForNode(c,cw,ch,edgePathInfo.endAngle);
         }
@@ -3251,7 +3378,6 @@ function renderCurves(){
       if(arr==='backward'||arr==='both'){
         if(startAutoPort){
           ps=startAutoPort.point;
-          if(startAutoPort.mode==='vertical')edgeCpForPath=Object.assign({},edgeCpForPath,{startVertical:true});
         }else{
           ps=getArrowTipForNode(p,pw,ph,edgePathInfo.startAngle);
         }
@@ -3268,6 +3394,7 @@ function renderCurves(){
     bgPath.setAttribute('stroke','var(--bg,#1a1a2e)');
     bgPath.setAttribute('stroke-width',(p.pid===null)?'7':'6');
     bgPath.setAttribute('stroke-linecap','round');
+    bgPath.setAttribute('stroke-linejoin','round');
     bgPath.setAttribute('pointer-events','none');
     svg.appendChild(bgPath);
     var path=document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -3276,6 +3403,7 @@ function renderCurves(){
     path.setAttribute('stroke',color);
     path.setAttribute('stroke-width',(p.pid===null)?'3':'2');
     path.setAttribute('stroke-linecap','round');
+    path.setAttribute('stroke-linejoin','round');
     path.setAttribute('opacity','0.9');
     if(arr!=='none'){
       /* 화살촉을 별도 레이어(svgA)에 그림 → 노드 위에 항상 표시 */
@@ -3537,8 +3665,8 @@ function renderCurves(){
         document.addEventListener('mouseup',onUp);
       });
     })(c.id,handle,path,ps.x,ps.y,cs.x,cs.y);
-    svgH.appendChild(handle);
-    if(edgeLineType!=='elbow'){
+    if(getElbowHandleLimit(c)>0)svgH.appendChild(handle);
+    if(edgeLineType!=='elbow'&&getElbowHandleLimit(c)>0){
       appendCurveAxisHandle(
         svgH,path,c,
         {x:ps.x,y:ps.y},
@@ -3549,6 +3677,149 @@ function renderCurves(){
       );
     }
   }
+
+  function hasManualEdgeShape(edgeObj){
+    var cp=edgeObj&&edgeObj.cp;
+    if(!cp)return false;
+    if(cp.points&&cp.points.length)return true;
+    var keys=['dx','dy','startDx','startDy','endDx','endDy','finalDx','finalDy'];
+    for(var i=0;i<keys.length;i++){
+      if(Math.abs(cp[keys[i]]||0)>0.0001)return true;
+    }
+    return false;
+  }
+  function refLinkKey(lk){return lk.from+'_'+lk.to;}
+  function buildReferenceBusMap(){
+    var groups={}, busMap={};
+    for(var bi=0;bi<links.length;bi++){
+      var lk=links[bi];
+      if((lk.lineType||'curve')!=='elbow')continue;
+      if(hasManualEdgeShape(lk))continue;
+      var fromN=gn(lk.from), toN=gn(lk.to);
+      if(!fromN||!toN)continue;
+      /* 같은 출발 노드에서 위쪽 노드들로 올라가는 참조선만 공통 버스로 묶는다. */
+      if(toN.y>=fromN.y)continue;
+      if(!groups[lk.from])groups[lk.from]=[];
+      groups[lk.from].push(lk);
+    }
+    Object.keys(groups).forEach(function(fromId){
+      var arr=groups[fromId];
+      if(arr.length<3)return;
+      var fromN=gn(parseInt(fromId,10)); if(!fromN)return;
+      var fw=nwFull(fromN), fh=nhFull(fromN);
+      var fCenter=w2s(fromN.x,fromN.y);
+      var sourceX=fCenter.x;
+      var sourceTop=fCenter.y-(fh*cam.z)/2;
+      var targetInfos=[], maxBottom=-Infinity;
+      arr.forEach(function(lk){
+        var toN=gn(lk.to); if(!toN)return;
+        var tw=nwFull(toN), th=nhFull(toN);
+        var tc=w2s(toN.x,toN.y);
+        var bottom=tc.y+(th*cam.z)/2+ARROW_TIP_GAP;
+        targetInfos.push({lk:lk,x:tc.x,bottom:bottom,tw:tw,th:th,toN:toN});
+        if(bottom>maxBottom)maxBottom=bottom;
+      });
+      if(targetInfos.length<3)return;
+      var z=Math.max(0.15,cam.z||1);
+      var desiredBusY=maxBottom+38*z;
+      var maxBusY=sourceTop-36*z;
+      var busY=desiredBusY;
+      if(busY>maxBusY)busY=maxBottom+(sourceTop-maxBottom)*0.45;
+      var busDy=0;
+      for(var bdi=0;bdi<arr.length;bdi++){
+        if(arr[bdi].cp&&isFinite(arr[bdi].cp.busDy||0)){busDy=arr[bdi].cp.busDy||0;break;}
+      }
+      busY+=busDy*cam.z;
+      targetInfos.sort(function(a,b){return a.x-b.x;});
+      var minBusX=Math.min(sourceX,targetInfos[0].x);
+      var maxBusX=Math.max(sourceX,targetInfos[targetInfos.length-1].x);
+      var busHandle={x:(minBusX+maxBusX)/2,y:busY};
+      targetInfos.forEach(function(info){
+        var p1={x:sourceX,y:sourceTop};
+        var p2={x:sourceX,y:busY};
+        var p3={x:info.x,y:busY};
+        var p4={x:info.x,y:info.bottom};
+        var r=Math.max(6,Math.min(18,14*z));
+        var busPath=buildRoundedOrthogonalPath([p1,p2,p3,p4],r);
+        busMap[refLinkKey(info.lk)]={
+          d:busPath.d,
+          handle:{x:(sourceX+info.x)/2,y:busY},
+          handles:[],
+          points:busPath.points||[p1,p2,p3,p4],
+          startAngle:busPath.startAngle,
+          endAngle:busPath.endAngle,
+          bus:true,
+          busOwner:info.lk===targetInfos[0].lk,
+          busLinks:arr,
+          busHandle:busHandle,
+          startPoint:p1,
+          endPoint:p4
+        };
+      });
+    });
+    return busMap;
+  }
+  function appendReferenceBusHandle(svgH,busInfo,pathEl){
+    if(!busInfo||!busInfo.busOwner||!busInfo.busHandle)return;
+    var h=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    h.setAttribute('cx',busInfo.busHandle.x);
+    h.setAttribute('cy',busInfo.busHandle.y);
+    h.setAttribute('r','8');
+    h.setAttribute('fill','rgba(56,178,255,0.24)');
+    h.setAttribute('stroke','#38b2ff');
+    h.setAttribute('stroke-width','2');
+    h.style.cursor='ns-resize';
+    h.style.pointerEvents='all';
+    h.setAttribute('opacity','0');
+    pathEl.addEventListener('mouseenter',function(){h.setAttribute('opacity','1');});
+    pathEl.addEventListener('mouseleave',function(){if(!h._dragging)h.setAttribute('opacity','0');});
+    h.addEventListener('mouseenter',function(){h.setAttribute('opacity','1');});
+    h.addEventListener('mouseleave',function(){if(!h._dragging)h.setAttribute('opacity','0');});
+    h.addEventListener('mousedown',function(e){
+      if(lockMode){e.stopPropagation();showToast('🔒 잠금 모드 — 선을 조정할 수 없습니다');return;}
+      if(e.button!==0)return;
+      e.preventDefault();e.stopPropagation();
+      pushUndoState();
+      h._dragging=true;
+      h.setAttribute('opacity','1');
+      h.setAttribute('r','10');
+      h.setAttribute('fill','rgba(56,178,255,0.45)');
+      var startY=e.clientY;
+      var orig=[];
+      (busInfo.busLinks||[]).forEach(function(lk){
+        orig.push({lk:lk,dy:(lk.cp&&lk.cp.busDy)||0});
+      });
+      var raf=null;
+      function onMove(ev){
+        var delta=(ev.clientY-startY)/cam.z;
+        orig.forEach(function(item){
+          item.lk.cp=Object.assign({},item.lk.cp||{});
+          item.lk.cp.busDy=item.dy+delta;
+        });
+        if(raf)cancelAnimationFrame(raf);
+        raf=requestAnimationFrame(function(){renderCurves();});
+      }
+      function onUp(){
+        h._dragging=false;
+        h.setAttribute('r','8');
+        h.setAttribute('fill','rgba(56,178,255,0.24)');
+        if(raf)cancelAnimationFrame(raf);
+        saveAll();renderCurves();drawMM();
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+      }
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    });
+    svgH.appendChild(h);
+  }
+  function shouldShowReferenceBusHandle(busInfo){
+    if(!busInfo)return false;
+    return (busInfo.busLinks||[]).some(function(lk){
+      return lk&&lk.cp&&(lk.cp.editHandles||0)>0;
+    });
+  }
+  var referenceBusMap=buildReferenceBusMap();
 
   /* ── 참조 연결선 ── */
   for(var li=0;li<links.length;li++){
@@ -3582,7 +3853,12 @@ function renderCurves(){
     var linkColor=lk.color||getColor(lk.from);
     var linkLineType=lk.lineType||'curve';
     var linkStrokeStyle=lk.strokeStyle||'solid';
-    if(linkLineType!=='elbow'){
+    var busInfo=referenceBusMap[refLinkKey(lk)];
+    if(busInfo){
+      sc1=busInfo.startPoint;
+      sc2=busInfo.endPoint;
+    }
+    if(!busInfo&&linkLineType!=='elbow'){
       if(larr==='forward'||larr==='both'){
         var lfwTipAngle=Math.atan2(sc2.y-lcp2y, sc2.x-lcp2x);
         sc2=getArrowTipForNode(ta,tw,th,lfwTipAngle);
@@ -3594,13 +3870,13 @@ function renderCurves(){
         sc1=spreadArrowTip(sc1,fa.id,lbwTipAngle,fw,fh);
       }
     }
-    var linkPathInfo=roundedElbowPath(sc1,sc2,lcpOff,linkLineType)||{
+    var linkPathInfo=busInfo||roundedElbowPath(sc1,sc2,lcpOff,linkLineType)||straightAlignedPathInfo(sc1,sc2,lcpOff,linkLineType)||{
       d:'M'+sc1.x+','+sc1.y+' C'+lcp1x+','+lcp1y+' '+lcp2x+','+lcp2y+' '+sc2.x+','+sc2.y,
       handle:{x:(lcp1x+lcp2x)/2,y:(lcp1y+lcp2y)/2},
       startAngle:Math.atan2(sc1.y-lcp1y,sc1.x-lcp1x),
       endAngle:Math.atan2(sc2.y-lcp2y,sc2.x-lcp2x)
     };
-    if(linkLineType==='elbow'&&larr!=='none'){
+    if(!busInfo&&linkLineType==='elbow'&&larr!=='none'){
       var lStartAutoPort=getElbowAutoPortAngle(fa,fw,fh,linkPathInfo,true);
       var lEndAutoPort=getElbowAutoPortAngle(ta,tw,th,linkPathInfo,false);
       if(!shouldUseElbowAutoPort(lk.fromPort,lStartAutoPort))lStartAutoPort=null;
@@ -3608,10 +3884,15 @@ function renderCurves(){
       if(lStartAutoPort){linkPathInfo.startAngle=lStartAutoPort.angle;}
       if(lEndAutoPort){linkPathInfo.endAngle=lEndAutoPort.angle;}
       var linkCpForPath=lcpOff;
+      if(lStartAutoPort&&lStartAutoPort.mode==='vertical'){
+        linkCpForPath=Object.assign({},linkCpForPath,{startVertical:true});
+      }
+      if(lEndAutoPort&&lEndAutoPort.mode==='vertical'){
+        linkCpForPath=Object.assign({},linkCpForPath,{endVertical:true});
+      }
       if(larr==='forward'||larr==='both'){
         if(lEndAutoPort){
           sc2=lEndAutoPort.point;
-          if(lEndAutoPort.mode==='vertical')linkCpForPath=Object.assign({},lcpOff,{endVertical:true});
         }else{
           sc2=getArrowTipForNode(ta,tw,th,linkPathInfo.endAngle);
         }
@@ -3620,7 +3901,6 @@ function renderCurves(){
       if(larr==='backward'||larr==='both'){
         if(lStartAutoPort){
           sc1=lStartAutoPort.point;
-          if(lStartAutoPort.mode==='vertical')linkCpForPath=Object.assign({},linkCpForPath,{startVertical:true});
         }else{
           sc1=getArrowTipForNode(fa,fw,fh,linkPathInfo.startAngle);
         }
@@ -3637,6 +3917,7 @@ function renderCurves(){
     lbgPath.setAttribute('stroke','var(--bg,#1a1a2e)');
     lbgPath.setAttribute('stroke-width','6');
     lbgPath.setAttribute('stroke-linecap','round');
+    lbgPath.setAttribute('stroke-linejoin','round');
     lbgPath.setAttribute('pointer-events','none');
     svg.appendChild(lbgPath);
     var lpath=document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -3645,6 +3926,7 @@ function renderCurves(){
     lpath.setAttribute('stroke',linkColor);
     lpath.setAttribute('stroke-width','2');
     lpath.setAttribute('stroke-linecap','round');
+    lpath.setAttribute('stroke-linejoin','round');
     lpath.setAttribute('opacity','0.9');
     lpath.setAttribute('data-link',lk.from+'-'+lk.to);
     if(larr!=='none'){
@@ -3681,6 +3963,9 @@ function renderCurves(){
       });
     })(lk);
     svg.appendChild(lpath);
+    if(busInfo&&shouldShowReferenceBusHandle(busInfo)){
+      appendReferenceBusHandle(svgH,busInfo,lpath);
+    }
     /* ── 참조선 컨트롤 핸들 ── */
     var lhmx=linkPathInfo.handle.x, lhmy=linkPathInfo.handle.y;
     var lhandle=document.createElementNS('http://www.w3.org/2000/svg','circle');
@@ -3692,7 +3977,7 @@ function renderCurves(){
     lhandle.style.cursor='grab'; lhandle.style.pointerEvents='all';
     lhandle.setAttribute('opacity','0');
     lpath.setAttribute('data-edge','link-'+lk.from+'-'+lk.to);
-    if(linkLineType==='elbow'){
+    if(!busInfo&&linkLineType==='elbow'){
       appendDynamicElbowHandles(svgH,linkPathInfo,lpath,lbgPath,lk,sc1,sc2,'link-'+lk.from+'-'+lk.to);
     }
     if(linkLineType==='elbow'&&false){
@@ -3899,8 +4184,8 @@ function renderCurves(){
         document.addEventListener('mouseup',onUp);
       });
     })(lk,lhandle,lpath,lhmx,lhmy);
-    if(!lhandle._elbow)svg.appendChild(lhandle);
-    if(linkLineType!=='elbow'){
+    if(!lhandle._elbow&&getElbowHandleLimit(lk)>0)svg.appendChild(lhandle);
+    if(linkLineType!=='elbow'&&getElbowHandleLimit(lk)>0){
       appendCurveAxisHandle(
         svgH,lpath,lk,
         {x:sc1.x,y:sc1.y},
