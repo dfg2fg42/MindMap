@@ -2498,6 +2498,12 @@ function snapOverlappingOrthogonalSegments(pts){
     pts는 월드 좌표다. 병합을 화면 픽셀 기준으로 하면 축소/확대할 때
     같은 선이 다른 구간으로 흡착되어 S자처럼 꼬여 보일 수 있다.
   */
+  /*
+    축소 상태에서는 작은 화면 오차가 큰 월드 구간처럼 보이면서,
+    서로 다른 꺾은선이 잘못 같은 가이드에 흡착될 수 있다.
+    멀리서 볼 때는 병합하지 않고 원래 경로를 유지하는 쪽이 더 안정적이다.
+  */
+  if((cam&&cam.z?cam.z:1)<0.72)return;
   var eps=edgeHandleDragging?0:3.5;
   if(eps<=0)return;
   var minLen=48;
