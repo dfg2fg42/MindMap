@@ -2211,7 +2211,7 @@ function getPortPoint(nx, ny, nw, nh, port, applyOffset, tx, ty){
 }
 
 /* 직각선 기본 접점: 대각선 거리보다 실제 보기 좋은 연결면을 우선한다. */
-function getElbowPreferredPortPoint(node, nodeW, nodeH, otherNode, isStart){
+function getElbowPreferredPort(node, nodeW, nodeH, otherNode, isStart){
   if(!node||!otherNode)return null;
   var dx=otherNode.x-node.x, dy=otherNode.y-node.y;
   var adx=Math.abs(dx), ady=Math.abs(dy);
@@ -2237,7 +2237,29 @@ function getElbowPreferredPortPoint(node, nodeW, nodeH, otherNode, isStart){
       side=dx>=0?'right':'left';
     }
   }
-  return getPortPoint(node.x,node.y,nodeW,nodeH,side,false,otherNode.x,otherNode.y);
+  return {
+    side:side,
+    mode:(side==='top'||side==='bottom')?'vertical':'horizontal',
+    point:getPortPoint(node.x,node.y,nodeW,nodeH,side,false,otherNode.x,otherNode.y)
+  };
+}
+function getElbowPreferredPortPoint(node, nodeW, nodeH, otherNode, isStart){
+  var p=getElbowPreferredPort(node,nodeW,nodeH,otherNode,isStart);
+  return p?p.point:null;
+}
+function elbowPortModeFromName(port){
+  if(port==='top'||port==='bottom')return 'vertical';
+  if(port==='left'||port==='right'||port==='top-left'||port==='top-right'||port==='bottom-left'||port==='bottom-right')return 'horizontal';
+  return null;
+}
+function applyElbowEndpointModes(cpOff,startMode,endMode){
+  var next=cpOff||{};
+  if(startMode==='vertical'||endMode==='vertical'){
+    next=Object.assign({},next);
+    if(startMode==='vertical')next.startVertical=true;
+    if(endMode==='vertical')next.endVertical=true;
+  }
+  return next;
 }
 
 /* 곡선 접선 방향을 기준으로 노드 박스 바깥의 정확한 화살촉 끝점 계산 */
@@ -2682,6 +2704,28 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
     var dynPts=[ps];
     cpOff.points.forEach(function(p){dynPts.push(w2s(p.x,p.y));});
     dynPts.push(cs);
+    var endpointEps=Math.max(1,1.5*z);
+    if(cpOff.startVertical&&dynPts.length>2){
+      var firstDyn=dynPts[1];
+      if(Math.abs(firstDyn.x-ps.x)>endpointEps){
+        if(Math.abs(firstDyn.y-ps.y)<=endpointEps&&dynPts[2]){
+          dynPts[1]={x:ps.x,y:dynPts[2].y};
+        }else{
+          dynPts.splice(1,0,{x:ps.x,y:firstDyn.y});
+        }
+      }
+    }
+    if(cpOff.endVertical&&dynPts.length>2){
+      var lastDynIdx=dynPts.length-2;
+      var lastDyn=dynPts[lastDynIdx];
+      if(Math.abs(lastDyn.x-cs.x)>endpointEps){
+        if(Math.abs(lastDyn.y-cs.y)<=endpointEps&&dynPts[lastDynIdx-1]){
+          dynPts[lastDynIdx]={x:cs.x,y:dynPts[lastDynIdx-1].y};
+        }else{
+          dynPts.splice(dynPts.length-1,0,{x:cs.x,y:lastDyn.y});
+        }
+      }
+    }
     var dynInfo=buildRoundedOrthogonalPath(dynPts,r);
     return {
       d:dynInfo.d,
@@ -2769,8 +2813,8 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
       baseX=Math.min(ps.x,cs.x)-Math.min(zs(90),Math.max(zs(44),Math.abs(dx)*0.35));
     }
     var routeX=baseX+offX;
-    var startY=cpOff.startVertical?ps.y:(ps.y+startOffY);
-    if((cpOff.startDy||0)===0||cpOff.startVertical)startY=ps.y;
+    var startY=cpOff.startVertical?(ps.y+dirY*startGapY+startOffY):(ps.y+startOffY);
+    if(!cpOff.startVertical&&(cpOff.startDy||0)===0)startY=ps.y;
     var turnY=cs.y-dirY*endGapY+offY;
     if(Math.abs(dy)>startGapY+endGapY+zs(8)){
       if((turnY-ps.y)*dirY<startGapY)turnY=ps.y+dirY*startGapY;
@@ -3425,16 +3469,14 @@ function renderCurves(){
     var arr0=c.arr||'forward';
     var pEpIsTarget=(arr0==='backward');
     var cEpIsTarget=(arr0==='forward'||arr0==='both');
+    var pPreferred=(edgeLineType==='elbow'&&!c.parentPort)?getElbowPreferredPort(p,pw,ph,c,true):null;
+    var cPreferred=(edgeLineType==='elbow'&&!c.childPort)?getElbowPreferredPort(c,cw,ch,p,false):null;
     var pEp=c.parentPort
       ? getPortPoint(p.x,p.y,pw,ph,c.parentPort,pEpIsTarget,c.x,c.y)
-      : (edgeLineType==='elbow'
-          ? getElbowPreferredPortPoint(p,pw,ph,c,true)
-          : getEdgePoint(p.x,p.y,pw,ph,c.x,c.y,pEpIsTarget));
+      : (pPreferred?pPreferred.point:getEdgePoint(p.x,p.y,pw,ph,c.x,c.y,pEpIsTarget));
     var cEp=c.childPort
       ? getPortPoint(c.x,c.y,cw,ch,c.childPort,cEpIsTarget,p.x,p.y)
-      : (edgeLineType==='elbow'
-          ? getElbowPreferredPortPoint(c,cw,ch,p,false)
-          : getEdgePoint(c.x,c.y,cw,ch,p.x,p.y,cEpIsTarget));
+      : (cPreferred?cPreferred.point:getEdgePoint(c.x,c.y,cw,ch,p.x,p.y,cEpIsTarget));
     /* 같은 방향 출발일 때만 분산 적용 */
     var allSameSide=true;
     if(!c.parentPort){
@@ -3476,6 +3518,9 @@ function renderCurves(){
     cp2x=cs.x+cMainX*dist+cpOff.dx*cam.z;
     cp2y=cs.y+cMainY*dist+cpOff.dy*cam.z;
     var arr=c.arrow||'none';
+    var edgeStartMode=edgeLineType==='elbow'?(elbowPortModeFromName(c.parentPort)||(pPreferred&&pPreferred.mode)):null;
+    var edgeEndMode=edgeLineType==='elbow'?(elbowPortModeFromName(c.childPort)||(cPreferred&&cPreferred.mode)):null;
+    var edgeBaseCpOff=edgeLineType==='elbow'?applyElbowEndpointModes(cpOff,edgeStartMode,edgeEndMode):cpOff;
     if(edgeLineType!=='elbow'){
       if(arr==='forward'||arr==='both'){
         var fwTipAngle=Math.atan2(cs.y-cp2y, cs.x-cp2x);
@@ -3488,7 +3533,7 @@ function renderCurves(){
         ps=spreadArrowTip(ps,p.id,bwTipAngle,pw,ph);
       }
     }
-    var edgePathInfo=roundedElbowPath(ps,cs,cpOff,edgeLineType)||straightAlignedPathInfo(ps,cs,cpOff,edgeLineType)||{
+    var edgePathInfo=roundedElbowPath(ps,cs,edgeBaseCpOff,edgeLineType)||straightAlignedPathInfo(ps,cs,cpOff,edgeLineType)||{
       d:'M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y,
       handle:{x:(cp1x+cp2x)/2,y:(cp1y+cp2y)/2},
       startAngle:Math.atan2(ps.y-cp1y,ps.x-cp1x),
@@ -3501,7 +3546,7 @@ function renderCurves(){
       if(!shouldUseElbowAutoPort(c.childPort,endAutoPort))endAutoPort=null;
       if(startAutoPort){edgePathInfo.startAngle=startAutoPort.angle;}
       if(endAutoPort){edgePathInfo.endAngle=endAutoPort.angle;}
-      var edgeCpForPath=cpOff;
+      var edgeCpForPath=edgeBaseCpOff;
       if(startAutoPort&&startAutoPort.mode==='vertical'){
         edgeCpForPath=Object.assign({},edgeCpForPath,{startVertical:true});
       }
@@ -3968,14 +4013,16 @@ function renderCurves(){
     var lkArr=lk.arr||'forward';
     var linkLineType=lk.lineType||'curve';
     var linkStrokeStyle=lk.strokeStyle||'solid';
+    var faPreferred=(linkLineType==='elbow'&&!lk.fromPort)?getElbowPreferredPort(fa,fw,fh,ta,true):null;
+    var taPreferred=(linkLineType==='elbow'&&!lk.toPort)?getElbowPreferredPort(ta,tw,th,fa,false):null;
     var faEp=resolveEp(fa.x,fa.y,fw,fh,lk.fromPort,ta.x,ta.y,(lkArr==='backward'||lkArr==='both'));
     var taEp=resolveEp(ta.x,ta.y,tw,th,lk.toPort,fa.x,fa.y,(lkArr==='forward'||lkArr==='both'));
     if(linkLineType==='elbow'){
       if(!lk.fromPort){
-        faEp=getElbowPreferredPortPoint(fa,fw,fh,ta,true);
+        faEp=faPreferred?faPreferred.point:faEp;
       }
       if(!lk.toPort){
-        taEp=getElbowPreferredPortPoint(ta,tw,th,fa,false);
+        taEp=taPreferred?taPreferred.point:taEp;
       }
     }
     fx=faEp.x; fy=faEp.y; tx2=taEp.x; ty2=taEp.y;
@@ -3996,6 +4043,9 @@ function renderCurves(){
     lcp2y=sc2.y+ltMY*ldist+lcpOff.dy*cam.z;
     var larr=lk.arrow||'none';
     var linkColor=lk.color||getColor(lk.from);
+    var linkStartMode=linkLineType==='elbow'?(elbowPortModeFromName(lk.fromPort)||(faPreferred&&faPreferred.mode)):null;
+    var linkEndMode=linkLineType==='elbow'?(elbowPortModeFromName(lk.toPort)||(taPreferred&&taPreferred.mode)):null;
+    var linkBaseCpOff=linkLineType==='elbow'?applyElbowEndpointModes(lcpOff,linkStartMode,linkEndMode):lcpOff;
     var busInfo=referenceBusMap[refLinkKey(lk)];
     if(busInfo){
       sc1=busInfo.startPoint;
@@ -4013,7 +4063,7 @@ function renderCurves(){
         sc1=spreadArrowTip(sc1,fa.id,lbwTipAngle,fw,fh);
       }
     }
-    var linkPathInfo=busInfo||roundedElbowPath(sc1,sc2,lcpOff,linkLineType)||straightAlignedPathInfo(sc1,sc2,lcpOff,linkLineType)||{
+    var linkPathInfo=busInfo||roundedElbowPath(sc1,sc2,linkBaseCpOff,linkLineType)||straightAlignedPathInfo(sc1,sc2,lcpOff,linkLineType)||{
       d:'M'+sc1.x+','+sc1.y+' C'+lcp1x+','+lcp1y+' '+lcp2x+','+lcp2y+' '+sc2.x+','+sc2.y,
       handle:{x:(lcp1x+lcp2x)/2,y:(lcp1y+lcp2y)/2},
       startAngle:Math.atan2(sc1.y-lcp1y,sc1.x-lcp1x),
@@ -4026,7 +4076,7 @@ function renderCurves(){
       if(!shouldUseElbowAutoPort(lk.toPort,lEndAutoPort))lEndAutoPort=null;
       if(lStartAutoPort){linkPathInfo.startAngle=lStartAutoPort.angle;}
       if(lEndAutoPort){linkPathInfo.endAngle=lEndAutoPort.angle;}
-      var linkCpForPath=lcpOff;
+      var linkCpForPath=linkBaseCpOff;
       if(lStartAutoPort&&lStartAutoPort.mode==='vertical'){
         linkCpForPath=Object.assign({},linkCpForPath,{startVertical:true});
       }
