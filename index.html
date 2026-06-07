@@ -2275,6 +2275,16 @@ function getArrowTipForNode(node, nodeW, nodeH, angle){
 }
 
 function clampVal(v,min,max){return Math.max(min,Math.min(max,v));}
+function lowZoomVisualScale(minScale){
+  var z=Math.max(0.15,cam&&cam.z?cam.z:1);
+  if(z>=0.78)return 1;
+  return Math.max(minScale||0.45,z/0.78);
+}
+function scaledLowZoomStroke(width,minWidth){
+  var n=parseFloat(width);
+  if(!isFinite(n))return width;
+  return Math.max(minWidth||1,n*lowZoomVisualScale(0.42));
+}
 function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
   if(!info)return null;
   var center=w2s(node.x,node.y);
@@ -2545,6 +2555,50 @@ function snapOverlappingOrthogonalSegments(pts){
   }
 }
 
+function stabilizeLowZoomOrthogonalScreenPoints(points){
+  var z=Math.max(0.15,cam&&cam.z?cam.z:1);
+  if(z>=0.72||!points||points.length<4)return points;
+  var pts=points.map(function(p){return {x:p.x,y:p.y};});
+  var eps=1.2;
+  var micro=7.5;
+
+  function removeDuplicateAndCollinear(){
+    for(var di=1;di<pts.length;di++){
+      if(Math.abs(pts[di].x-pts[di-1].x)<=eps&&Math.abs(pts[di].y-pts[di-1].y)<=eps){
+        pts.splice(di,1);di--;
+      }
+    }
+    for(var ci=1;ci<pts.length-1;ci++){
+      var a=pts[ci-1],b=pts[ci],c=pts[ci+1];
+      if((Math.abs(a.x-b.x)<=eps&&Math.abs(b.x-c.x)<=eps)||
+         (Math.abs(a.y-b.y)<=eps&&Math.abs(b.y-c.y)<=eps)){
+        pts.splice(ci,1);ci--;
+      }
+    }
+  }
+
+  for(var pass=0;pass<3;pass++){
+    for(var i=1;i<pts.length-2;i++){
+      var p0=pts[i-1],p1=pts[i],p2=pts[i+1],p3=pts[i+2];
+      var v1=Math.abs(p0.x-p1.x)<=eps, hMid=Math.abs(p1.y-p2.y)<=eps, v2=Math.abs(p2.x-p3.x)<=eps;
+      var h1=Math.abs(p0.y-p1.y)<=eps, vMid=Math.abs(p1.x-p2.x)<=eps, h2=Math.abs(p2.y-p3.y)<=eps;
+      if(v1&&hMid&&v2&&Math.abs(p1.x-p2.x)<=micro){
+        var tx=(i+2===pts.length-1)?p3.x:p0.x;
+        if(i-1!==0)p0.x=tx;
+        p1.x=tx;p2.x=tx;
+        if(i+2!==pts.length-1)p3.x=tx;
+      }else if(h1&&vMid&&h2&&Math.abs(p1.y-p2.y)<=micro){
+        var ty=(i+2===pts.length-1)?p3.y:p0.y;
+        if(i-1!==0)p0.y=ty;
+        p1.y=ty;p2.y=ty;
+        if(i+2!==pts.length-1)p3.y=ty;
+      }
+    }
+    removeDuplicateAndCollinear();
+  }
+  return pts;
+}
+
 function buildRoundedOrthogonalPath(rawPoints,r,opts){
   opts=opts||{};
   var z=Math.max(0.15,cam&&cam.z?cam.z:1);
@@ -2618,6 +2672,7 @@ function buildRoundedOrthogonalPath(rawPoints,r,opts){
   }
   if(pts.length<2)return {d:'',startAngle:0,endAngle:0};
   pts=pts.map(function(p){return w2s(p.x,p.y);});
+  pts=stabilizeLowZoomOrthogonalScreenPoints(pts);
   function dist(a,b){var dx=b.x-a.x,dy=b.y-a.y;return Math.sqrt(dx*dx+dy*dy);}
   function angleFromMeaningfulSegment(fromEnd){
     if(pts.length<2)return 0;
@@ -3582,7 +3637,8 @@ function renderCurves(){
     bgPath.setAttribute('d',edgePathInfo.d);
     bgPath.setAttribute('fill','none');
     bgPath.setAttribute('stroke','var(--bg,#1a1a2e)');
-    bgPath.setAttribute('stroke-width',(p.pid===null)?'7':'6');
+    var treeBgWidth=(p.pid===null)?7:6;
+    bgPath.setAttribute('stroke-width',edgeLineType==='elbow'?scaledLowZoomStroke(treeBgWidth,1.4):treeBgWidth);
     bgPath.setAttribute('stroke-linecap','round');
     bgPath.setAttribute('stroke-linejoin','round');
     bgPath.setAttribute('pointer-events','none');
@@ -3613,9 +3669,12 @@ function renderCurves(){
     var hasSel=(sel!==null);
     var opTree= isSelTree?'1' : (isConnTree?'1' : (hasSel?'0.15':'0.9'));
     var swTree= isSelTree?((p.pid===null)?'5':'4') : (isConnTree?((p.pid===null)?'4':'3') : ((p.pid===null)?'3':'2'));
-    applyEdgeStrokeStyle(path,edgeStrokeStyle,swTree,opTree,edgePathInfo.d,color);
+    applyEdgeStrokeStyle(path,edgeStrokeStyle,edgeLineType==='elbow'?scaledLowZoomStroke(swTree,1):swTree,opTree,edgePathInfo.d,color);
     if(isSelTree) path.classList.add('edge-active');
-    if(isConnTree) bgPath.setAttribute('stroke-width',(p.pid===null)?'9':'8');
+    if(isConnTree){
+      var treeConnBgWidth=(p.pid===null)?9:8;
+      bgPath.setAttribute('stroke-width',edgeLineType==='elbow'?scaledLowZoomStroke(treeConnBgWidth,1.8):treeConnBgWidth);
+    }
     if(isSelTree||isConnTree)edgeTopPaths.push(path);
     path.style.pointerEvents='stroke'; path.style.cursor='pointer';
     (function(cid){
@@ -4112,7 +4171,7 @@ function renderCurves(){
     lbgPath.setAttribute('d',linkPathInfo.d);
     lbgPath.setAttribute('fill','none');
     lbgPath.setAttribute('stroke','var(--bg,#1a1a2e)');
-    lbgPath.setAttribute('stroke-width','6');
+    lbgPath.setAttribute('stroke-width',linkLineType==='elbow'?scaledLowZoomStroke(6,1.4):6);
     lbgPath.setAttribute('stroke-linecap','round');
     lbgPath.setAttribute('stroke-linejoin','round');
     lbgPath.setAttribute('pointer-events','none');
@@ -4146,8 +4205,8 @@ function renderCurves(){
     var hasSel2=(sel!==null);
     var opRef= isSelRef?'1' : (isConnRef?'1' : (hasSel2?'0.15':'0.85'));
     var swRef= isSelRef?'4' : (isConnRef?'3.5' : '2');
-    applyEdgeStrokeStyle(lpath,(linkMode&&linkStrokeStyle!=='double')?'dash':linkStrokeStyle,swRef,opRef,linkPathInfo.d,linkColor);
-    if(isConnRef) lbgPath.setAttribute('stroke-width','8');
+    applyEdgeStrokeStyle(lpath,(linkMode&&linkStrokeStyle!=='double')?'dash':linkStrokeStyle,linkLineType==='elbow'?scaledLowZoomStroke(swRef,1):swRef,opRef,linkPathInfo.d,linkColor);
+    if(isConnRef) lbgPath.setAttribute('stroke-width',linkLineType==='elbow'?scaledLowZoomStroke(8,1.8):8);
     if(isSelRef){ lpath.classList.add('edge-active'); }
     if(isSelRef||isConnRef)edgeTopPaths.push(lpath);
     lpath.style.pointerEvents='stroke'; lpath.style.cursor='pointer';
@@ -6732,7 +6791,8 @@ setTimeout(function(){document.getElementById('hint').style.opacity='0';},6000);
 
 /* ════ 화살촉 전용 레이어에 삼각형 그리기 ════ */
 function drawArrowHead(svgA, ex, ey, angle, color){
-  var size=13, half=5;
+  var arrowScale=lowZoomVisualScale(0.45);
+  var size=13*arrowScale, half=5*arrowScale;
   /* 화살촉 삼각형 꼭짓점 (로컬좌표) */
   var pts=[
     {x:0,    y:0},      /* 뾰족한 끝 */
