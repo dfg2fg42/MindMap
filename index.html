@@ -2210,6 +2210,36 @@ function getPortPoint(nx, ny, nw, nh, port, applyOffset, tx, ty){
   return {x:px, y:py};
 }
 
+/* 직각선 기본 접점: 대각선 거리보다 실제 보기 좋은 연결면을 우선한다. */
+function getElbowPreferredPortPoint(node, nodeW, nodeH, otherNode, isStart){
+  if(!node||!otherNode)return null;
+  var dx=otherNode.x-node.x, dy=otherNode.y-node.y;
+  var adx=Math.abs(dx), ady=Math.abs(dy);
+  var side;
+  if(isStart){
+    /*
+      출발 노드는 대상이 좌/우로 조금이라도 충분히 벗어나 있으면 좌/우 면에서
+      먼저 빠져나가게 한다. 그래야 노드 아래/뒤에서 짧은 꼬리가 보이지 않는다.
+    */
+    if(adx>=Math.max(nodeW*0.42, ady*0.38)){
+      side=dx>=0?'right':'left';
+    }else{
+      side=dy>=0?'bottom':'top';
+    }
+  }else{
+    /*
+      도착 노드는 위/아래로 충분히 떨어져 있으면 상/하 면을 우선한다.
+      사용자가 기대하는 “위에서 내려 꽂히는” 직각선 모양이 더 안정적이다.
+    */
+    if(ady>=nodeH*0.75){
+      side=dy>=0?'bottom':'top';
+    }else{
+      side=dx>=0?'right':'left';
+    }
+  }
+  return getPortPoint(node.x,node.y,nodeW,nodeH,side,false,otherNode.x,otherNode.y);
+}
+
 /* 곡선 접선 방향을 기준으로 노드 박스 바깥의 정확한 화살촉 끝점 계산 */
 function getArrowTipForNode(node, nodeW, nodeH, angle){
   var center=w2s(node.x,node.y);
@@ -2685,8 +2715,8 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
       가로로 긴 꺾은선은 가운데 가로 줄(routeY)을 기준으로 그린다.
       이 값에 offY를 반영해 사용자가 선을 상하로 직접 조절할 수 있게 한다.
     */
-    var startX=cpOff.startVertical?ps.x:(ps.x+startOffX);
-    if((cpOff.startDx||0)===0||cpOff.startVertical)startX=ps.x;
+    var startX=cpOff.startVertical?ps.x:(ps.x+dirX*startGapX+startOffX);
+    if(cpOff.startVertical)startX=ps.x;
     var turnX=cpOff.endVertical?cs.x:(cs.x-dirX*endGapX+offX);
     if(Math.abs(dx)>startGapX+endGapX+zs(8)){
       if((turnX-ps.x)*dirX<startGapX)turnX=ps.x+dirX*startGapX;
@@ -3384,6 +3414,8 @@ function renderCurves(){
     var cw=nwFull(c);
     var pwx,pwy,cwx,cwy;
     var ph=nhFull(p), ch=nhFull(c);
+    var edgeLineType=c.lineType||'curve';
+    var edgeStrokeStyle=c.strokeStyle||'solid';
     /* 수직 연결 판정: X 차이가 노드 너비의 절반 이하이면 상/하 연결 */
     /* 4방향 스마트 연결: 각 노드에서 상대방에 가장 가까운 면 선택 */
     /* ── 포트 분산: 자식 인덱스 기반 출발점 분산 ── */
@@ -3395,10 +3427,14 @@ function renderCurves(){
     var cEpIsTarget=(arr0==='forward'||arr0==='both');
     var pEp=c.parentPort
       ? getPortPoint(p.x,p.y,pw,ph,c.parentPort,pEpIsTarget,c.x,c.y)
-      : getEdgePoint(p.x,p.y,pw,ph,c.x,c.y,pEpIsTarget);
+      : (edgeLineType==='elbow'
+          ? getElbowPreferredPortPoint(p,pw,ph,c,true)
+          : getEdgePoint(p.x,p.y,pw,ph,c.x,c.y,pEpIsTarget));
     var cEp=c.childPort
       ? getPortPoint(c.x,c.y,cw,ch,c.childPort,cEpIsTarget,p.x,p.y)
-      : getEdgePoint(c.x,c.y,cw,ch,p.x,p.y,cEpIsTarget);
+      : (edgeLineType==='elbow'
+          ? getElbowPreferredPortPoint(c,cw,ch,p,false)
+          : getEdgePoint(c.x,c.y,cw,ch,p.x,p.y,cEpIsTarget));
     /* 같은 방향 출발일 때만 분산 적용 */
     var allSameSide=true;
     if(!c.parentPort){
@@ -3440,8 +3476,6 @@ function renderCurves(){
     cp2x=cs.x+cMainX*dist+cpOff.dx*cam.z;
     cp2y=cs.y+cMainY*dist+cpOff.dy*cam.z;
     var arr=c.arrow||'none';
-    var edgeLineType=c.lineType||'curve';
-    var edgeStrokeStyle=c.strokeStyle||'solid';
     if(edgeLineType!=='elbow'){
       if(arr==='forward'||arr==='both'){
         var fwTipAngle=Math.atan2(cs.y-cp2y, cs.x-cp2x);
@@ -3932,8 +3966,18 @@ function renderCurves(){
     var fh=nhFull(fa), th=nhFull(ta);
     var fx,fy,tx2,ty2;
     var lkArr=lk.arr||'forward';
+    var linkLineType=lk.lineType||'curve';
+    var linkStrokeStyle=lk.strokeStyle||'solid';
     var faEp=resolveEp(fa.x,fa.y,fw,fh,lk.fromPort,ta.x,ta.y,(lkArr==='backward'||lkArr==='both'));
     var taEp=resolveEp(ta.x,ta.y,tw,th,lk.toPort,fa.x,fa.y,(lkArr==='forward'||lkArr==='both'));
+    if(linkLineType==='elbow'){
+      if(!lk.fromPort){
+        faEp=getElbowPreferredPortPoint(fa,fw,fh,ta,true);
+      }
+      if(!lk.toPort){
+        taEp=getElbowPreferredPortPoint(ta,tw,th,fa,false);
+      }
+    }
     fx=faEp.x; fy=faEp.y; tx2=taEp.x; ty2=taEp.y;
     var sc1=w2s(fx,fy),sc2=w2s(tx2,ty2);
     var lcpOff=lk.cp||{dx:0,dy:0};
@@ -3952,8 +3996,6 @@ function renderCurves(){
     lcp2y=sc2.y+ltMY*ldist+lcpOff.dy*cam.z;
     var larr=lk.arrow||'none';
     var linkColor=lk.color||getColor(lk.from);
-    var linkLineType=lk.lineType||'curve';
-    var linkStrokeStyle=lk.strokeStyle||'solid';
     var busInfo=referenceBusMap[refLinkKey(lk)];
     if(busInfo){
       sc1=busInfo.startPoint;
