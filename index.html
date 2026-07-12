@@ -5908,9 +5908,69 @@ function exportHTML(){
   var cc=getCat(curCatId);if(cc){cc.nodes=nodes;cc.nid=nid;cc.cam=cam;cc.links=links;cc.groups=groups;cc.nextGid=nextGid;}
   idbGetAllImgs(function(imgRecords){
     var data=JSON.stringify({cats:cats,curCatId:curCatId,nextCatId:nextCatId,nextGid:nextGid,lineCustomColors:lineCustomColors,nodeCustomColors:nodeCustomColors,groupCustomColors:groupCustomColors,idbImages:imgRecords});
-    var src=document.documentElement.outerHTML;
-    var injected=src.replace('/* __EMBEDDED_DATA__ */',
-      'var __ED__='+data+';try{if(__ED__){cats=__ED__.cats;curCatId=__ED__.curCatId;nextCatId=__ED__.nextCatId;if(Array.isArray(__ED__.lineCustomColors))lineCustomColors=cleanCustomColors(__ED__.lineCustomColors);if(Array.isArray(__ED__.nodeCustomColors))nodeCustomColors=cleanCustomColors(__ED__.nodeCustomColors);if(Array.isArray(__ED__.groupCustomColors))groupCustomColors=cleanCustomColors(__ED__.groupCustomColors);if(__ED__.idbImages&&__ED__.idbImages.length){openImgDB(function(db){var tx=db.transaction("images","readwrite");__ED__.idbImages.forEach(function(r){tx.objectStore("images").put({key:r.key,data:r.data});});});}}}catch(e){}');
+    
+    // 메모리 상에서 안전하게 동적 DOM 상태를 정리하기 위해 documentElement 복제
+    var clone = document.documentElement.cloneNode(true);
+    
+    var world = clone.querySelector('#world'); if(world) world.innerHTML = '';
+    var svg = clone.querySelector('#svg-layer'); if(svg) svg.innerHTML = '';
+    var svgH = clone.querySelector('#svg-handle-layer'); if(svgH) svgH.innerHTML = '';
+    var svgA = clone.querySelector('#svg-arrow-layer'); if(svgA) svgA.innerHTML = '';
+    var catList = clone.querySelector('#cat-list'); if(catList) catList.innerHTML = '';
+    
+    var backupModal = clone.querySelector('#backup-modal');
+    if(backupModal) backupModal.classList.remove('open');
+    
+    var sidebar = clone.querySelector('#sidebar');
+    if(sidebar) sidebar.classList.remove('pinned', 'sb-hover');
+    
+    var body = clone.querySelector('body');
+    if(body) body.className = '';
+    
+    var nodePanel = clone.querySelector('#node-panel');
+    if(nodePanel) nodePanel.style.display = 'none';
+    
+    var groupPanel = clone.querySelector('#group-panel');
+    if(groupPanel) groupPanel.style.display = 'none';
+    
+    var memoPanel = clone.querySelector('#memo-panel');
+    if(memoPanel) memoPanel.classList.remove('open');
+    
+    var viewport = clone.querySelector('#viewport');
+    if(viewport) viewport.className = '';
+    
+    var searchBar = clone.querySelector('#search-bar');
+    if(searchBar) searchBar.classList.remove('open');
+    
+    var ctx = clone.querySelector('#ctx');
+    if(ctx) ctx.style.display = 'none';
+    
+    var alignMenu = clone.querySelector('#align-menu');
+    if(alignMenu) alignMenu.style.display = 'none';
+    
+    var iconPicker = clone.querySelector('#icon-picker');
+    if(iconPicker) iconPicker.style.display = 'none';
+    
+    var memoTooltip = clone.querySelector('#memo-tooltip');
+    if(memoTooltip) memoTooltip.style.display = 'none';
+    
+    var grpFontSlider = clone.querySelector('#grp-font-slider-wrap');
+    if(grpFontSlider) grpFontSlider.style.display = 'none';
+    
+    var colorOptModal = clone.querySelector('#color-opt-modal');
+    if(colorOptModal) colorOptModal.classList.remove('open');
+    
+    var connLegend = clone.querySelector('#conn-legend');
+    if(connLegend) connLegend.classList.remove('show');
+    
+    var src = clone.outerHTML;
+    
+    // '$' 기호가 포함되어 있더라도 문자열 대체 패턴 오작동이 없도록 함수 형태의 replacement 사용
+    var replacementFunc = function() {
+      return 'var __ED__=' + data + ';try{if(__ED__){cats=__ED__.cats;curCatId=__ED__.curCatId;nextCatId=__ED__.nextCatId;if(Array.isArray(__ED__.lineCustomColors))lineCustomColors=cleanCustomColors(__ED__.lineCustomColors);if(Array.isArray(__ED__.nodeCustomColors))nodeCustomColors=cleanCustomColors(__ED__.nodeCustomColors);if(Array.isArray(__ED__.groupCustomColors))groupCustomColors=cleanCustomColors(__ED__.groupCustomColors);if(__ED__.idbImages&&__ED__.idbImages.length){openImgDB(function(db){var tx=db.transaction("images","readwrite");__ED__.idbImages.forEach(function(r){tx.objectStore("images").put({key:r.key,data:r.data});});});}}}catch(e){} /* __EMBEDDED_DATA_END__ */';
+    };
+    var injected = src.replace(/\/\* __EMBEDDED_DATA__ \*\/|var __ED__\s*=[\s\S]*?\/\* __EMBEDDED_DATA_END__ \*\//, replacementFunc);
+    
     var blob=new Blob([injected],{type:'text/html;charset=utf-8'});
     var a=document.createElement('a');a.href=URL.createObjectURL(blob);
     a.download='mindmap_'+new Date().toISOString().slice(0,10)+'.html';
