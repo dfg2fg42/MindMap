@@ -1253,12 +1253,17 @@ function toggleSbPin(){
 function saveAll(){
   var cc=getCat(curCatId);
   if(cc){cc.nodes=nodes;cc.nid=nid;cc.cam=cam;cc.links=links;cc.groups=groups;cc.nextGid=nextGid;}
+  /* 백업본(내보낸 파일)인 경우 localStorage에 저장하지 않음 (원본의 localStorage 데이터를 덮어쓰는 것 방지) */
+  if (typeof __ED__ !== 'undefined') return;
   try{localStorage.setItem('msp2',JSON.stringify({cats:cats,curCatId:curCatId,nextCatId:nextCatId,lightenStep:lightenStep,lightenMaxDepth:lightenMaxDepth,alignGap:alignGap,lineCustomColors:lineCustomColors,nodeCustomColors:nodeCustomColors,groupCustomColors:groupCustomColors}));}catch(e){}
 }
 function loadAll(){
   try{
-    var d=localStorage.getItem('msp2');
-    if(d){var o=JSON.parse(d);cats=o.cats||[];curCatId=o.curCatId||1;nextCatId=o.nextCatId||1;if(o.lightenStep!==undefined)lightenStep=o.lightenStep;if(o.lightenMaxDepth!==undefined)lightenMaxDepth=o.lightenMaxDepth;if(o.alignGap!==undefined)alignGap=Math.max(0,Math.min(1000,parseInt(o.alignGap,10)||100));if(Array.isArray(o.lineCustomColors))lineCustomColors=cleanCustomColors(o.lineCustomColors);if(Array.isArray(o.nodeCustomColors))nodeCustomColors=cleanCustomColors(o.nodeCustomColors);if(Array.isArray(o.groupCustomColors))groupCustomColors=cleanCustomColors(o.groupCustomColors);}
+    /* 백업본(내보낸 파일)인 경우 localStorage를 로드하지 않고 내장 데이터(__ED__)만 사용 */
+    if (typeof __ED__ === 'undefined') {
+      var d=localStorage.getItem('msp2');
+      if(d){var o=JSON.parse(d);cats=o.cats||[];curCatId=o.curCatId||1;nextCatId=o.nextCatId||1;if(o.lightenStep!==undefined)lightenStep=o.lightenStep;if(o.lightenMaxDepth!==undefined)lightenMaxDepth=o.lightenMaxDepth;if(o.alignGap!==undefined)alignGap=Math.max(0,Math.min(1000,parseInt(o.alignGap,10)||100));if(Array.isArray(o.lineCustomColors))lineCustomColors=cleanCustomColors(o.lineCustomColors);if(Array.isArray(o.nodeCustomColors))nodeCustomColors=cleanCustomColors(o.nodeCustomColors);if(Array.isArray(o.groupCustomColors))groupCustomColors=cleanCustomColors(o.groupCustomColors);}
+    }
   }catch(e){}
   if(!cats.length){
     cats=[{id:nextCatId++,name:'기본',icon:'🗂',parentId:null,collapsed:false,
@@ -5966,10 +5971,12 @@ function exportHTML(){
     var src = clone.outerHTML;
     
     // '$' 기호가 포함되어 있더라도 문자열 대체 패턴 오작동이 없도록 함수 형태의 replacement 사용
+    // 또한 소스코드 내부의 변수/주석이 정규식과 매칭되지 않도록 문자열을 쪼개고 RegExp로 빌드
     var replacementFunc = function() {
-      return 'var __ED__=' + data + ';try{if(__ED__){cats=__ED__.cats;curCatId=__ED__.curCatId;nextCatId=__ED__.nextCatId;if(Array.isArray(__ED__.lineCustomColors))lineCustomColors=cleanCustomColors(__ED__.lineCustomColors);if(Array.isArray(__ED__.nodeCustomColors))nodeCustomColors=cleanCustomColors(__ED__.nodeCustomColors);if(Array.isArray(__ED__.groupCustomColors))groupCustomColors=cleanCustomColors(__ED__.groupCustomColors);if(__ED__.idbImages&&__ED__.idbImages.length){openImgDB(function(db){var tx=db.transaction("images","readwrite");__ED__.idbImages.forEach(function(r){tx.objectStore("images").put({key:r.key,data:r.data});});});}}}catch(e){} /* __EMBEDDED_DATA_END__ */';
+      return 'var __' + 'ED__=' + data + ';try{if(__' + 'ED__){cats=__' + 'ED__.cats;curCatId=__' + 'ED__.curCatId;nextCatId=__' + 'ED__.nextCatId;if(Array.isArray(__' + 'ED__.lineCustomColors))lineCustomColors=cleanCustomColors(__' + 'ED__.lineCustomColors);if(Array.isArray(__' + 'ED__.nodeCustomColors))nodeCustomColors=cleanCustomColors(__' + 'ED__.nodeCustomColors);if(Array.isArray(__' + 'ED__.groupCustomColors))groupCustomColors=cleanCustomColors(__' + 'ED__.groupCustomColors);if(__' + 'ED__.idbImages&&__' + 'ED__.idbImages.length){openImgDB(function(db){var tx=db.transaction("images","readwrite");__' + 'ED__.idbImages.forEach(function(r){tx.objectStore("images").put({key:r.key,data:r.data});});});}}}catch(e){} /* __EMBEDDED_DATA_' + 'END__ */';
     };
-    var injected = src.replace(/\/\* __EMBEDDED_DATA__ \*\/|var __ED__\s*=[\s\S]*?\/\* __EMBEDDED_DATA_END__ \*\//, replacementFunc);
+    var pattern = new RegExp('\\/\\* __EMBEDDED_DATA__ \\*\\/|var __' + 'ED__\\s*=[\\s\\S]*?\\/\\* __EMBEDDED_DATA_' + 'END__ \\*\\/');
+    var injected = src.replace(pattern, replacementFunc);
     
     var blob=new Blob([injected],{type:'text/html;charset=utf-8'});
     var a=document.createElement('a');a.href=URL.createObjectURL(blob);
