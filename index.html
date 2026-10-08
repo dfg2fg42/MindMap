@@ -598,6 +598,16 @@ body.link-mode .node.link-from{
 body.link-mode .link-del-btn{display:block;}
 /* 선택된 참조선의 삭제 버튼은 항상 표시 */
 .link-del-btn.edge-selected{display:block;}
+#delete-node-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:900;align-items:center;justify-content:center;padding:18px;}
+#delete-node-box{background:var(--sur);color:var(--txt);border:1px solid var(--bdr);border-radius:16px;padding:24px;width:470px;max-width:100%;max-height:90vh;overflow:auto;box-shadow:0 16px 60px rgba(0,0,0,.5);}
+#delete-node-box h2{font-size:1.1rem;margin:0 0 12px;}
+#delete-node-summary{font-size:.88rem;line-height:1.7;margin-bottom:16px;overflow-wrap:anywhere;white-space:pre-line;}
+.delete-node-choice{display:block;width:100%;text-align:left;background:var(--sur2);color:var(--txt);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;margin-top:10px;cursor:pointer;}
+.delete-node-choice strong{display:block;font-size:.9rem;}
+.delete-node-choice span{display:block;font-size:.8rem;color:var(--mut);line-height:1.6;margin-top:4px;}
+.delete-node-choice:hover,.delete-node-choice:focus-visible{border-color:var(--acc);outline:2px solid var(--acc);outline-offset:2px;}
+#delete-node-cascade strong{color:#f16c78;}
+#delete-node-cancel{display:block;margin:18px 0 0 auto;background:var(--sur2);color:var(--txt);border:1px solid var(--bdr);border-radius:8px;padding:8px 18px;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -882,7 +892,7 @@ body.link-mode .link-del-btn{display:block;}
 <div class="hr"><span class="hk">글자색 / 자동</span><span class="hd">노드를 더블클릭하고 기본 설정의 「글자색」에서 원하는 색을 고르세요. 선택하는 동안 실시간으로 반영됩니다. 「자동」을 누르면 배경 밝기에 맞춰 글자색을 선택합니다. 흰색 배경에는 어두운 글자가 표시됩니다. Ctrl+Z로 되돌릴 수 있습니다.</span></div>
 <div class="hr"><span class="hk">B / U / a− / A+</span><span class="hd">B는 굵게, U는 밑줄입니다. a− / A+는 글자 크기를 변경합니다.</span></div>
 <div class="hr"><span class="hk">S / 중요 표시</span><span class="hd">선택한 노드에 별 표시를 추가하거나 해제합니다.</span></div>
-<div class="hr"><span class="hk">Delete / Backspace</span><span class="hd">선택 노드를 삭제합니다. 하위 노드도 함께 삭제될 수 있으므로 확인창의 개수를 확인하세요.</span></div></div>
+<div class="hr"><span class="hk">Delete / Backspace</span><span class="hd">삭제 방식을 선택합니다. 연결을 끊고 선택 노드만 삭제하거나, 연결을 이어서 선택 노드만 삭제하거나, 하위 노드까지 함께 삭제할 수 있습니다. Ctrl+Z로 복구합니다.</span></div></div>
 </details>
 <details class="help-section" id="help-selection">
   <summary class="help-title">여러 노드 선택·이동·정렬 <span class="help-section-count">8개 항목</span></summary>
@@ -975,6 +985,18 @@ body.link-mode .link-del-btn{display:block;}
 <div class="hr"><span class="hk">문자 입력 중에는</span><span class="hd">노드 이름·메모·검색창 등에 입력 중이면 해당 입력칸의 동작이 우선합니다. 노드 이름의 줄바꿈은 Alt+Enter입니다.</span></div></div>
 </details>
  </div>
+</div>
+
+<!-- NODE DELETE CHOICE -->
+<div id="delete-node-modal" role="dialog" aria-modal="true" aria-labelledby="delete-node-title" aria-describedby="delete-node-summary">
+  <div id="delete-node-box">
+    <h2 id="delete-node-title">노드 삭제 방식 선택</h2>
+    <div id="delete-node-summary"></div>
+    <button type="button" class="delete-node-choice" id="delete-node-detach"><strong>연결 끊고 선택 노드만 삭제</strong><span>나머지 노드는 유지합니다. 삭제 노드의 자식은 독립 노드로 남깁니다.</span></button>
+    <button type="button" class="delete-node-choice" id="delete-node-reconnect"><strong>연결 이어서 선택 노드만 삭제</strong><span>중간 노드를 건너뛰어 양쪽을 연결합니다. 화살표가 있는 선은 흐름 방향을 따릅니다.</span></button>
+    <button type="button" class="delete-node-choice" id="delete-node-cascade"><strong>하위 노드까지 함께 삭제</strong><span id="delete-node-cascade-summary"></span></button>
+    <button type="button" id="delete-node-cancel">취소</button>
+  </div>
 </div>
 
 <!-- COLOR OPT MODAL -->
@@ -6548,62 +6570,162 @@ function layoutSiblingsDeep(pid, dir){
   }
 }
 function addSibling(id){var n=gn(id);if(!n||n.pid===null)return;addChild(n.pid);}
-function delNode(id){
-  var n=gn(id);if(!n||n.pid===null)return;
-  var del=[];function collect(x){del.push(x);gc(x).forEach(function(c){collect(c.id);});}
-  collect(id);
-  var delCount=del.length;
-  var msg=delCount>1?'"'+n.text+'" 및 하위 '+(delCount-1)+'개 노드를 삭제할까요?':'"'+n.text+'" 노드를 삭제할까요?';
-  if(!confirm('🗑 '+msg))return;
-  /* undo 스택에 현재 상태 저장 */
-  pushUndoState();
-  nodes=nodes.filter(function(n){return del.indexOf(n.id)<0;});
-  links=links.filter(function(l){return del.indexOf(l.from)<0&&del.indexOf(l.to)<0;});
-  groups=groups.map(function(g){
-    var ng=Object.assign({},g);
-    ng.nodeIds=g.nodeIds.filter(function(id){return del.indexOf(id)<0;});
-    return ng;
-  }).filter(function(g){return g.nodeIds.length>0;});
-  if(del.indexOf(sel)>=0){sel=null;if(memoOpen)closeMemo();}
-  /* 위치 재정렬 없이 그냥 삭제 — 남은 노드 위치 그대로 유지 */
-  renderAll();saveAll();
-}
-function deleteSelectedNodes(){
-  if(!multiSel.length)return false;
-  var delMap={},selectedCount=0;
-  function collectSelected(x){
-    if(delMap[x])return;
-    delMap[x]=true;
-    gc(x).forEach(function(c){collectSelected(c.id);});
+var pendingNodeDelete=null,deleteNodeReturnFocus=null;
+function nodeDeleteSet(ids,includeChildren){
+  var removed={},children={};
+  nodes.forEach(function(n){if(!children[n.pid])children[n.pid]=[];children[n.pid].push(n.id);});
+  var queue=ids.filter(function(id){return !!gn(id);});
+  for(var i=0;i<queue.length;i++){
+    var id=queue[i];if(removed[id])continue;removed[id]=true;
+    if(includeChildren){var kids=children[id]||[];for(var j=0;j<kids.length;j++)queue.push(kids[j]);}
   }
-  multiSel.forEach(function(id){
-    if(gn(id)){
-      selectedCount++;
-      collectSelected(id);
-    }
-  });
-  var del=Object.keys(delMap).map(function(v){return parseInt(v);}).filter(function(v){return !isNaN(v);});
-  if(!del.length)return false;
-  var extraCount=del.length-selectedCount;
-  var msg='선택한 '+selectedCount+'개 노드를 삭제할까요?';
-  if(extraCount>0)msg+='\n\n하위 노드 '+extraCount+'개도 함께 삭제됩니다.';
-  if(!confirm('🗑 '+msg))return true;
-  pushUndoState();
-  nodes=nodes.filter(function(n){return !delMap[n.id];});
-  links=links.filter(function(l){return !delMap[l.from]&&!delMap[l.to];});
-  groups=groups.map(function(g){
-    var kept=g.nodeIds.filter(function(id){return !delMap[id];});
-    var ng=Object.assign({},g);
-    ng.nodeIds=kept;
-    return ng;
-  }).filter(function(g){return g.nodeIds.length>0;});
-  if(delMap[sel])sel=null;
-  selEdge=null;selGroup=null;multiSel=[];
-  if(memoOpen)closeMemo();
-  renderAll();saveAll();
-  showToast('🗑 선택한 노드가 삭제되었습니다');
+  return removed;
+}
+function closeNodeDeleteModal(restoreFocus){
+  document.getElementById('delete-node-modal').style.display='none';pendingNodeDelete=null;
+  if(restoreFocus!==false&&deleteNodeReturnFocus&&deleteNodeReturnFocus.isConnected)deleteNodeReturnFocus.focus();
+  else if(document.activeElement)document.activeElement.blur();
+  deleteNodeReturnFocus=null;
+}
+function openNodeDeleteModal(ids){
+  var seen={};ids=ids.filter(function(id){if(seen[id]||!gn(id))return false;seen[id]=true;return true;});
+  if(!ids.length)return false;
+  var all=nodeDeleteSet(ids,true),extra=Object.keys(all).length-ids.length;
+  var removed=nodeDeleteSet(ids,false),plan=nodeDeleteReconnectPlan(removed);
+  var canReconnect=plan.links.length>0||Object.keys(plan.updates).some(function(id){return plan.updates[id].pid!==null;});
+  var hasConnection=nodes.some(function(n){return n.pid!==null&&(removed[n.id]||removed[n.pid]);})||links.some(function(l){return removed[l.from]||removed[l.to];});
+  pendingNodeDelete={ids:ids.slice(),catId:curCatId};deleteNodeReturnFocus=document.activeElement;
+  var name=ids.length===1?'“'+gn(ids[0]).text+'”':'선택한 '+ids.length+'개 노드';
+  document.getElementById('delete-node-title').textContent=canReconnect?'노드 삭제 방식 선택':extra?'노드 삭제':'노드 삭제 확인';
+  document.getElementById('delete-node-summary').textContent=name+(canReconnect?'를 어떻게 삭제할까요?\n앞의 두 방식은 선택한 노드만 삭제하고 나머지 노드를 유지합니다.':extra?'를 삭제할까요?\n선택 노드만 삭제하거나 하위 노드까지 함께 삭제할 수 있습니다.':'를 삭제할까요?');
+  var detach=document.getElementById('delete-node-detach');
+  detach.querySelector('strong').textContent=canReconnect?'연결 끊고 선택 노드만 삭제':extra?'선택 노드만 삭제':'삭제';
+  detach.querySelector('span').textContent=extra?'나머지 노드는 유지합니다. 삭제 노드의 자식은 독립 노드로 남깁니다.':hasConnection?'선택 노드에 연결된 선도 함께 삭제합니다.':'선택한 노드만 삭제합니다.';
+  var reconnect=document.getElementById('delete-node-reconnect');
+  reconnect.hidden=!canReconnect;reconnect.style.display=canReconnect?'block':'none';
+  document.getElementById('delete-node-cascade').hidden=extra===0;
+  document.getElementById('delete-node-cascade').style.display=extra?'block':'none';
+  document.getElementById('delete-node-cascade-summary').textContent='선택 '+ids.length+'개와 하위 '+extra+'개, 총 '+Object.keys(all).length+'개 노드를 삭제합니다.';
+  document.getElementById('delete-node-modal').style.display='flex';
+  document.getElementById('delete-node-cancel').focus();
   return true;
 }
+function delNode(id){return openNodeDeleteModal([id]);}
+function deleteSelectedNodes(){return openNodeDeleteModal(multiSel);}
+
+/* Build a bypass before editing the model. Only paths through deleted nodes
+   are followed, so independent neighbors are never connected accidentally. */
+function nodeDeleteReconnectPlan(removed){
+  var byId={},updates={},outgoing={},starts={},pairs={},existing={};
+  nodes.forEach(function(n){byId[n.id]=n;});
+  function pairKey(a,b){return a<b?a+'_'+b:b+'_'+a;}
+  function permits(edge,reverse){var arrow=edge.arrow||'none';return arrow==='both'||arrow===(reverse?'backward':'forward');}
+  nodes.forEach(function(n){
+    if(removed[n.id]||!removed[n.pid])return;
+    var current=n,seen={},forward=true,backward=true;
+    while(current&&current.pid!==null){
+      if(seen[current.id]){current=null;break;}seen[current.id]=true;
+      forward=forward&&permits(current,false);backward=backward&&permits(current,true);
+      if(!removed[current.pid])break;
+      current=byId[current.pid];
+    }
+    var parent=current&&current.pid!==null&&byId[current.pid]?current.pid:null;
+    updates[n.id]={pid:parent,parentPort:parent!==null?current.parentPort:null,
+      arrow:forward&&backward?'both':forward?'forward':backward?'backward':'none'};
+  });
+  nodes.forEach(function(n){
+    if(removed[n.id])return;
+    var pid=updates[n.id]?updates[n.id].pid:n.pid;
+    if(pid!==null&&!removed[pid]&&byId[pid])existing[pairKey(pid,n.id)]=true;
+  });
+  links.forEach(function(l){if(!removed[l.from]&&!removed[l.to])existing[pairKey(l.from,l.to)]=true;});
+  function addArc(from,to,obj,ref,reverse,motion){
+    if(!byId[from]||!byId[to]||(!removed[from]&&!removed[to]))return;
+    var start=ref?(reverse?obj.toPort:obj.fromPort):(reverse?obj.childPort:obj.parentPort);
+    var end=ref?(reverse?obj.fromPort:obj.toPort):(reverse?obj.parentPort:obj.childPort);
+    var arc={from:from,to:to,obj:obj,ref:ref,start:start,end:end,motion:motion};
+    if(!outgoing[from])outgoing[from]=[];outgoing[from].push(arc);
+    if(!removed[from]&&removed[to])starts[from]=true;
+  }
+  function addEdge(from,to,obj,ref){
+    var arrow=obj.arrow||'none';
+    if(arrow==='forward'||arrow==='both')addArc(from,to,obj,ref,false,true);
+    if(arrow==='backward'||arrow==='both')addArc(to,from,obj,ref,true,true);
+    // An arrowless connection has a structural from/to order, without flow.
+    if(arrow==='none')addArc(from,to,obj,ref,false,false);
+  }
+  nodes.forEach(function(n){if(n.pid!==null)addEdge(n.pid,n.id,n,false);});
+  links.forEach(function(l){addEdge(l.from,l.to,l,true);});
+  Object.keys(starts).forEach(function(key){
+    var source=byId[key].id,queue=[],visited={};
+    (outgoing[source]||[]).forEach(function(e){if(removed[e.to])queue.push({node:e.to,first:e,ref:e.ref,motion:e.motion});});
+    for(var i=0;i<queue.length;i++){
+      var state=queue[i],visitKey=state.node+'|'+state.ref+'|'+state.motion;
+      if(visited[visitKey])continue;visited[visitKey]=true;
+      (outgoing[state.node]||[]).forEach(function(e){
+        var ref=state.ref||e.ref,motion=state.motion&&e.motion;
+        if(removed[e.to]){queue.push({node:e.to,first:state.first,ref:ref,motion:motion});return;}
+        // Pure tree paths are already handled by child promotion above.
+        if(e.to===source||!ref)return;
+        var pk=pairKey(source,e.to);if(existing[pk])return;
+        var pair=pairs[pk];
+        if(!pair){
+          var color=e.obj.color||e.obj.lineColor;
+          pair={from:source,to:e.to,lineType:e.obj.lineType||'curve',strokeStyle:e.obj.strokeStyle||'solid',forward:false,backward:false};
+          if(state.first.start)pair.fromPort=state.first.start;
+          if(e.end)pair.toPort=e.end;
+          if(color)pair.color=color;
+          pairs[pk]=pair;
+        }
+        if(motion){if(pair.from===source)pair.forward=true;else pair.backward=true;}
+      });
+    }
+  });
+  var additions=Object.keys(pairs).map(function(key){
+    var pair=pairs[key];pair.arrow=pair.forward&&pair.backward?'both':pair.forward?'forward':pair.backward?'backward':'none';
+    delete pair.forward;delete pair.backward;return pair;
+  });
+  return {updates:updates,links:additions};
+}
+function applyNodeDelete(mode){
+  if(!pendingNodeDelete)return;
+  var request=pendingNodeDelete;
+  if(request.catId!==curCatId){closeNodeDeleteModal();return;}
+  if(mode!=='detach'&&mode!=='reconnect'&&mode!=='cascade')return;
+  var removed=nodeDeleteSet(request.ids,mode==='cascade');
+  if(!Object.keys(removed).length){closeNodeDeleteModal();return;}
+  // Save the current memo before the undo snapshot, including pending input.
+  if(memoOpen)closeMemo();else flushPendingSave();
+  var plan=mode==='reconnect'?nodeDeleteReconnectPlan(removed):null;
+  pushUndoState();closeNodeDeleteModal(false);
+  nodes=nodes.filter(function(n){return !removed[n.id];});
+  nodes.forEach(function(n){
+    if(!removed[n.pid])return;
+    var update=plan&&plan.updates[n.id];
+    n.pid=update?update.pid:null;
+    delete n.cp;delete n.parentPort;
+    if(update&&update.pid!==null){n.arrow=update.arrow;if(update.parentPort)n.parentPort=update.parentPort;}
+  });
+  links=links.filter(function(l){return !removed[l.from]&&!removed[l.to];});
+  if(plan)links=links.concat(plan.links);
+  groups=groups.map(function(g){var copy=Object.assign({},g);copy.nodeIds=g.nodeIds.filter(function(id){return !removed[id];});return copy;}).filter(function(g){return g.nodeIds.length>0;});
+  // Drop saved shared routes whose hub was removed; let the remaining line recalculate.
+  nodes.concat(links).forEach(function(edge){if(edge.cp&&edge.cp.organizedBus&&removed[edge.cp.organizedBus.hubId])delete edge.cp;});
+  if(removed[sel])sel=null;
+  selEdge=null;selGroup=null;multiSel=[];movSt=null;multiDrag=null;
+  linkMode=false;linkFrom=null;linkFromPort=null;edgePortEdit=null;clearLinkModeUi();
+  reconnectMode=false;reconnectNodeId=null;document.body.classList.remove('reconnect-mode');
+  document.getElementById('viewport').classList.remove('moving');
+  invalidateModelIndex();_lastLayoutKey=layoutKey();
+  renderAll();saveAll();
+  showToast((mode==='reconnect'?'🔗 연결을 이어서 ':mode==='detach'?'✂️ 연결을 끊고 ':'🗑 하위 노드까지 ')+Object.keys(removed).length+'개 삭제됨 — Ctrl+Z로 복구');
+}
+document.getElementById('delete-node-detach').onclick=function(){applyNodeDelete('detach');};
+document.getElementById('delete-node-reconnect').onclick=function(){applyNodeDelete('reconnect');};
+document.getElementById('delete-node-cascade').onclick=function(){applyNodeDelete('cascade');};
+document.getElementById('delete-node-cancel').onclick=closeNodeDeleteModal;
+document.getElementById('delete-node-modal').addEventListener('click',function(e){if(e.target===this)closeNodeDeleteModal();});
+
 function undoDelete(){
   if(!undoStack.length){showToast('↩ 되돌릴 내용이 없습니다');return;}
   var prev=undoStack.pop();
@@ -7180,6 +7302,7 @@ function exportHTML(){
     
     var ctx = clone.querySelector('#ctx');
     if(ctx) ctx.style.display = 'none';
+    var deleteModal = clone.querySelector('#delete-node-modal');if(deleteModal)deleteModal.style.display='none';
     var transferModal = clone.querySelector('#transfer-modal');
     if(transferModal) transferModal.style.display = 'none';
     
@@ -7325,6 +7448,17 @@ document.addEventListener('click',function(e){
   if(!document.getElementById('memo-tooltip').contains(e.target))hideMemoTooltip();
 });
 document.addEventListener('keydown',function(e){
+  if(document.getElementById('delete-node-modal').style.display==='flex'){
+    if(e.key==='Escape'){e.preventDefault();closeNodeDeleteModal();}
+    if(e.key==='Tab'){
+      var buttons=Array.from(document.querySelectorAll('#delete-node-modal button')).filter(function(b){return !b.hidden;});
+      var at=buttons.indexOf(document.activeElement);
+      if(e.shiftKey&&at<=0){e.preventDefault();buttons[buttons.length-1].focus();}
+      else if(!e.shiftKey&&(at===buttons.length-1||at<0)){e.preventDefault();buttons[0].focus();}
+    }
+    return;
+  }
+
   if(document.getElementById('transfer-modal').style.display==='flex'){
     if(e.key==='Escape'){e.preventDefault();closeTransferModal();}
     return;
@@ -7866,34 +8000,8 @@ document.getElementById('ctx-reparent').onclick=function(){
   hideCtx();reparentToNew();
 };
 document.getElementById('ctx-del').onclick=function(){
-  var m=document.getElementById('ctx');
-  var id=parseInt(m.dataset.nid);
-  hideCtx();
-  if(multiSel.length&&multiSel.indexOf(id)>=0){
-    deleteSelectedNodes();
-    return;
-  }
-  var n=gn(id);if(!n)return;
-  if(n.pid===null){
-    /* 독립/루트 노드 삭제 */
-    var del=[];
-    function collectR(x){del.push(x);gc(x).forEach(function(c){collectR(c.id);});}
-    collectR(id);
-    var msg=del.length>1?'"'+n.text+'" 및 하위 '+(del.length-1)+'개 노드를 삭제할까요?':'"'+n.text+'" 노드를 삭제할까요?';
-    if(!confirm('🗑 '+msg))return;
-    pushUndoState();
-    nodes=nodes.filter(function(x){return del.indexOf(x.id)<0;});
-    links=links.filter(function(l){return del.indexOf(l.from)<0&&del.indexOf(l.to)<0;});
-    groups=groups.map(function(g){
-      var ng=Object.assign({},g);
-      ng.nodeIds=g.nodeIds.filter(function(id){return del.indexOf(id)<0;});
-      return ng;
-    }).filter(function(g){return g.nodeIds.length>0;});
-    if(del.indexOf(sel)>=0){sel=null;}
-    renderAll();saveAll();
-  } else {
-    delNode(id);
-  }
+  var id=Number(document.getElementById('ctx').dataset.nid);hideCtx();
+  if(multiSel.length&&multiSel.indexOf(id)>=0)deleteSelectedNodes();else delNode(id);
 };
 document.getElementById('ctx-new-independent').onclick=function(){
   var m=document.getElementById('ctx');
