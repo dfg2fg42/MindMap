@@ -146,6 +146,7 @@ body{font-family:'Segoe UI','Apple SD Gothic Neo',Arial,sans-serif;background:va
 .node.starred{border-color:#ffd700!important;animation:starGlow 1.8s ease-in-out infinite;}
 .node.starred.selected{border-color:var(--neon)!important;animation:selPulse 1.4s ease-in-out infinite;}
 .node-label{pointer-events:none;white-space:pre;line-height:1.4;text-align:center;}
+.node-label,.node-edit{-webkit-text-stroke:.45px rgba(0,0,0,.38);paint-order:stroke fill;}
 .node-edit{background:transparent;border:none;outline:none;font-family:inherit;font-weight:inherit;font-size:inherit;color:inherit;text-align:center;width:100%;min-width:30px;resize:none;overflow:hidden;line-height:1.4;padding:0;}
 .star-badge{position:absolute;top:-9px;right:-9px;font-size:.75rem;pointer-events:none;filter:drop-shadow(0 0 4px rgba(255,215,0,.9));}
 .memo-dot{position:absolute;top:-5px;right:-5px;width:9px;height:9px;border-radius:50%;background:#38b2ff;border:2px solid var(--bg);pointer-events:none;box-shadow:0 0 6px rgba(56,178,255,.7);}
@@ -411,6 +412,8 @@ body.reconnect-mode #reconnect-toast{display:flex!important;}
   color:#fff;font-size:.75rem;cursor:pointer;display:flex;align-items:center;
   justify-content:center;opacity:0;transition:opacity .15s;line-height:1;}
 .group-box-wrap:hover .group-box-del{opacity:1;}
+.group-resize-handle{display:none;position:absolute;width:12px;height:12px;border-radius:3px;background:var(--sur);border:2px solid var(--neon);transform:translate(-50%,-50%);pointer-events:all;z-index:30;}
+.group-box-wrap.grp-selected .group-resize-handle{display:block;}
 .group-box-wrap.grp-selected .group-box-bg{
   outline:2.5px solid var(--neon);outline-offset:0px;
   animation:selPulse 1.4s ease-in-out infinite;}
@@ -433,6 +436,34 @@ body.reconnect-mode #reconnect-toast{display:flex!important;}
   border-radius:6px;padding:3px 9px;font-size:.78rem;font-family:monospace;
   color:var(--txt);white-space:nowrap;}
 .hd{font-size:.83rem;color:var(--mut);}
+#help-box{background:var(--sur);border:1.5px solid var(--bdr);border-radius:18px;padding:24px;
+  max-width:820px;width:94vw;max-height:86vh;overflow-y:auto;scroll-behavior:smooth;
+  box-shadow:0 16px 64px rgba(0,0,0,.7);color:var(--txt);}
+.help-header{position:sticky;top:-24px;z-index:1;background:var(--sur);display:flex;
+  align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--bdr);}
+.help-header h2{font-size:1.2rem;margin:0;}
+.help-header button{background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;
+  color:var(--txt);padding:7px 11px;cursor:pointer;font-size:1rem;}
+.help-intro{font-size:.86rem;line-height:1.7;color:var(--mut);margin:16px 0;}
+.help-nav{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:24px;}
+.help-nav a{background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:7px 10px;
+  color:var(--txt);font-size:.8rem;text-decoration:none;}
+.help-nav a:hover,.help-nav a:focus-visible{border-color:var(--acc);color:var(--acc);}
+#help-box .help-section{margin-bottom:14px;scroll-margin-top:70px;}
+#help-box summary.help-title{cursor:pointer;font-size:.95rem;line-height:1.6;
+  padding:10px 0;margin:0;letter-spacing:0;text-transform:none;}
+.help-section-count{font-size:.72rem;font-weight:400;color:var(--mut);margin-left:10px;}
+#help-box .help-table{gap:0;margin-top:8px;}
+#help-box .hr{display:grid;grid-template-columns:minmax(0,210px) minmax(0,1fr);
+  align-items:start;gap:16px;padding:10px 0;border-bottom:1px solid var(--bdr);}
+#help-box .hk{min-width:0;white-space:normal;font-family:inherit;line-height:1.6;font-weight:600;}
+#help-box .hd{line-height:1.75;color:var(--txt);font-size:.84rem;overflow-wrap:anywhere;}
+@media(max-width:600px){
+  #help-box{padding:16px;}
+  .help-header{top:-16px;}
+  #help-box .hr{grid-template-columns:minmax(0,1fr);gap:6px;}
+  #help-box .hk{justify-self:start;}
+}
 
 
 /* ══ NODE CONNECTION HIGHLIGHT ══ */
@@ -620,11 +651,12 @@ body.link-mode .link-del-btn{display:block;}
   <div class="sep"></div>
   <button class="tbtn" id="btn-lock" title="노드 이동 잠금 모드 (실수로 노드가 움직이지 않도록)">🔒 잠금</button>
   <button class="tbtn" id="btn-link-mode" title="참조 연결 모드 (노드 클릭 → 연결할 노드 클릭)">🔗 연결</button>
+  <button class="tbtn" id="btn-flow" aria-pressed="true" title="연결선을 따라 움직이는 구슬 표시 켜기 / 끄기">🔵 구슬 ON</button>
   <button class="tbtn" id="btn-group" title="선택한 노드들을 그룹으로 묶기 (노드 2개 이상 선택 후)">📦 그룹</button>
   <button class="tbtn" id="btn-color-opt" title="노드 색상 연해짐 설정">🎨 색상설정</button>
   <button class="tbtn" id="btn-backup">💾 백업</button>
   <button class="tbtn" id="btn-theme">☀️ 라이트</button>
-  <button class="tbtn" id="btn-help" title="단축키 도움말 (?)">❓ 도움말</button>
+  <button class="tbtn" id="btn-help" title="구현된 기능 안내 및 사용법 (?)">❓ 도움말</button>
   <button class="tbtn danger" id="btn-reset">🗑 초기화</button>
   <div class="tinfo">노드 <b id="ncnt">1</b>개</div>
 </div>
@@ -674,6 +706,8 @@ body.link-mode .link-del-btn{display:block;}
   <button class="npbtn" id="np-size-up" title="노드 확대 (+)">＋</button>
   <button class="npbtn" id="np-color-toggle" title="색상 선택">🎨</button>
   <div id="np-colors" class="np-colors-hidden"></div>
+  <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;white-space:nowrap;">글자색 <input type="color" id="np-font-color" title="노드 글자색 (실시간 반영)" style="width:28px;height:28px;border:0;cursor:pointer;padding:0;background:none;" value="#ffffff"></label>
+  <button class="npbtn" id="np-font-auto" title="배경색에 맞춰 글자색 자동 선택" style="width:auto;padding:0 7px;font-size:.75rem;">자동</button>
   <!-- 펼치기 버튼 -->
   <div class="np-sep"></div>
   <button class="npbtn" id="np-expand" title="폰트 설정 열기">›</button>
@@ -688,7 +722,6 @@ body.link-mode .link-del-btn{display:block;}
     <span id="np-fs-val" style="font-size:.72rem;color:var(--mut);min-width:20px;text-align:center;">M</span>
     <button class="npbtn" id="np-fs-up" title="글자 크게">A+</button>
     <div class="np-sep"></div>
-    <input type="color" id="np-font-color" title="글자 색상" style="width:28px;height:28px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none;" value="#ffffff">
   </div>
 </div>
 
@@ -696,7 +729,7 @@ body.link-mode .link-del-btn{display:block;}
 <div id="group-panel" style="display:none;position:fixed;z-index:151;background:var(--sur);
   border:1px solid var(--bdr);border-radius:16px;padding:8px 12px;
   align-items:center;gap:8px;box-shadow:0 6px 24px rgba(0,0,0,.55);flex-wrap:wrap;max-width:340px;">
-  <span style="font-size:.75rem;color:var(--mut);font-weight:700;">📦 그룹</span>
+  <span id="gp-drag-handle" title="드래그해서 설정창 이동" style="font-size:.75rem;color:var(--mut);font-weight:700;cursor:grab;touch-action:none;user-select:none;padding:4px 2px;">⠿ 📦 그룹</span>
   <input class="gp-name" type="text" placeholder="그룹명"
     style="background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;
     color:var(--txt);font-size:.8rem;padding:3px 8px;width:100px;outline:none;">
@@ -704,6 +737,9 @@ body.link-mode .link-del-btn{display:block;}
   <div class="gp-colors" style="display:flex;gap:4px;flex-wrap:wrap;max-width:160px;"></div>
   <div class="np-sep"></div>
   <button class="npbtn" id="gp-transparent" title="그룹 박스 비활성화 (라벨만 표시, 내부 노드 클릭 가능)" style="font-size:.8rem;">🔲</button>
+  <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;white-space:nowrap;">글자색 <input type="color" id="gp-font-color" title="그룹 제목 글자색" style="width:28px;height:26px;border:0;background:transparent;cursor:pointer;"></label>
+  <button class="tbtn" id="gp-font-auto" title="배경색에 맞춰 제목 글자색 자동 선택">자동</button>
+  <button class="tbtn" id="gp-box-auto" title="테두리를 내부 노드에 맞는 자동 크기로 복원">테두리 자동</button>
   <button class="npbtn" id="gp-del" title="그룹 삭제" style="color:#ff6b6b;border-color:#ff6b6b;">🗑</button>
   <button class="npbtn" id="gp-close" title="닫기" style="font-size:.8rem;opacity:.6;">✕</button>
 </div>
@@ -776,6 +812,10 @@ body.link-mode .link-del-btn{display:block;}
   <div class="ctx-row" id="ctx-edit">✏️ 텍스트 편집</div>
   <div class="ctx-row" id="ctx-star">⭐ 중요 표시</div>
   <div class="ctx-row" id="ctx-memo">📝 메모 열기</div>
+  <div class="ctx-row" id="ctx-copy">📋 복사 (Ctrl+C)</div>
+  <div class="ctx-row" id="ctx-paste">📋 붙여넣기 (Ctrl+V)</div>
+  <div class="ctx-row" id="ctx-transfer">📁 다른 카테고리로 복사 / 이동</div>
+  <div class="ctx-row" id="ctx-organize-lines">≡ 연결선 정리</div>
   <div class="ctx-row" id="ctx-group">🔗 이 노드 아래로 모으기</div>
   <div class="ctx-row" id="ctx-reparent">📦 새 상위 노드로 묶기</div>
   <div class="ctx-row red" id="ctx-del">🗑 삭제</div>
@@ -783,130 +823,158 @@ body.link-mode .link-del-btn{display:block;}
 
 
 <!-- HELP MODAL -->
-<div id="help-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:800;display:none;align-items:center;justify-content:center;">
-  <div id="help-box" style="background:var(--sur);border:1.5px solid var(--bdr);border-radius:18px;
-    padding:32px 36px;max-width:640px;width:92vw;max-height:82vh;overflow-y:auto;
-    box-shadow:0 16px 64px rgba(0,0,0,.7);position:relative;">
-    <button onclick="closeHelp()" style="position:absolute;top:14px;right:18px;background:none;border:none;
-      color:var(--mut);font-size:1.3rem;cursor:pointer;line-height:1;">✕</button>
-    <h2 style="margin-bottom:20px;font-size:1.2rem;color:var(--txt);">⌨️ 단축키 &amp; 사용법</h2>
-
-    <div class="help-section">
-      <div class="help-title">🖱 기본 조작</div>
-      <div class="help-table">
-        <div class="hr"><span class="hk">빈 공간 드래그</span><span class="hd">캔버스 이동 (패닝)</span></div>
-        <div class="hr"><span class="hk">마우스 휠</span><span class="hd">줌 인/아웃</span></div>
-        <div class="hr"><span class="hk">노드 클릭</span><span class="hd">노드 선택</span></div>
-        <div class="hr"><span class="hk">노드 더블클릭</span><span class="hd">설정 패널 열기</span></div>
-        <div class="hr"><span class="hk">노드 드래그</span><span class="hd">노드 위치 이동</span></div>
-        <div class="hr"><span class="hk">노드 우클릭</span><span class="hd">컨텍스트 메뉴</span></div>
-        <div class="hr"><span class="hk">Shift + 드래그</span><span class="hd">여러 노드 영역 선택</span></div>
-        <div class="hr"><span class="hk">선택된 노드 드래그</span><span class="hd">선택된 노드 전체 이동</span></div>
-      </div>
+<div id="transfer-modal" role="dialog" aria-modal="true" aria-labelledby="transfer-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:810;align-items:center;justify-content:center;">
+  <div style="background:var(--sur);color:var(--txt);border:1px solid var(--bdr);border-radius:16px;padding:24px;width:420px;max-width:92vw;">
+    <h2 id="transfer-title" style="font-size:1.1rem;margin-bottom:16px;">📁 다른 카테고리로 복사 / 이동</h2>
+    <p id="transfer-count" style="margin-bottom:14px;"></p>
+    <label for="transfer-target">대상 카테고리</label>
+    <select id="transfer-target" style="width:100%;margin:8px 0 16px;padding:10px;background:var(--sur2);color:var(--txt);border:1px solid var(--bdr);border-radius:8px;"></select>
+    <label style="display:block;margin-bottom:12px;"><input type="checkbox" id="transfer-desc" checked> 하위 노드도 함께 포함</label>
+    <p style="color:var(--mut);font-size:12px;line-height:1.6;margin-bottom:18px;">메모·이미지와 포함된 노드 사이의 연결을 유지합니다. 대상 캔버스의 오른쪽 빈 공간에 배치됩니다.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="tbtn" onclick="closeTransferModal()">취소</button>
+      <button class="tbtn" onclick="submitNodeTransfer(false)">📋 복사</button>
+      <button class="tbtn" onclick="submitNodeTransfer(true)">📦 이동</button>
     </div>
-
-    <div class="help-section">
-      <div class="help-title">⌨️ 노드 편집</div>
-      <div class="help-table">
-        <div class="hr"><span class="hk">Tab</span><span class="hd">하위 노드 추가</span></div>
-        <div class="hr"><span class="hk">Enter</span><span class="hd">같은 단계 노드 추가</span></div>
-        <div class="hr"><span class="hk">F2</span><span class="hd">노드 이름 편집 시작</span></div>
-        <div class="hr"><span class="hk">Alt + Enter</span><span class="hd">편집 중 줄바꿈 (다음 줄 추가)</span></div>
-        <div class="hr"><span class="hk">Enter (편집 중)</span><span class="hd">편집 완료</span></div>
-        <div class="hr"><span class="hk">Delete / Backspace</span><span class="hd">선택 노드 또는 다중 선택 노드 삭제</span></div>
-        <div class="hr"><span class="hk">Esc</span><span class="hd">편집 취소 / 선택 해제</span></div>
-      </div>
-    </div>
-
-    <div class="help-section">
-      <div class="help-title">🎨 설정 패널 (더블클릭으로 열기)</div>
-      <div class="help-table">
-        <div class="hr"><span class="hk">− / ＋ 버튼</span><span class="hd">노드 크기 축소 / 확대</span></div>
-        <div class="hr"><span class="hk">🎨 버튼</span><span class="hd">노드 배경색 선택 또는 + 버튼으로 사용자 색상 추가</span></div>
-        <div class="hr"><span class="hk">› 버튼</span><span class="hd">폰트 설정 영역 펼치기 / 접기</span></div>
-        <div class="hr"><span class="hk">B 버튼 / Ctrl+B</span><span class="hd">글자 굵게 토글</span></div>
-        <div class="hr"><span class="hk">U 버튼 / Ctrl+U</span><span class="hd">글자 밑줄 토글</span></div>
-        <div class="hr"><span class="hk">a− / A+ 버튼</span><span class="hd">글자 크기 변경 (S → M → L → XL)</span></div>
-        <div class="hr"><span class="hk">🎨 색상 피커</span><span class="hd">글자 색상 자유 선택</span></div>
-        <div class="hr"><span class="hk">✕ 버튼</span><span class="hd">설정 패널 닫기</span></div>
-      </div>
-    </div>
-
-    <div class="help-section">
-      <div class="help-title">🔀 노드 이동</div>
-      <div class="help-table">
-        <div class="hr"><span class="hk">Alt + ↑</span><span class="hd">같은 단계 노드 위로 이동</span></div>
-        <div class="hr"><span class="hk">Alt + ↓</span><span class="hd">같은 단계 노드 아래로 이동</span></div>
-        <div class="hr"><span class="hk">노드 드래그 + Shift</span><span class="hd">연결된 노드와 수평/수직 정렬 가이드 표시 및 자석 정렬</span></div>
-        <div class="hr"><span class="hk">Shift + 영역 드래그</span><span class="hd">여러 노드 선택 후 이동·그룹·삭제 가능</span></div>
-        <div class="hr"><span class="hk">Delete / Backspace</span><span class="hd">다중 선택 노드 삭제 전 확인창 표시</span></div>
-      </div>
-    </div>
-
-    <div class="help-section">
-      <div class="help-title">🔗 연결선 편집</div>
-      <div class="help-table">
-        <div class="hr"><span class="hk">연결선 클릭</span><span class="hd">화살표 방향, 선 색상, 선 타입 메뉴 열기</span></div>
-        <div class="hr"><span class="hk">━ / ┄ / ═</span><span class="hd">실선, 점선, 두줄 선 스타일 선택</span></div>
-        <div class="hr"><span class="hk">🎨 선 색상</span><span class="hd">기본 팔레트 색상 선택 또는 + 버튼으로 사용자 색상 추가</span></div>
-        <div class="hr"><span class="hk">∿ / ┐ 버튼</span><span class="hd">곡선 연결 / 라운드 꺾은선 연결 전환</span></div>
-        <div class="hr"><span class="hk">연결선 조절점 드래그</span><span class="hd">꺾은선 위치 조정, 가까운 같은 축 선에는 자동 스냅</span></div>
-        <div class="hr"><span class="hk">연결선 조절점 더블클릭</span><span class="hd">해당 연결선 조정값 초기화</span></div>
-        <div class="hr"><span class="hk">선 선택 후 🔗 연결 버튼</span><span class="hd">양 끝 노드의 연결 포인트 수정 모드</span></div>
-        <div class="hr"><span class="hk">포트 점 클릭</span><span class="hd">상/하/좌/우/모서리 중 원하는 연결점 지정</span></div>
-        <div class="hr"><span class="hk">연결선 중앙 ×</span><span class="hd">참조 연결선 삭제</span></div>
-        <div class="hr"><span class="hk">Delete / Backspace</span><span class="hd">선택된 연결선 삭제 또는 트리 연결 끊기</span></div>
-      </div>
-    </div>
-
-    <div class="help-section">
-      <div class="help-title">📦 그룹</div>
-      <div class="help-table">
-        <div class="hr"><span class="hk">📦 그룹 버튼</span><span class="hd">선택한 여러 노드를 그룹 박스로 묶기</span></div>
-        <div class="hr"><span class="hk">그룹 라벨 클릭</span><span class="hd">그룹 이름, 색상, 투명 표시 설정</span></div>
-        <div class="hr"><span class="hk">그룹 색상 +</span><span class="hd">그룹 박스 사용자 색상 직접 추가</span></div>
-      </div>
-    </div>
-
-    <div class="help-section">
-      <div class="help-title">⚡ 단축키 모음</div>
-      <div class="help-table">
-        <div class="hr"><span class="hk">Ctrl + Z</span><span class="hd">삭제·이동·선 조정 등 주요 작업 되돌리기 (최대 30단계)</span></div>
-        <div class="hr"><span class="hk">Ctrl + F</span><span class="hd">노드 검색창 열기</span></div>
-        <div class="hr"><span class="hk">Ctrl + B</span><span class="hd">선택 노드 글자 굵게 토글</span></div>
-        <div class="hr"><span class="hk">Ctrl + U</span><span class="hd">선택 노드 글자 밑줄 토글</span></div>
-        <div class="hr"><span class="hk">S</span><span class="hd">중요 표시 토글 (⭐)</span></div>
-        <div class="hr"><span class="hk">M</span><span class="hd">메모창 열기 / 닫기</span></div>
-        <div class="hr"><span class="hk">?</span><span class="hd">도움말 열기</span></div>
-        <div class="hr"><span class="hk">🔗 연결 버튼</span><span class="hd">참조 연결 모드 — 시작 노드 → 대상 노드 클릭</span></div>
-        <div class="hr"><span class="hk">🔒 잠금 버튼</span><span class="hd">노드 이동과 연결선 조정을 함께 잠금</span></div>
-      </div>
-    </div>
-
-    <div class="help-section">
-      <div class="help-title">💾 백업 &amp; 검색</div>
-      <div class="help-table">
-        <div class="hr"><span class="hk">Enter (검색창)</span><span class="hd">다음 검색 결과</span></div>
-        <div class="hr"><span class="hk">Shift + Enter (검색창)</span><span class="hd">이전 검색 결과</span></div>
-        <div class="hr"><span class="hk">Esc (검색창)</span><span class="hd">검색창 닫기</span></div>
-        <div class="hr"><span class="hk">💾 백업 버튼</span><span class="hd">JSON / HTML 내보내기·불러오기</span></div>
-      </div>
-    </div>
-
-    <div class="help-section">
-      <div class="help-title">📁 카테고리 &amp; 노드 방향</div>
-      <div class="help-table">
-        <div class="hr"><span class="hk">사이드바 (마우스 왼쪽)</span><span class="hd">카테고리 슬라이드 메뉴</span></div>
-        <div class="hr"><span class="hk">사이드바 핸들 클릭</span><span class="hd">사이드바 고정 / 고정 해제</span></div>
-        <div class="hr"><span class="hk">카테고리 드래그</span><span class="hd">카테고리 순서 변경 또는 하위 카테고리로 이동</span></div>
-        <div class="hr"><span class="hk">카테고리 아이콘 클릭</span><span class="hd">카테고리 아이콘 변경</span></div>
-        <div class="hr"><span class="hk">⇄ / → / ← 방향 버튼</span><span class="hd">새 하위 노드 생성 방향 설정</span></div>
-        <div class="hr"><span class="hk">⟳ 정렬 버튼</span><span class="hd">전체 자동 재배치 또는 선택/그룹 노드 가로·세로 정렬, 간격 설정</span></div>
-        <div class="hr"><span class="hk">⊡ 맞춤 버튼</span><span class="hd">전체 노드 화면에 맞추기</span></div>
-      </div>
-    </div>
-
   </div>
+</div>
+<div id="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-heading" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:800;align-items:center;justify-content:center;">
+ <div id="help-box">
+  <div class="help-header"><h2 id="help-heading">❓ 기능 안내 &amp; 사용법</h2><button onclick="closeHelp()" aria-label="도움말 닫기">✕</button></div>
+  <p class="help-intro">처음이라면 아래의 5단계부터 따라 해 보세요. 기능 이름을 누르면 해당 설명으로 이동합니다. 각 제목을 클릭해 설명을 펼치거나 접을 수 있습니다.</p>
+  <nav class="help-nav" aria-label="도움말 기능 바로가기"><a href="#help-start" onclick="document.getElementById('help-start').open=true">처음 시작하기</a>
+<a href="#help-category" onclick="document.getElementById('help-category').open=true">카테고리</a>
+<a href="#help-node" onclick="document.getElementById('help-node').open=true">노드</a>
+<a href="#help-selection" onclick="document.getElementById('help-selection').open=true">여러 노드 선택·이동·정렬</a>
+<a href="#help-connection" onclick="document.getElementById('help-connection').open=true">연결선</a>
+<a href="#help-group" onclick="document.getElementById('help-group').open=true">그룹</a>
+<a href="#help-memo" onclick="document.getElementById('help-memo').open=true">메모·체크리스트·이미지</a>
+<a href="#help-transfer" onclick="document.getElementById('help-transfer').open=true">다른 카테고리로 복사·이동</a>
+<a href="#help-view" onclick="document.getElementById('help-view').open=true">화면 보기·구슬·잠금·검색</a>
+<a href="#help-backup" onclick="document.getElementById('help-backup').open=true">저장·백업·복원·초기화</a>
+<a href="#help-keys" onclick="document.getElementById('help-keys').open=true">자주 쓰는 단축키 한눈에 보기</a></nav>
+  <details class="help-section" id="help-start" open>
+  <summary class="help-title">처음 시작하기 <span class="help-section-count">5개 항목</span></summary>
+  <div class="help-table"><div class="hr"><span class="hk">1. 작업할 카테고리 선택</span><span class="hd">화면 왼쪽 가장자리에 마우스를 대고, 기존 카테고리를 클릭하거나 「＋ 새 카테고리」를 누르세요. 카테고리마다 별도의 지도가 있습니다.</span></div>
+<div class="hr"><span class="hk">2. 노드 만들기</span><span class="hd">중심 주제를 클릭 → F2로 이름 입력 → Enter로 완료 → Tab으로 하위 노드를 추가하세요. 노드는 설비·주제 등을 적는 상자입니다.</span></div>
+<div class="hr"><span class="hk">3. 모양과 위치 바꾸기</span><span class="hd">노드를 드래그해 옮기세요. 노드 더블클릭으로 크기·색상·글자 설정을 열 수 있습니다.</span></div>
+<div class="hr"><span class="hk">4. 연결하고 묶기</span><span class="hd">「🔗 연결」로 관계를 추가하세요. 여러 노드는 빈 공간에서 Shift를 누른 채 드래그해 선택한 뒤 「📦 그룹」으로 묶으세요.</span></div>
+<div class="hr"><span class="hk">5. 작업 보관하기</span><span class="hd">일반 작업 파일은 현재 브라우저에 자동 저장됩니다. 다른 PC로 옮기거나 별도로 보관하려면 「💾 백업」으로 내보내세요.</span></div></div>
+</details>
+<details class="help-section" id="help-category">
+  <summary class="help-title">카테고리: 지도를 나누어 관리 <span class="help-section-count">6개 항목</span></summary>
+  <div class="help-table"><div class="hr"><span class="hk">왼쪽 가장자리 / 핸들</span><span class="hd">가장자리에 마우스를 대면 목록이 열립니다. 핸들을 클릭하면 고정하거나 고정을 해제합니다.</span></div>
+<div class="hr"><span class="hk">＋ 새 카테고리 / 목록의 ＋</span><span class="hd">상단 버튼은 새 카테고리, 목록 옆의 ＋는 해당 카테고리 아래에 하위 카테고리를 만듭니다.</span></div>
+<div class="hr"><span class="hk">카테고리 클릭 / 더블클릭</span><span class="hd">클릭하면 해당 지도로 전환합니다. 이름을 더블클릭하면 이름을 바꿀 수 있습니다.</span></div>
+<div class="hr"><span class="hk">아이콘 / 펼침 화살표</span><span class="hd">아이콘을 클릭하면 아이콘을 바꿉니다. 펼침 화살표로 하위 카테고리 목록을 접거나 펼칩니다.</span></div>
+<div class="hr"><span class="hk">카테고리 드래그</span><span class="hd">목록의 다른 위치로 옮겨 순서를 바꾸거나 다른 카테고리 아래로 넣을 수 있습니다.</span></div>
+<div class="hr"><span class="hk">목록의 ×</span><span class="hd">해당 카테고리와 하위 카테고리를 삭제합니다. 마지막 카테고리는 삭제할 수 없습니다.</span></div></div>
+</details>
+<details class="help-section" id="help-node">
+  <summary class="help-title">노드: 생성·이름·모양 편집 <span class="help-section-count">10개 항목</span></summary>
+  <div class="help-table"><div class="hr"><span class="hk">노드 클릭 / 더블클릭</span><span class="hd">클릭은 선택, 더블클릭은 설정 패널 열기입니다. 텍스트 편집은 F2 또는 우클릭 → 「텍스트 편집」입니다.</span></div>
+<div class="hr"><span class="hk">Tab / ＋ 하위 노드</span><span class="hd">선택한 노드 아래에 연결된 새 노드를 만듭니다.</span></div>
+<div class="hr"><span class="hk">Enter / ＋ 같은 단계 노드</span><span class="hd">선택한 노드와 같은 부모를 가진 노드를 만듭니다. 부모가 없는 독립 노드에서는 사용할 수 없습니다.</span></div>
+<div class="hr"><span class="hk">빈 공간 우클릭</span><span class="hd">「독립 노드 생성」으로 부모에 연결되지 않은 새 노드를 만듭니다.</span></div>
+<div class="hr"><span class="hk">이름 편집 중</span><span class="hd">Enter로 완료, Alt+Enter로 줄바꿈, Esc로 변경 취소입니다. 다른 곳을 클릭해도 편집이 완료됩니다.</span></div>
+<div class="hr"><span class="hk">설정 패널 − / ＋</span><span class="hd">노드 상자 전체의 크기를 줄이거나 키웁니다.</span></div>
+<div class="hr"><span class="hk">설정 패널 🎨 / ›</span><span class="hd">🎨로 노드 배경색을 고릅니다. 팔레트의 ＋로 사용자 색상을 추가할 수 있습니다. ›는 글자 설정을 펼치거나 접습니다.</span></div>
+<div class="hr"><span class="hk">글자색 / 자동</span><span class="hd">노드를 더블클릭하고 기본 설정의 「글자색」에서 원하는 색을 고르세요. 선택하는 동안 실시간으로 반영됩니다. 「자동」을 누르면 배경 밝기에 맞춰 글자색을 선택합니다. 흰색 배경에는 어두운 글자가 표시됩니다. Ctrl+Z로 되돌릴 수 있습니다.</span></div>
+<div class="hr"><span class="hk">B / U / a− / A+</span><span class="hd">B는 굵게, U는 밑줄입니다. a− / A+는 글자 크기를 변경합니다.</span></div>
+<div class="hr"><span class="hk">S / 중요 표시</span><span class="hd">선택한 노드에 별 표시를 추가하거나 해제합니다.</span></div>
+<div class="hr"><span class="hk">Delete / Backspace</span><span class="hd">선택 노드를 삭제합니다. 하위 노드도 함께 삭제될 수 있으므로 확인창의 개수를 확인하세요.</span></div></div>
+</details>
+<details class="help-section" id="help-selection">
+  <summary class="help-title">여러 노드 선택·이동·정렬 <span class="help-section-count">8개 항목</span></summary>
+  <div class="help-table"><div class="hr"><span class="hk">빈 공간에서 Shift+드래그</span><span class="hd">사각형 영역 안의 노드를 여러 개 선택합니다. 선택된 노드를 드래그하면 함께 이동합니다.</span></div>
+<div class="hr"><span class="hk">노드 드래그 중 Shift</span><span class="hd">연결된 노드와 가로·세로로 맞추는 안내선이 나타나며 가까운 위치에 맞춰집니다.</span></div>
+<div class="hr"><span class="hk">Alt+↑ / Alt+↓</span><span class="hd">같은 단계의 노드 순서와 위·아래 위치를 바꿉니다.</span></div>
+<div class="hr"><span class="hk">여러 노드 선택 → ⟳ 정렬</span><span class="hd">2개 이상 선택한 뒤 「정렬」을 누르고 가로 또는 세로 정렬을 고르세요. 간격 입력으로 노드 사이 여백을 조절합니다.</span></div>
+<div class="hr"><span class="hk">그룹 선택 → ⟳ 정렬</span><span class="hd">선택한 그룹에 노드가 2개 이상 있으면 그룹 안의 노드를 가로·세로로 정렬할 수 있습니다.</span></div>
+<div class="hr"><span class="hk">선택 없이 ⟳ 정렬</span><span class="hd">현재 지도 전체를 자동 배치합니다. 직접 맞춘 위치가 달라질 수 있으므로 확인창을 읽고 실행하세요.</span></div>
+<div class="hr"><span class="hk">빈 공간 클릭 / Esc</span><span class="hd">여러 노드 선택을 해제합니다. Esc는 현재 선택이나 연결 모드를 종료할 때도 사용합니다.</span></div>
+<div class="hr"><span class="hk">우클릭의 묶기 메뉴</span><span class="hd">선택 상태에 따라 「이 노드 아래로 모으기」 또는 「새 상위 노드로 묶기」가 나타납니다. 그룹 박스와 달리 부모·자식 연결 관계를 바꿉니다.</span></div></div>
+</details>
+<details class="help-section" id="help-connection">
+  <summary class="help-title">연결선: 관계·화살표·경로·접점 <span class="help-section-count">18개 항목</span></summary>
+  <div class="help-table"><div class="hr"><span class="hk">🔗 연결 → 시작 → 대상</span><span class="hd">선이 선택되지 않은 상태에서 「연결」을 누르고 시작 노드와 대상 노드를 차례로 클릭하면 참조선을 만듭니다. 참조선은 부모·자식 관계를 바꾸지 않는 추가 연결입니다.</span></div>
+<div class="hr"><span class="hk">노드 가장자리의 점</span><span class="hd">연결 모드에서 표시되는 점을 누르면 선이 붙을 면이나 모서리를 지정할 수 있습니다. Esc 또는 「연결」 버튼으로 모드를 종료합니다.</span></div>
+<div class="hr"><span class="hk">설정창의 ⠿ 연결선 설정 드래그</span><span class="hd">창 위쪽 제목을 끌어 화면을 가리지 않는 위치로 옮기세요. 설정창을 다시 열어도 옮긴 위치를 유지하고, 새로고침하면 기본 위치로 돌아갑니다.</span></div>
+<div class="hr"><span class="hk">선 교차의 둥근 우회 표시</span><span class="hd">서로 연결되지 않은 선이 교차하면 한 선이 둥글게 넘어가는 표시가 자동으로 나타납니다. 연결된 끝점과 나란히 겹치는 구간은 우회 표시를 하지 않으며 실제 연결 관계와 저장된 경로는 유지됩니다.</span></div>
+<div class="hr"><span class="hk">연결선 클릭 / 우클릭</span><span class="hd">선 설정 메뉴를 엽니다. 화살표 방향·선 모양·색상·접점 위치를 설정할 수 있습니다.</span></div>
+<div class="hr"><span class="hk">─ / → / ← / ↔</span><span class="hd">화살표 없음 / 정방향 / 역방향 / 양방향을 선택합니다.</span></div>
+<div class="hr"><span class="hk">∿ / ┐ · ━ / ┄ / ═</span><span class="hd">∿는 곡선, ┐는 모서리가 둥근 꺾은선입니다. ━ / ┄ / ═로 실선·점선·두줄 스타일을 고릅니다.</span></div>
+<div class="hr"><span class="hk">선 메뉴 → ＋ 중간 노드 추가</span><span class="hd">두 노드를 잇는 선을 클릭하거나 우클릭한 뒤 「중간 노드 추가」를 누르세요. 선 가운데에 새 노드가 생기고 앞 노드 → 새 노드 → 뒤 노드로 연결됩니다. 이름을 입력한 뒤 Enter로 완료합니다. 부모·자식 선과 참조선 모두 지원하며 선 색상·스타일·화살표를 유지합니다. 같은 그룹의 두 노드 사이에 넣으면 새 노드도 그룹에 포함됩니다. 화면 위치와 배율은 유지되며 Ctrl+Z로 삽입을 되돌립니다.</span></div>
+<div class="hr"><span class="hk">선 메뉴의 🎨</span><span class="hd">선 색상을 고릅니다. 팔레트의 ＋로 원하는 사용자 색상을 추가합니다.</span></div>
+<div class="hr"><span class="hk">선의 원형 조절점 드래그</span><span class="hd">선에 마우스를 올려 나타나는 조절점을 끌면 굽힘이나 꺾임 위치를 바꿀 수 있습니다. 가까운 같은 축 선에 맞춰지는 경우도 있습니다.</span></div>
+<div class="hr"><span class="hk">주변 선을 이 선에 합치기</span><span class="hd">기준이 될 꺾은선을 클릭한 뒤 이 버튼을 누르세요. 현재 화면에 있는 같은 색·스타일의 꺾은선 중, 지도 좌표에서 80 이내이고 30 이상 겹치는 공통 구간을 기준 선 위치로 맞춰 저장합니다. 노드 연결은 유지되고 Ctrl+Z로 되돌릴 수 있습니다.</span></div>
+<div class="hr"><span class="hk">중앙 노드 우클릭 → ≡ 연결선 정리</span><span class="hd">직접 연결된 노드가 2개 이상인 중앙 노드를 우클릭하고 「연결선 정리」를 누르세요. 우클릭한 노드를 기준으로 연결된 노드를 왼쪽·오른쪽의 세로열로 배치하고 공통 세로선에 연결합니다. 기존 부모 관계·화살표 방향·선 색상과 스타일을 유지하며 위치와 경로를 저장합니다. Ctrl+Z로 배치와 선을 함께 복원할 수 있습니다.</span></div>
+<div class="hr"><span class="hk">공통선의 원형 손잡이 드래그</span><span class="hd">연결선 정리 후 공통 세로선에 표시되는 원을 좌우로 끌면 같은 공통선에 붙은 가지선이 함께 따라옵니다. 잠금 상태에서는 먼저 잠금을 해제하세요. 개별 선의 접점 이동이나 곡선 전환을 사용하면 해당 선은 공통선에서 분리되어 개별 조정됩니다.</span></div>
+<div class="hr"><span class="hk">조절점 더블클릭</span><span class="hd">해당 선의 경로 조정값을 초기화합니다.</span></div>
+<div class="hr"><span class="hk">선 메뉴 → 접점 이동</span><span class="hd">「도착점」 또는 「출발점」을 선택한 뒤 ← / ↑ 또는 → / ↓를 누르세요. 노드 위·아랫면에서는 좌우로, 좌·우면에서는 상하로 10씩 이동합니다. 겹치는 선을 바로 옆으로 분리할 때 사용하세요.</span></div>
+<div class="hr"><span class="hk">접점 이동의 초기화</span><span class="hd">선택한 출발점 또는 도착점의 수동 위치를 해제하고 자동 위치로 되돌립니다. 이동한 접점은 저장되며 Ctrl+Z로 되돌릴 수 있습니다.</span></div>
+<div class="hr"><span class="hk">선 선택 → 🔗 연결</span><span class="hd">선의 양 끝 노드에 표시되는 점을 클릭해 연결면을 변경합니다.</span></div>
+<div class="hr"><span class="hk">🔀 / ✂️ / 🗑 / Delete</span><span class="hd">부모·자식 선 메뉴의 🔀는 새 부모 선택, ✂️는 관계 끊기입니다. 참조선 메뉴의 🗑는 참조선을 삭제합니다. 선을 선택하고 Delete를 눌러도 연결을 끊을 수 있습니다.</span></div></div>
+</details>
+<details class="help-section" id="help-group">
+  <summary class="help-title">그룹: 제목·크기·배경·이동 <span class="help-section-count">8개 항목</span></summary>
+  <div class="help-table"><div class="hr"><span class="hk">여러 노드 선택 → 📦 그룹</span><span class="hd">빈 공간에서 Shift+드래그로 2개 이상 선택한 다음 「그룹」을 누르세요. 노드 위치를 유지한 채 둘레에 그룹 박스를 만듭니다.</span></div>
+<div class="hr"><span class="hk">그룹 제목 클릭</span><span class="hd">그룹 설정 패널을 엽니다. 그룹 이름·색상·배경 표시를 바꿀 수 있습니다.</span></div>
+<div class="hr"><span class="hk">그룹 제목 더블클릭</span><span class="hd">「폰트 크기」 가로 슬라이더가 나타납니다. 구슬을 왼쪽으로 움직이면 작아지고 오른쪽으로 움직이면 커집니다. 제목 크기는 바로 반영되어 저장됩니다.</span></div>
+<div class="hr"><span class="hk">그룹 테두리 크기 조절</span><span class="hd">그룹 제목을 클릭한 뒤 테두리의 연두색 사각 손잡이를 끌어 크기를 줄이거나 늘리세요. 노드와 연결선은 이동하지 않으며 박스 비활성화 상태에서도 조절할 수 있습니다. 「테두리 자동」은 내부 노드에 맞는 크기로 복원합니다. 수동 크기는 저장되고 Ctrl+Z로 되돌릴 수 있습니다.</span></div>
+<div class="hr"><span class="hk">그룹 제목 드래그</span><span class="hd">그룹에 포함된 노드와 내부 연결선의 수동 꺾임 위치를 함께 옮깁니다. 내부 선 모양을 유지하며, 외부 노드와 연결된 선은 외부 끝점을 유지하고 그룹 쪽 끝점이 따라옵니다. Ctrl+Z로 노드와 선을 함께 복원할 수 있습니다.</span></div>
+<div class="hr"><span class="hk">그룹 설정의 색상 / ＋</span><span class="hd">그룹 제목과 박스 색상을 바꿉니다. ＋로 사용자 색상을 추가할 수 있습니다.</span></div>
+<div class="hr"><span class="hk">그룹 설정창의 ⠿ 📦 그룹 드래그</span><span class="hd">설정창 왼쪽 위 제목을 끌어 원하는 위치로 옮기세요. 색상이나 이름을 바꿔도 옮긴 위치를 유지하며, 페이지를 새로고침하면 기본 위치로 돌아갑니다.</span></div>
+<div class="hr"><span class="hk">그룹 설정의 글자색 / 자동</span><span class="hd">그룹 제목을 클릭한 뒤 「글자색」에서 색을 고르세요. 색상 선택창에서 움직이는 동안 제목에 실시간으로 반영됩니다. 「자동」은 배경색에 맞는 글자색으로 되돌립니다. 배경색·제목 크기와 별도로 설정됩니다.</span></div>
+<div class="hr"><span class="hk">그룹 설정의 🔲</span><span class="hd">박스 배경을 비활성화하는 투명 표시를 전환합니다. 그룹 박스가 노드 클릭을 막으면 이 설정을 켜세요.</span></div>
+<div class="hr"><span class="hk">그룹의 × / 설정의 🗑</span><span class="hd">그룹 박스를 삭제합니다. 그룹 안의 노드 자체는 삭제되지 않습니다.</span></div></div>
+</details>
+<details class="help-section" id="help-memo">
+  <summary class="help-title">메모·체크리스트·이미지 <span class="help-section-count">5개 항목</span></summary>
+  <div class="help-table"><div class="hr"><span class="hk">노드 선택 → M</span><span class="hd">메모창을 열거나 닫습니다. 노드 우클릭 → 「메모 열기」로도 열 수 있습니다.</span></div>
+<div class="hr"><span class="hk">메모 입력</span><span class="hd">노드별 설명·운전 참고사항 등을 적을 수 있습니다. 일반 작업 파일에서는 입력 내용이 자동 저장됩니다.</span></div>
+<div class="hr"><span class="hk">메모 서식 버튼</span><span class="hd">체크박스·글머리·번호·들여쓰기·내어쓰기·구분선을 추가할 수 있습니다. 아래 미리보기에서 정리된 내용을 확인하세요.</span></div>
+<div class="hr"><span class="hk">📎 이미지 추가</span><span class="hd">클릭해 이미지 파일을 고르거나 이미지 추가 영역에 파일을 끌어 놓으세요. 첨부 이미지의 ×로 삭제합니다.</span></div>
+<div class="hr"><span class="hk">이미지 클릭 / 노드에 마우스</span><span class="hd">첨부 이미지를 클릭하면 크게 봅니다. 메모나 이미지가 있는 노드에 마우스를 올리면 미리보기가 나타납니다.</span></div></div>
+</details>
+<details class="help-section" id="help-transfer">
+  <summary class="help-title">다른 카테고리로 복사·이동 <span class="help-section-count">5개 항목</span></summary>
+  <div class="help-table"><div class="hr"><span class="hk">Ctrl+C → 카테고리 전환 → Ctrl+V</span><span class="hd">노드 또는 여러 노드를 선택해 복사하고, 대상 카테고리를 클릭한 뒤 붙여넣으세요. 하위 노드도 포함하며 원본은 유지됩니다.</span></div>
+<div class="hr"><span class="hk">노드 우클릭 → 다른 카테고리로 복사 / 이동</span><span class="hd">대상 카테고리를 선택하고 「하위 노드도 함께 포함」 여부를 정한 뒤 「복사」 또는 「이동」을 누릅니다. 먼저 대상 카테고리를 만들어 두세요.</span></div>
+<div class="hr"><span class="hk">복사와 이동의 차이</span><span class="hd">복사는 원본을 남기고, 이동은 원본 카테고리에서 제거합니다. 메모·이미지·포함된 노드 사이의 연결과 그룹 정보가 함께 전달됩니다.</span></div>
+<div class="hr"><span class="hk">붙여넣는 위치</span><span class="hd">기본은 대상 지도 오른쪽 빈 공간입니다. 복사한 뒤 빈 공간 우클릭 → 「붙여넣기」로 클릭한 위치에 붙일 수도 있습니다.</span></div>
+<div class="hr"><span class="hk">Ctrl+Z</span><span class="hd">복사·이동을 되돌릴 수 있습니다. 노드 복사 내용은 현재 열린 페이지 안에서 사용하며, 새로고침하면 다시 복사해야 합니다.</span></div></div>
+</details>
+<details class="help-section" id="help-view">
+  <summary class="help-title">화면 보기·구슬·잠금·검색 <span class="help-section-count">8개 항목</span></summary>
+  <div class="help-table"><div class="hr"><span class="hk">빈 공간 드래그 / 마우스 휠</span><span class="hd">빈 공간을 끌면 지도가 이동합니다. 휠은 확대·축소입니다. 상단 ＋ / － 버튼으로도 배율을 바꿉니다.</span></div>
+<div class="hr"><span class="hk">⊡ 맞춤</span><span class="hd">현재 카테고리의 노드 전체가 화면에 들어오도록 배율과 위치를 맞춥니다.</span></div>
+<div class="hr"><span class="hk">🔵 구슬 ON / ⚪ 구슬 OFF</span><span class="hd">연결선을 따라 움직이는 구슬을 켜거나 끕니다. ON일 때 선택 노드와 연결된 화살표 선에 표시됩니다. 설정은 다시 열어도 유지되며, 시스템의 동작 줄이기 설정이 켜져 있으면 구슬이 숨겨집니다.</span></div>
+<div class="hr"><span class="hk">🔒 잠금</span><span class="hd">노드 드래그와 연결선 조정을 잠그거나 해제합니다. 배치 작업 전에 잠금 상태를 확인하세요.</span></div>
+<div class="hr"><span class="hk">Ctrl+F → 검색어 입력</span><span class="hd">현재 카테고리의 노드 이름을 검색합니다. Enter는 다음 결과, Shift+Enter는 이전 결과, Esc는 검색창 닫기입니다.</span></div>
+<div class="hr"><span class="hk">☀️ 라이트 / 🌙 다크</span><span class="hd">화면의 밝은 테마와 어두운 테마를 전환합니다.</span></div>
+<div class="hr"><span class="hk">🎨 색상설정</span><span class="hd">부모에서 하위 노드로 내려갈수록 색이 얼마나 연해지는지와 적용 깊이를 설정합니다. 미리보기 후 「적용」을 누르세요.</span></div>
+<div class="hr"><span class="hk">새 하위 노드 방향</span><span class="hd">하위 노드 옆의 방향 메뉴에서 자동·오른쪽·왼쪽·아래·위를 고릅니다. 이후 생성하는 하위 노드에 적용됩니다.</span></div></div>
+</details>
+<details class="help-section" id="help-backup">
+  <summary class="help-title">저장·백업·복원·초기화 <span class="help-section-count">6개 항목</span></summary>
+  <div class="help-table"><div class="hr"><span class="hk">일반 작업 파일의 자동 저장</span><span class="hd">지도 데이터는 현재 브라우저의 저장소에, 이미지는 별도 이미지 저장소에 보관됩니다. 다른 브라우저나 PC에는 자동으로 전달되지 않습니다.</span></div>
+<div class="hr"><span class="hk">💾 백업 → JSON 내보내기</span><span class="hd">카테고리·노드·메모·이미지를 포함한 데이터 백업 파일을 만듭니다. 나중에 「불러오기」로 복원할 때 사용합니다.</span></div>
+<div class="hr"><span class="hk">💾 백업 → JSON 불러오기</span><span class="hd">JSON 백업을 선택해 복원합니다. 현재 데이터 전체를 교체하므로 필요하면 먼저 현재 작업을 내보내세요.</span></div>
+<div class="hr"><span class="hk">💾 백업 → HTML 내보내기</span><span class="hd">지도 데이터와 이미지를 넣은 HTML 파일을 만듭니다. 이 파일은 직접 열어 볼 수 있는 별도 백업본입니다.</span></div>
+<div class="hr"><span class="hk">내보낸 HTML에서 수정한 경우</span><span class="hd">원본 브라우저 데이터를 덮어쓰지 않도록 자동 저장하지 않습니다. 변경 내용을 보관하려면 수정 후 다시 내보내세요.</span></div>
+<div class="hr"><span class="hk">🗑 초기화</span><span class="hd">현재 카테고리의 지도를 중심 주제 하나로 초기화합니다. 다른 카테고리는 유지됩니다. 실행 전 필요한 내용을 백업하세요.</span></div></div>
+</details>
+<details class="help-section" id="help-keys">
+  <summary class="help-title">자주 쓰는 단축키 한눈에 보기 <span class="help-section-count">6개 항목</span></summary>
+  <div class="help-table"><div class="hr"><span class="hk">Tab / Enter / F2</span><span class="hd">하위 노드 추가 / 같은 단계 노드 추가 / 노드 이름 편집. 먼저 노드를 선택하세요.</span></div>
+<div class="hr"><span class="hk">Ctrl+C / Ctrl+V</span><span class="hd">선택 노드와 하위 노드 복사 / 현재 카테고리에 붙여넣기.</span></div>
+<div class="hr"><span class="hk">Ctrl+Z</span><span class="hd">삭제·드래그·선 조정·카테고리 복사/이동 등 되돌리기가 지원되는 작업을 복구합니다. 모든 설정 변경에 적용되는 것은 아니며, 페이지를 다시 열면 이력은 사라집니다.</span></div>
+<div class="hr"><span class="hk">Ctrl+B / Ctrl+U / S / M</span><span class="hd">선택 노드의 굵게 / 밑줄 / 중요 표시 / 메모창 열기·닫기.</span></div>
+<div class="hr"><span class="hk">Ctrl+F / ? / Esc</span><span class="hd">노드 검색 / 도움말 열기 / 현재 편집·선택·연결 모드에서 빠져나오기.</span></div>
+<div class="hr"><span class="hk">문자 입력 중에는</span><span class="hd">노드 이름·메모·검색창 등에 입력 중이면 해당 입력칸의 동작이 우선합니다. 노드 이름의 줄바꿈은 Alt+Enter입니다.</span></div></div>
+</details>
+ </div>
 </div>
 
 <!-- COLOR OPT MODAL -->
@@ -1121,7 +1189,7 @@ function rememberCustomColor(list,v){
 }
 
 function pushUndoState(){
-  var serialized=JSON.stringify({nodes:nodes,links:links,groups:groups,nextGid:nextGid,nid:nid,sel:sel,multiSel:multiSel});
+  var serialized=JSON.stringify({catId:curCatId,nodes:nodes,links:links,groups:groups,nextGid:nextGid,nid:nid,sel:sel,multiSel:multiSel});
   var snapshot=JSON.parse(serialized);
   snapshot._bytes=serialized.length*2;
   undoStack.push(snapshot);
@@ -1261,6 +1329,9 @@ function lightenHex(hex,amount){
 /* 배경색 밝기 기반 폰트 색상 자동 계산 */
 function getNodeFontColor(bgHex, customFontColor){
   if(customFontColor)return customFontColor;
+  // CSSOM normalizes solid backgrounds to rgb(), even when set with hex.
+  var rgb=(bgHex||'').match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i);
+  if(rgb){var brightness=(Number(rgb[1])*299+Number(rgb[2])*587+Number(rgb[3])*114)/1000;return brightness>=155?'#1c1e2e':brightness>=125?'#f0f2ff':'#ffffff';}
   bgHex=(bgHex||'#000000').replace('#','');
   if(bgHex.length===3)bgHex=bgHex[0]+bgHex[0]+bgHex[1]+bgHex[1]+bgHex[2]+bgHex[2];
   if(!/^[0-9a-fA-F]{6}$/.test(bgHex))return '#ffffff';
@@ -1352,6 +1423,10 @@ function loadCat(id,doFit){
   var cc=getCat(id);
   nodes=cc.nodes;nid=cc.nid;cam=cc.cam||{x:0,y:0,z:1};links=cc.links||[];groups=cc.groups||[];nextGid=cc.nextGid||1;
   sel=null;
+  multiSel=[];selEdge=null;selGroup=null;panelVisible=false;
+  linkFrom=null;edgePortEdit=null;reconnectMode=false;reconnectNodeId=null;
+  document.body.classList.remove('reconnect-mode');
+  invalidateModelIndex();
   applyCamera();renderAll();
   if(doFit)setTimeout(fitView,80);
   updateToolbarChip();
@@ -1383,14 +1458,17 @@ function deleteCat(catId){
   var desc=[];
   function collect(id){desc.push(id);catChildren(id).forEach(function(c){collect(c.id);});}
   collect(catId);
+  if(desc.length>=cats.length){alert('마지막 카테고리는 삭제할 수 없습니다.');return;}
   var cat=getCat(catId);
   var msg=desc.length>1?'"'+cat.name+'" 및 하위 '+(desc.length-1)+'개 카테고리를 삭제할까요?':'"'+cat.name+'" 카테고리를 삭제할까요?';
   if(!confirm(msg))return;
+  // Save/close the current category before switching any of its state.
+  closeMemo();saveAll();
   cats=cats.filter(function(c){return desc.indexOf(c.id)<0;});
   if(desc.indexOf(curCatId)>=0){
-    curCatId=cats[0].id;var cc=cats[0];
-    nodes=cc.nodes;nid=cc.nid;cam=cc.cam||{x:0,y:0,z:1};
-    sel=null;closeMemo();applyCamera();renderAll();updateToolbarChip();
+    // Restore links/groups as well as nodes. Otherwise saveAll overwrites
+    // the next category's connections with those of the deleted category.
+    loadCat(cats[0].id,false);
   }
   saveAll();buildCatTree();
 }
@@ -1428,6 +1506,42 @@ function openIconPicker(catId,btnEl){
 function closeIconPicker(){document.getElementById('icon-picker').style.display='none';iconPickerTarget=null;}
 
 /* ════════════════ ARROW MENU ════════════════ */
+var arrowMenuPosition=null;
+function enableArrowMenuDrag(menu){
+  var handle=document.createElement('div');
+  handle.textContent='⠿ 연결선 설정';handle.title='드래그해서 설정창 이동';
+  handle.style.cssText='cursor:grab;touch-action:none;user-select:none;padding:3px 2px 7px;font-size:.75rem;font-weight:700;color:var(--mut);';
+  menu.insertBefore(handle,menu.firstChild);
+  var drag=null;
+  function position(x,y,remember){
+    x=Math.max(10,Math.min(x,Math.max(10,window.innerWidth-menu.offsetWidth-10)));
+    y=Math.max(10,Math.min(y,Math.max(10,window.innerHeight-menu.offsetHeight-10)));
+    menu.style.left=x+'px';menu.style.top=y+'px';
+    if(remember)arrowMenuPosition={x:x,y:y};
+  }
+  var rect=menu.getBoundingClientRect();
+  position(arrowMenuPosition?arrowMenuPosition.x:rect.left,arrowMenuPosition?arrowMenuPosition.y:rect.top,!!arrowMenuPosition);
+  handle.addEventListener('pointerdown',function(e){
+    if(e.button!==0)return;
+    e.preventDefault();e.stopPropagation();var r=menu.getBoundingClientRect();
+    drag={id:e.pointerId,x:e.clientX,y:e.clientY,left:r.left,top:r.top};
+    handle.setPointerCapture(e.pointerId);handle.style.cursor='grabbing';
+  });
+  handle.addEventListener('pointermove',function(e){
+    if(!drag||e.pointerId!==drag.id)return;
+    e.preventDefault();e.stopPropagation();
+    position(drag.left+e.clientX-drag.x,drag.top+e.clientY-drag.y,true);
+  });
+  function finish(e){
+    if(!drag||e.pointerId!==drag.id)return;
+    drag=null;handle.style.cursor='grab';
+    if(handle.hasPointerCapture(e.pointerId))handle.releasePointerCapture(e.pointerId);
+    e.stopPropagation();
+  }
+  handle.addEventListener('pointerup',finish);handle.addEventListener('pointercancel',finish);
+  handle.addEventListener('lostpointercapture',function(){drag=null;handle.style.cursor='grab';});
+  handle.addEventListener('click',function(e){e.stopPropagation();});
+}
 function showArrowMenu(target, cx, cy, type){
   closeArrowMenu();
   var menu=document.createElement('div');
@@ -1456,8 +1570,8 @@ function showArrowMenu(target, cx, cy, type){
     btn.style.cssText='background:'+(curLineType===o.val?'var(--acc)':'var(--sur2)')+';border:1px solid var(--bdr);border-radius:7px;width:34px;height:34px;font-size:1.05rem;cursor:pointer;color:var(--txt);font-weight:800;';
     btn.onclick=function(e){
       e.stopPropagation();
-      if(type==='tree'){var n=gn(target);if(n){n.lineType=o.val;}}
-      else{target.lineType=o.val;}
+      if(type==='tree'){var n=gn(target);if(n){n.lineType=o.val;if(n.cp&&n.cp.organizedBus)n.cp={dx:0,dy:0};}}
+      else{target.lineType=o.val;if(target.cp&&target.cp.organizedBus)target.cp={dx:0,dy:0};}
       saveAll();renderAll();closeArrowMenu();
     };
     menu.appendChild(btn);
@@ -1653,8 +1767,32 @@ function showArrowMenu(target, cx, cy, type){
   topRow.appendChild(palSep);
   topRow.appendChild(palBtn);
   menu.appendChild(topRow);
+  var attachRow=document.createElement('div');
+  attachRow.style.cssText='display:flex;gap:6px;align-items:center;padding:8px 0 2px;color:var(--txt);font-size:12px;';
+  var attachLabel=document.createElement('span');attachLabel.textContent='접점 이동';attachRow.appendChild(attachLabel);
+  var attachEnd=document.createElement('select');
+  attachEnd.style.cssText='background:var(--sur2);color:var(--txt);border:1px solid var(--bdr);border-radius:6px;padding:5px;';
+  [['end','도착점'],['start','출발점']].forEach(function(item){var o=document.createElement('option');o.value=item[0];o.textContent=item[1];attachEnd.appendChild(o);});
+  attachRow.appendChild(attachEnd);
+  [['← / ↑',-10],['→ / ↓',10],['초기화',0]].forEach(function(item){
+    var b=document.createElement('button');b.className='tbtn';b.textContent=item[0];
+    b.title=item[1]?'노드 면을 따라 10만큼 이동 (위·아랫면: 좌우, 좌·우면: 상하)':'선택한 접점의 수동 위치 해제';
+    b.onclick=function(e){e.stopPropagation();nudgeEdgeAttachment(target,type,attachEnd.value,item[1]);};
+    attachRow.appendChild(b);
+  });
+  attachRow.addEventListener('click',function(e){e.stopPropagation();});
+  menu.appendChild(attachRow);
+  var mergeBtn=document.createElement('button');mergeBtn.className='tbtn';mergeBtn.textContent='≡ 주변 선을 이 선에 합치기';
+  mergeBtn.title='같은 색과 스타일의 가까운 꺾은선 공통 구간을 이 선 위치에 맞춰 저장';
+  mergeBtn.onclick=function(e){e.stopPropagation();alignNearbyEdgeRoutes(target,type);};
+  menu.appendChild(mergeBtn);
+  var insertBtn=document.createElement('button');insertBtn.className='tbtn';insertBtn.textContent='＋ 중간 노드 추가';
+  insertBtn.title='선 가운데에 새 노드를 넣고 앞 노드 → 새 노드 → 뒤 노드로 연결 (Ctrl+Z로 복구)';
+  insertBtn.onclick=function(e){e.stopPropagation();insertNodeOnEdge(target,type);};
+  menu.appendChild(insertBtn);
   menu.appendChild(cRow);
   document.body.appendChild(menu);
+  enableArrowMenuDrag(menu);
   /* 바깥 클릭 시 닫기 */
   setTimeout(function(){
     document.addEventListener('click',closeArrowMenu,{once:true});
@@ -1785,9 +1923,10 @@ function getWorldViewportBounds(pad){
     y2:(vp.clientHeight-cam.y)/cam.z+pad
   };
 }
-function edgeMaybeVisible(a,b,bounds){
+function edgeMaybeVisible(a,b,bounds,routePoints){
   var minX=Math.min(a.x,b.x), maxX=Math.max(a.x,b.x);
   var minY=Math.min(a.y,b.y), maxY=Math.max(a.y,b.y);
+  (routePoints||[]).forEach(function(p){if(isFinite(p.x)&&isFinite(p.y)){minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);}});
   return !(maxX<bounds.x1||minX>bounds.x2||maxY<bounds.y1||minY>bounds.y2);
 }
 function nodeMaybeVisible(n,bounds){
@@ -1912,6 +2051,48 @@ function autoLayout(){
 
 
 /* ════════════════ GROUP PANEL ════════════════ */
+function manualGroupBoxBounds(base,offset){
+  offset=offset||{};
+  var left=base.left+(Number(offset.left)||0),top=base.top+(Number(offset.top)||0);
+  var right=base.right+(Number(offset.right)||0),bottom=base.bottom+(Number(offset.bottom)||0);
+  return {left:left,top:top,right:Math.max(left+80,right),bottom:Math.max(top+60,bottom)};
+}
+function resizeGroupBoxOffsets(base,offset,side,dx,dy){
+  var box=manualGroupBoxBounds(base,offset);
+  if(side.indexOf('w')>=0)box.left=Math.min(box.right-80,box.left+dx);
+  if(side.indexOf('e')>=0)box.right=Math.max(box.left+80,box.right+dx);
+  if(side.indexOf('n')>=0)box.top=Math.min(box.bottom-60,box.top+dy);
+  if(side.indexOf('s')>=0)box.bottom=Math.max(box.top+60,box.bottom+dy);
+  return {left:box.left-base.left,top:box.top-base.top,right:box.right-base.right,bottom:box.bottom-base.bottom};
+}
+function addGroupBoxResizeHandles(wrap,grp){
+  var positions={nw:[0,0],n:[25,0],ne:[100,0],e:[100,50],se:[100,100],s:[50,100],sw:[0,100],w:[0,50]};
+  Object.keys(positions).forEach(function(side){
+    var handle=document.createElement('div');handle.className='group-resize-handle';
+    handle.title='드래그해서 그룹 테두리 크기 조절';
+    handle.style.left=positions[side][0]+'%';handle.style.top=positions[side][1]+'%';
+    handle.style.cursor=side+'-resize';
+    handle.addEventListener('mousedown',function(e){
+      if(e.button!==0)return;e.preventDefault();e.stopPropagation();
+      if(lockMode){showToast('🔒 잠금을 해제한 뒤 테두리를 조절하세요');return;}
+      var base=Object.assign({},wrap._autoBounds),initial=Object.assign({},grp.boxOffsets||{});
+      var startX=e.clientX,startY=e.clientY,z=cam.z,moved=false;
+      function move(ev){
+        var dx=(ev.clientX-startX)/z,dy=(ev.clientY-startY)/z;
+        if(!moved&&!dx&&!dy)return;
+        if(!moved){pushUndoState();moved=true;}
+        grp.boxOffsets=resizeGroupBoxOffsets(base,initial,side,dx,dy);
+        renderNodes();
+      }
+      function up(){
+        document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up);
+        if(moved){saveAll();renderNodes();showGroupPanel(grp.id);}
+      }
+      document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
+    });
+    handle.addEventListener('click',function(e){e.stopPropagation();});wrap.appendChild(handle);
+  });
+}
 function selectGroup(gid){
   selGroup=gid;
   sel=null;
@@ -1941,12 +2122,46 @@ function deselectGroup(){
   var gp=document.getElementById('group-panel');
   if(gp){gp.style.display='none';gp.style.visibility='hidden';}
 }
+function enableGroupPanelDrag(gp){
+  if(gp._dragReady)return;
+  gp._dragReady=true;
+  var handle=document.getElementById('gp-drag-handle'),drag=null;
+  function movePanel(x,y){
+    x=Math.max(10,Math.min(x,Math.max(10,window.innerWidth-gp.offsetWidth-10)));
+    y=Math.max(10,Math.min(y,Math.max(10,window.innerHeight-gp.offsetHeight-10)));
+    gp._manualPosition={x:x,y:y};gp.style.left=x+'px';gp.style.top=y+'px';
+  }
+  handle.addEventListener('pointerdown',function(e){
+    if(e.button!==0)return;
+    e.preventDefault();e.stopPropagation();
+    var rect=gp.getBoundingClientRect();
+    drag={id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top};
+    handle.setPointerCapture(e.pointerId);handle.style.cursor='grabbing';
+  });
+  handle.addEventListener('pointermove',function(e){
+    if(!drag||e.pointerId!==drag.id)return;
+    e.preventDefault();e.stopPropagation();
+    movePanel(drag.left+e.clientX-drag.x,drag.top+e.clientY-drag.y);
+  });
+  function finish(e){
+    if(!drag||e.pointerId!==drag.id)return;
+    drag=null;handle.style.cursor='grab';
+    if(handle.hasPointerCapture(e.pointerId))handle.releasePointerCapture(e.pointerId);
+    e.stopPropagation();
+  }
+  handle.addEventListener('pointerup',finish);
+  handle.addEventListener('pointercancel',finish);
+  handle.addEventListener('lostpointercapture',function(){drag=null;handle.style.cursor='grab';});
+  handle.addEventListener('click',function(e){e.stopPropagation();});
+  window.addEventListener('resize',function(){if(gp._manualPosition)movePanel(gp._manualPosition.x,gp._manualPosition.y);});
+}
 function showGroupPanel(gid){
   var grp=groups.filter(function(g){return g.id===gid;})[0];
   if(!grp)return;
   selGroup=gid; /* 삭제/조작 시 올바른 그룹 참조 보장 */
   var gp=document.getElementById('group-panel');
   if(!gp)return;
+  enableGroupPanelDrag(gp);
   /* 표시 후 크기 측정을 위해 먼저 visible hidden으로 렌더링 */
   gp.style.visibility='hidden';
   gp.style.display='flex';
@@ -1997,6 +2212,24 @@ function showGroupPanel(gid){
   nameInput.value=grp.name||'그룹';
   nameInput.onchange=function(){grp.name=this.value.trim()||'그룹';saveAll();renderNodes();};
   nameInput.oninput=function(){grp.name=this.value;saveAll({defer:true});renderNodes();};
+  var fontColorInput=document.getElementById('gp-font-color');
+  fontColorInput.value=getNodeFontColor(grp.color||'#7c6fcd',grp.fontColor);
+  var fontColorUndoPushed=false;
+  fontColorInput.onpointerdown=function(){fontColorUndoPushed=false;};
+  function applyLiveGroupFontColor(e){
+    e.stopPropagation();
+    if(grp.fontColor===fontColorInput.value)return;
+    if(!fontColorUndoPushed){pushUndoState();fontColorUndoPushed=true;}
+    grp.fontColor=fontColorInput.value;
+    // Update only the title so the open native color picker stays undisturbed.
+    var title=document.querySelector('.group-box-wrap[data-gid="'+gid+'"] .group-box-label');
+    if(title)title.style.color=grp.fontColor;
+    saveAll({defer:true});
+  }
+  fontColorInput.oninput=applyLiveGroupFontColor;
+  fontColorInput.onchange=function(e){applyLiveGroupFontColor(e);saveAll();fontColorUndoPushed=false;};
+  document.getElementById('gp-font-auto').onclick=function(e){e.stopPropagation();pushUndoState();delete grp.fontColor;saveAll();renderNodes();showGroupPanel(gid);};
+  document.getElementById('gp-box-auto').onclick=function(e){e.stopPropagation();if(!grp.boxOffsets)return;pushUndoState();delete grp.boxOffsets;saveAll();renderNodes();showGroupPanel(gid);};
   /* 투명화 버튼 상태 반영 */
   var tBtn=document.getElementById('gp-transparent');
   if(tBtn){
@@ -2012,7 +2245,12 @@ function showGroupPanel(gid){
   requestAnimationFrame(function(){
     var panelH=gp.offsetHeight||60;
     var panelW=gp.offsetWidth||320;
-    if(wEl){
+    if(gp._manualPosition){
+      var manual=gp._manualPosition;
+      manual.x=Math.max(10,Math.min(manual.x,Math.max(10,window.innerWidth-panelW-10)));
+      manual.y=Math.max(10,Math.min(manual.y,Math.max(10,window.innerHeight-panelH-10)));
+      gp.style.left=manual.x+'px';gp.style.top=manual.y+'px';
+    }else if(wEl){
       var rect=wEl.getBoundingClientRect();
       /* 그룹박스 상단 중앙 위에 패널 배치 */
       var topPos=rect.top - panelH - 14;
@@ -2234,6 +2472,160 @@ function applyShiftDragAlignment(n,targetIds,magnetic){
 var ARROW_OFFSET = 0; /* 실제 화살촉 위치는 곡선 접선 기준으로 별도 보정 */
 var ARROW_TIP_GAP = 5; /* 화살촉 끝과 노드 박스 사이 월드 좌표 간격 */
 function arrowTipGap(){return ARROW_TIP_GAP*Math.max(0.15,cam.z||1);}
+function attachmentSideFromAngle(angle){
+  var x=Math.cos(angle),y=Math.sin(angle);
+  return Math.abs(x)>=Math.abs(y)?(x>=0?'left':'right'):(y>=0?'top':'bottom');
+}
+function resolveSavedAttachment(edge,node,w,h,which,fallback){
+  var saved=edge[which+'Attach'];if(!saved)return fallback;
+  var side=saved.side,vertical=side==='top'||side==='bottom';
+  var limit=Math.max(0,(vertical?w:h)/2-10);
+  var offset=clampVal(Number(saved.offset)||0,-limit,limit);
+  var x=node.x,y=node.y,angle;
+  if(side==='top'){x+=offset;y-=h/2+ARROW_TIP_GAP;angle=Math.PI/2;}
+  else if(side==='bottom'){x+=offset;y+=h/2+ARROW_TIP_GAP;angle=-Math.PI/2;}
+  else if(side==='left'){y+=offset;x-=w/2+ARROW_TIP_GAP;angle=0;}
+  else if(side==='right'){y+=offset;x+=w/2+ARROW_TIP_GAP;angle=Math.PI;}
+  else return fallback;
+  return {point:w2s(x,y),angle:angle,side:side,mode:vertical?'vertical':'horizontal'};
+}
+function nudgeEdgeAttachment(target,type,which,delta){
+  var edge=type==='tree'?gn(target):target;
+  if(!edge)return;
+  if(lockMode){showToast('🔒 잠금을 해제한 뒤 접점을 조절하세요');return;}
+  var key=(type==='tree'?'tree-'+edge.id:'link-'+edge.from+'-'+edge.to);
+  var entry=_edgeDomCache[key],tip=entry&&entry.endpointInfo&&entry.endpointInfo[which];
+  var node=gn(which==='start'?(type==='tree'?edge.pid:edge.from):(type==='tree'?edge.id:edge.to));
+  if(!node||!tip){showToast('선을 다시 선택한 뒤 조절하세요');return;}
+  pushUndoState();
+  if(edge.cp&&edge.cp.organizedBus){
+    edge.cp={points:(entry.routePoints||[]).slice(1,-1)};
+    ['start','end'].forEach(function(end){var endpoint=entry.endpointInfo[end],n=end==='start'?entry.a:entry.b;
+      var side=attachmentSideFromAngle(endpoint.angle);edge[end+'Attach']={side:side,offset:(side==='top'||side==='bottom')?endpoint.x-n.x:endpoint.y-n.y};});
+  }
+  if(!delta)delete edge[which+'Attach'];
+  else{
+    var old=edge[which+'Attach'],side=old?old.side:attachmentSideFromAngle(tip.angle);
+    var vertical=side==='top'||side==='bottom';
+    var offset=old?old.offset:(vertical?tip.x-node.x:tip.y-node.y);
+    var limit=Math.max(0,(vertical?nwFull(node):nhFull(node))/2-10);
+    edge[which+'Attach']={side:side,offset:clampVal(offset+delta,-limit,limit)};
+  }
+  saveAll();renderAll();showToast(delta?'접점 이동됨 — 위치가 저장됩니다 (Ctrl+Z로 복구)':'접점 자동 위치로 복원됨');
+}
+function alignNearbyEdgeRoutes(target,type){
+  if(lockMode){showToast('🔒 잠금을 해제한 뒤 선을 합치세요');return;}
+  var edge=type==='tree'?gn(target):target;if(!edge)return;
+  if((edge.lineType||'curve')!=='elbow'){showToast('먼저 ┐ 꺾은선으로 바꾼 뒤 사용하세요');return;}
+  var key=type==='tree'?'tree-'+edge.id:'link-'+edge.from+'-'+edge.to;
+  var base=_edgeDomCache[key];
+  if(!base||!base.routePoints||base.routePoints.length<3){showToast('공통 구간이 있는 꺾은선을 선택하세요');return;}
+  var guides=base.routePoints,updates=[],range=80,eps=0.001;
+  Object.keys(_edgeDomCache).forEach(function(k){
+    var item=_edgeDomCache[k];
+    if(k===key||(item.obj.lineType||'curve')!=='elbow'||item.routeColor!==base.routeColor||item.routeStyle!==base.routeStyle)return;
+    var points=(item.routePoints||[]).map(function(p){return {x:p.x,y:p.y};}),changed=false;
+    // Only internal segments can move; node endpoints remain attached in place.
+    for(var j=1;j<points.length-2;j++){
+      var a=points[j],b=points[j+1],horizontal=Math.abs(a.y-b.y)<eps,vertical=Math.abs(a.x-b.x)<eps;
+      if(!horizontal&&!vertical)continue;
+      var along=horizontal?'x':'y',across=horizontal?'y':'x',best=null;
+      for(var i=0;i<guides.length-1;i++){
+        var p=guides[i],q=guides[i+1];
+        if(Math.abs(p[across]-q[across])>eps)continue;
+        var overlap=Math.min(Math.max(a[along],b[along]),Math.max(p[along],q[along]))-
+          Math.max(Math.min(a[along],b[along]),Math.min(p[along],q[along]));
+        var distance=Math.abs(a[across]-p[across]);
+        if(distance>range||overlap<30)continue;
+        if(!best||distance<best.distance)best={coordinate:p[across],distance:distance};
+      }
+      if(best&&best.distance>eps){a[across]=best.coordinate;b[across]=best.coordinate;changed=true;}
+    }
+    if(changed)updates.push({item:item,points:points});
+  });
+  if(!updates.length){showToast('80 이내에 합칠 같은 색·스타일의 공통 구간이 없습니다');return;}
+  pushUndoState();
+  var first=guides[0],last=guides[guides.length-1];
+  var radius=edge.cp&&edge.cp.cornerRadius!==undefined?edge.cp.cornerRadius:
+    Math.min(22,Math.max(6,Math.min(Math.abs(last.x-first.x),Math.abs(last.y-first.y))/3));
+  function storeRoute(item,points){
+    item.obj.cp=Object.assign({},item.obj.cp||{},{points:points.slice(1,-1),cornerRadius:radius});
+    ['start','end'].forEach(function(which){
+      if(item.obj[which+'Attach'])return;
+      var n=which==='start'?item.a:item.b,tip=item.endpointInfo[which];
+      var side=attachmentSideFromAngle(tip.angle),horizontal=side==='top'||side==='bottom';
+      item.obj[which+'Attach']={side:side,offset:horizontal?tip.x-n.x:tip.y-n.y};
+    });
+  }
+  storeRoute(base,guides);
+  updates.forEach(function(update){storeRoute(update.item,update.points);});
+  saveAll();renderAll();closeArrowMenu();
+  showToast('≡ '+updates.length+'개 선의 공통 구간을 한 줄로 맞췄습니다 (Ctrl+Z로 복구)');
+}
+function organizeHubConnections(){
+  if(lockMode){showToast('🔒 잠금을 해제한 뒤 연결선을 정리하세요');return;}
+  var hub=gn(sel);if(!hub){showToast('먼저 중앙 노드를 선택하세요');return;}
+  var records=[];
+  nodes.forEach(function(n){if(n.pid===hub.id)records.push({edge:n,other:n.id});else if(n.id===hub.id&&n.pid!==null&&gn(n.pid))records.push({edge:n,other:n.pid});});
+  links.forEach(function(l){if(l.from===hub.id)records.push({edge:l,other:l.to});else if(l.to===hub.id)records.push({edge:l,other:l.from});});
+  records=records.filter(function(r){return r.other!==hub.id&&!!gn(r.other);});
+  var ids=Array.from(new Set(records.map(function(r){return r.other;})));
+  if(ids.length<2){showToast('직접 연결된 노드가 2개 이상인 중앙 노드를 선택하세요');return;}
+  if(memoOpen)saveMemoTxt();pushUndoState();
+  ['left','right'].forEach(function(side){
+    var peers=ids.map(gn).filter(function(n){return (n.x<=hub.x?'left':'right')===side;}).sort(function(a,b){return a.y-b.y||a.id-b.id;});
+    if(!peers.length)return;
+    var maxW=0,total=0;peers.forEach(function(n){maxW=Math.max(maxW,nwFull(n));total+=nhFull(n);});total+=(peers.length-1)*60;
+    var direction=side==='left'?-1:1,x=hub.x+direction*(nwFull(hub)/2+maxW/2+240),y=hub.y-total/2;
+    peers.forEach(function(n){n.x=x;n.y=y+nhFull(n)/2;y+=nhFull(n)+60;});
+    records.forEach(function(r){if(peers.some(function(n){return n.id===r.other;})){
+      r.edge.lineType='elbow';r.edge.cp={organizedBus:{hubId:hub.id,side:side,offset:100}};
+      delete r.edge.startAttach;delete r.edge.endAttach;
+    }});
+  });
+  invalidateModelIndex();saveAll();renderAll();
+  showToast('≡ '+ids.length+'개 노드와 연결선 정리 완료 — 공통선의 원형 손잡이를 좌우로 드래그하세요 (Ctrl+Z로 복구)');
+}
+function getOrganizedBusPath(edge,from,to){
+  var bus=edge.cp&&edge.cp.organizedBus;if(!bus)return null;
+  var hub=gn(bus.hubId);if(!hub||!from||!to||(from.id!==hub.id&&to.id!==hub.id))return null;
+  var peer=from.id===hub.id?to:from,sign=bus.side==='left'?-1:1;
+  var hubFace={x:hub.x+sign*(nwFull(hub)/2+ARROW_TIP_GAP),y:hub.y};
+  var peerFace={x:peer.x-sign*(nwFull(peer)/2+ARROW_TIP_GAP),y:peer.y};
+  var offsetLimit=Infinity;
+  nodes.concat(links).forEach(function(candidate){
+    var saved=candidate.cp&&candidate.cp.organizedBus;if(!saved||saved.hubId!==hub.id||saved.side!==bus.side)return;
+    var otherId=candidate.pid!==undefined?(candidate.id===hub.id?candidate.pid:candidate.id):(candidate.from===hub.id?candidate.to:candidate.from);
+    var other=gn(otherId);if(!other)return;
+    var faceX=other.x-sign*(nwFull(other)/2+ARROW_TIP_GAP);
+    offsetLimit=Math.min(offsetLimit,Math.max(25,Math.abs(faceX-hubFace.x)-25));
+  });
+  var offset=Math.max(25,Math.min(Number(bus.offset)||100,offsetLimit));
+  var busX=hubFace.x+sign*offset;
+  var points=[peerFace,{x:busX,y:peer.y},{x:busX,y:hub.y},hubFace];
+  if(from.id===hub.id)points.reverse();
+  var screenPoints=points.map(function(p){return w2s(p.x,p.y);});
+  var info=buildRoundedOrthogonalPath(screenPoints,16*cam.z);
+  info.handle={x:w2s(busX,hub.y).x,y:w2s(busX,(hub.y+peer.y)/2).y};info.handles=[];info.busLinks=[];
+  info.startPoint=screenPoints[0];info.endPoint=screenPoints[screenPoints.length-1];
+  info.organizedBus={hubId:hub.id,side:bus.side,x:busX,maxOffset:offsetLimit,y1:Math.min(hub.y,peer.y),y2:Math.max(hub.y,peer.y),color:edge.color||edge.lineColor||getColor(peer.id)};
+  return info;
+}
+function appendOrganizedBusHandle(layer,bus){
+  var h=document.createElementNS('http://www.w3.org/2000/svg','circle'),point=w2s(bus.x,(bus.y1+bus.y2)/2);
+  h.setAttribute('cx',point.x);h.setAttribute('cy',point.y);h.setAttribute('r','7');h.setAttribute('fill','var(--sur)');h.setAttribute('stroke',bus.color);h.setAttribute('stroke-width','2');
+  h.style.pointerEvents='all';h.style.cursor='ew-resize';
+  var title=document.createElementNS('http://www.w3.org/2000/svg','title');title.textContent='공통선 좌우 이동';h.appendChild(title);
+  h.addEventListener('mousedown',function(e){
+    if(e.button!==0)return;e.preventDefault();e.stopPropagation();
+    if(lockMode){showToast('🔒 잠금을 해제하세요');return;}
+    pushUndoState();var startX=e.clientX,original=[];
+    nodes.concat(links).forEach(function(edge){var b=edge.cp&&edge.cp.organizedBus;if(b&&b.hubId===bus.hubId&&b.side===bus.side)original.push({bus:b,offset:b.offset});});
+    function move(ev){var delta=(ev.clientX-startX)/cam.z*(bus.side==='left'?-1:1);original.forEach(function(item){item.bus.offset=clampVal(item.offset+delta,25,bus.maxOffset);});renderCurves();}
+    function up(){document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up);saveAll();renderCurves();drawMM();}
+    document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
+  });layer.appendChild(h);
+}
 function getEdgePoint(nx, ny, nw, nh, tx, ty, applyOffset){
   var dx=tx-nx, dy=ty-ny;
   if(dx===0&&dy===0) return {x:nx, y:ny};
@@ -2317,15 +2709,30 @@ function elbowPortModeFromName(port){
 }
 function applyElbowEndpointModes(cpOff,startMode,endMode){
   var next=cpOff||{};
-  if(startMode==='vertical'||endMode==='vertical'){
+  if(startMode||endMode){
     next=Object.assign({},next);
-    if(startMode==='vertical')next.startVertical=true;
-    if(endMode==='vertical')next.endVertical=true;
+    if(startMode){next.startVertical=startMode==='vertical';next.startHorizontal=startMode==='horizontal';}
+    if(endMode){next.endVertical=endMode==='vertical';next.endHorizontal=endMode==='horizontal';}
   }
   return next;
 }
 
 /* 곡선 접선 방향을 기준으로 노드 박스 바깥의 정확한 화살촉 끝점 계산 */
+function getCurveArrowEndpoint(node,nodeW,nodeH,point,control,alreadyGapped){
+  var center=w2s(node.x,node.y),hw=nodeW*cam.z/2,hh=nodeH*cam.z/2;
+  var dx=point.x-center.x,dy=point.y-center.y;
+  var horizontal=Math.abs(dx)/Math.max(hw,0.001)>=Math.abs(dy)/Math.max(hh,0.001);
+  var nx=horizontal?(dx>=0?1:-1):0,ny=horizontal?0:(dy>=0?1:-1);
+  // Keep the chosen node face; a displaced control point must not move the
+  // arrow to the opposite face or make it point away from the node.
+  var gap=alreadyGapped?0:arrowTipGap();
+  var tip={x:point.x+nx*gap,y:point.y+ny*gap};
+  var next={x:control.x,y:control.y};
+  var outside=(next.x-tip.x)*nx+(next.y-tip.y)*ny;
+  var minimum=24*cam.z;
+  if(outside<minimum){next.x+=nx*(minimum-outside);next.y+=ny*(minimum-outside);}
+  return {point:tip,control:next};
+}
 function getArrowTipForNode(node, nodeW, nodeH, angle){
   var center=w2s(node.x,node.y);
   var ux=Math.cos(angle), uy=Math.sin(angle);
@@ -2350,6 +2757,21 @@ function scaledLowZoomStroke(width,minWidth){
 }
 function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
   if(!info)return null;
+  function worldValue(v,axis){return Math.round(((v-cam[axis])/cam.z)*1e8)/1e8;}
+  var worldInfo=Object.assign({},info);
+  if(info.points)worldInfo.points=info.points.map(function(p){return {x:worldValue(p.x,'x'),y:worldValue(p.y,'y')};});
+  ['routeX','turnX','startX','endX','finalX','csX'].forEach(function(k){if(info[k]!==undefined)worldInfo[k]=worldValue(info[k],'x');});
+  ['routeY','turnY','startY','endY','finalY','csY'].forEach(function(k){if(info[k]!==undefined)worldInfo[k]=worldValue(info[k],'y');});
+  var port=getElbowAutoPortWorld(node,nodeW,nodeH,worldInfo,isStart);
+  if(port)port.point=w2s(port.point.x,port.point.y);
+  return port;
+}
+function getElbowAutoPortWorld(node,nodeW,nodeH,info,isStart){
+  // All attachment decisions use map coordinates, independent of zoom/pan.
+  var cam={z:1};
+  function w2s(x,y){return {x:x,y:y};}
+  function arrowTipGap(){return ARROW_TIP_GAP;}
+  if(!info)return null;
   var center=w2s(node.x,node.y);
   var hw=(nodeW*cam.z)/2, hh=(nodeH*cam.z)/2;
   var left=center.x-hw, right=center.x+hw, top=center.y-hh, bottom=center.y+hh;
@@ -2368,13 +2790,7 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
 
   function verticalPort(side,x,score){
     var attachX=clampVal(x,usableLeft,usableRight);
-    /*
-      노드 위/아래 중앙 근처로 들어오는 여러 직각선은 접점이 몇 픽셀만 달라도
-      U자처럼 말려 보인다. 중앙 근처에서는 같은 접점으로 흡착시켜 한 줄처럼
-      떨어지게 하고, 충분히 떨어진 곳은 사용자가 옮긴 위치를 유지한다.
-    */
-    var centerSnap=Math.min(44*cam.z, Math.max(14*cam.z, hw*0.42));
-    if(Math.abs(attachX-center.x)<=centerSnap)attachX=center.x;
+    // Preserve the route's chosen position on the face; do not pull it to center.
     if(side==='bottom'){
       return {angle:-Math.PI/2, mode:'vertical', side:'bottom', score:score||0, point:{x:attachX,y:bottom+arrowTipGap()}};
     }
@@ -2382,14 +2798,15 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
   }
 
   function verticalPortOnFace(side,x,score){
-    var cornerRange=26*cam.z;
-    if(x<left-cornerRange||x>right+cornerRange)return null;
+    // A segment beside the box does not intersect its top/bottom face.
+    // Snapping that segment onto a corner creates a visible dangling tail.
+    if(x<left||x>right)return null;
     return verticalPort(side,x,score);
   }
 
   function horizontalPortFromSegment(x1,x2,y){
     if(x1===undefined||x2===undefined||y===undefined)return null;
-    if(Math.abs(x2-x1)<1)return null;
+    if(Math.abs(x2-x1)<cam.z)return null;
     if(y<top-margin||y>bottom+margin)return null;
     var segMinH=Math.min(x1,x2), segMaxH=Math.max(x1,x2);
     if(segMaxH<left-margin||segMinH>right+margin)return null;
@@ -2407,7 +2824,7 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
     var segCenter=(x1+x2)/2;
     var side;
     if(touchesLeft&&touchesRight){
-      side=Math.abs(rightReach-leftReach)>1
+      side=Math.abs(rightReach-leftReach)>cam.z
         ? (rightReach>leftReach?'right':'left')
         : (segCenter>=center.x?'right':'left');
     }else{
@@ -2418,14 +2835,16 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
 
   function portFromActualSegments(){
     if(!info.points||info.points.length<2)return null;
-    var pts=info.points, eps=Math.max(1,1.5*cam.z);
+    var pts=info.points, eps=1.5*cam.z;
     function checkVerticalSegment(a,b){
       var dx=b.x-a.x, dy=b.y-a.y;
       if(Math.abs(dx)<=eps){
         var x=(a.x+b.x)/2;
         var minY=Math.min(a.y,b.y), maxY=Math.max(a.y,b.y);
-        var topHit=(minY<=top+margin&&maxY>=top-margin);
-        var bottomHit=(minY<=bottom+margin&&maxY>=bottom-margin);
+        // Use actual face intersections, rather than the nearby snap margin.
+        // A short leg inside the box must not attach below/above the box.
+        var topHit=(minY<=top&&maxY>=top);
+        var bottomHit=(minY<=bottom&&maxY>=bottom);
         if(topHit){
           var tp=verticalPortOnFace('top',x,Math.abs(maxY-top));
           if(tp)return tp;
@@ -2453,19 +2872,23 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
         var sp=checkVerticalSegment(pts[si],pts[si+1]);
         if(sp)return sp;
       }
+      var bestStartHorizontal=null;
       for(var shi=0;shi<pts.length-1;shi++){
         var shp=checkHorizontalSegment(pts[shi],pts[shi+1]);
-        if(shp)return shp;
+        if(shp&&(!bestStartHorizontal||shp.score>bestStartHorizontal.score))bestStartHorizontal=shp;
       }
+      if(bestStartHorizontal)return bestStartHorizontal;
     }else{
       for(var ei=pts.length-2;ei>=0;ei--){
         var ep=checkVerticalSegment(pts[ei],pts[ei+1]);
         if(ep)return ep;
       }
+      var bestEndHorizontal=null;
       for(var ehi=pts.length-2;ehi>=0;ehi--){
         var ehp=checkHorizontalSegment(pts[ehi],pts[ehi+1]);
-        if(ehp)return ehp;
+        if(ehp&&(!bestEndHorizontal||ehp.score>bestEndHorizontal.score))bestEndHorizontal=ehp;
       }
+      if(bestEndHorizontal)return bestEndHorizontal;
     }
     return null;
   }
@@ -2500,8 +2923,8 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
     */
     var preferredY=(info.finalY!==undefined)?info.finalY:((info.endY!==undefined)?info.endY:info.csY);
     if(preferredY!==undefined&&preferredY>=top-margin*2&&preferredY<=bottom+margin*2){
-      var rightBypass=Math.max(info.turnX||-Infinity,info.endX||-Infinity,info.finalX||-Infinity);
-      var leftBypass=Math.min(info.turnX||Infinity,info.endX||Infinity,info.finalX||Infinity);
+      var rightBypass=Math.max(info.turnX===undefined?-Infinity:info.turnX,info.endX===undefined?-Infinity:info.endX,info.finalX===undefined?-Infinity:info.finalX);
+      var leftBypass=Math.min(info.turnX===undefined?Infinity:info.turnX,info.endX===undefined?Infinity:info.endX,info.finalX===undefined?Infinity:info.finalX);
       if(rightBypass>right+margin)return horizontalPort('right',preferredY,rightBypass-right);
       if(leftBypass<left-margin)return horizontalPort('left',preferredY,left-leftBypass);
     }
@@ -2543,13 +2966,15 @@ function getElbowAutoPortAngle(node,nodeW,nodeH,info,isStart){
 }
 function shouldUseElbowAutoPort(manualPort,autoPort){
   if(!autoPort)return false;
-  if(!manualPort)return true;
-  /*
-    꺾은선은 사용자가 선을 움직이면서 실제 접근 방향이 계속 바뀐다.
-    기존 포트(left/right/top/bottom)가 남아 있어도, 현재 선 모양에서 계산한
-    자동 포트가 있으면 그쪽을 우선해야 확대/축소 때 화살표가 튀지 않는다.
-  */
-  return true;
+  return true; // Explicit ports are resolved before automatic attachment candidates.
+}
+function getNamedElbowPort(node,width,height,port){
+  if(!port)return null;
+  var world=getPortPoint(node.x,node.y,width,height,port,false);
+  var point=w2s(world.x,world.y);
+  var attachment=getCurveArrowEndpoint(node,width,height,point,point);
+  var angle=Math.atan2(point.y-attachment.point.y,point.x-attachment.point.x);
+  return {point:attachment.point,angle:angle,mode:elbowPortModeFromName(port),fixedPort:true};
 }
 
 var edgeMergeGuides=null;
@@ -2726,7 +3151,8 @@ function buildRoundedOrthogonalPath(rawPoints,r,opts){
       pts.splice(i,1);i--;
     }
   }
-  if(!opts.skipMerge)snapOverlappingOrthogonalSegments(pts);
+  // Rendering must not snap a saved route to other visible edges. Which edges
+  // are visible changes with zoom/pan, so render-time merging moves the route.
   for(var si=1;si<pts.length-1;si++){
     var sa=pts[si-1],sb=pts[si],sc=pts[si+1];
     if((Math.abs(sa.x-sb.x)<collinearEps&&Math.abs(sb.x-sc.x)<collinearEps)||(Math.abs(sa.y-sb.y)<collinearEps&&Math.abs(sb.y-sc.y)<collinearEps)){
@@ -2735,7 +3161,8 @@ function buildRoundedOrthogonalPath(rawPoints,r,opts){
   }
   if(pts.length<2)return {d:'',startAngle:0,endAngle:0};
   pts=pts.map(function(p){return w2s(p.x,p.y);});
-  pts=stabilizeLowZoomOrthogonalScreenPoints(pts);
+  // Simplification above uses world coordinates at every zoom. Do not collapse
+  // additional corners in screen pixels only when zoomed out.
   function dist(a,b){var dx=b.x-a.x,dy=b.y-a.y;return Math.sqrt(dx*dx+dy*dy);}
   function angleFromMeaningfulSegment(fromEnd){
     if(pts.length<2)return 0;
@@ -2769,7 +3196,7 @@ function buildRoundedOrthogonalPath(rawPoints,r,opts){
     var tightCorner=(Math.min(d1,d2)<=Math.max(0.001,18*z));
     var localR=nearEndpointCorner?Math.min(r,3*z):(tightCorner?Math.min(r,4*z):r);
     var cut=Math.min(localR,d1/2,d2/2);
-    if(cut<0.25){
+    if(cut<0.25*z){
       d+=' L'+p1.x+','+p1.y;
       continue;
     }
@@ -2787,6 +3214,95 @@ function buildRoundedOrthogonalPath(rawPoints,r,opts){
   };
 }
 
+function syncArrowGeometryWithPath(info){
+  if(!info||!info.d)return info;
+  var tokens=info.d.match(/[MLCQ]|[-+]?(?:\d*\.\d+|\d+\.?\d*)(?:e[-+]?\d+)?/gi)||[],i=0,current=null,segments=[];
+  function read(){return {x:Number(tokens[i++]),y:Number(tokens[i++])};}
+  while(i<tokens.length){
+    var command=tokens[i++];
+    if(command==='M'){current=read();continue;}
+    var count=command==='L'?1:command==='Q'?2:command==='C'?3:0;
+    if(!count||!current)return info;
+    var points=[current];for(var n=0;n<count;n++)points.push(read());
+    segments.push(points);current=points[points.length-1];
+  }
+  if(!segments.length)return info;
+  var start=segments[0][0],last=segments[segments.length-1],end=last[last.length-1];
+  var startAngle=0,endAngle=0,found=false;
+  for(var s=0;s<segments.length&&!found;s++)for(var p=1;p<segments[s].length;p++){
+    var a=segments[s][0],b=segments[s][p];
+    if(Math.hypot(a.x-b.x,a.y-b.y)>1e-9){startAngle=Math.atan2(a.y-b.y,a.x-b.x);found=true;break;}
+  }
+  found=false;
+  for(var s=segments.length-1;s>=0&&!found;s--)for(var p=segments[s].length-2;p>=0;p--){
+    var a=segments[s][segments[s].length-1],b=segments[s][p];
+    if(Math.hypot(a.x-b.x,a.y-b.y)>1e-9){endAngle=Math.atan2(a.y-b.y,a.x-b.x);found=true;break;}
+  }
+  // The final SVG route is authoritative. Port hints and short-segment
+  // heuristics may not override its endpoint positions or tangents.
+  return Object.assign({},info,{startPoint:start,endPoint:end,startAngle:startAngle,endAngle:endAngle});
+}
+function clipArrowRouteAtNode(info,node,isStart){
+  if(!info||!info.d||!node)return info;
+  var tokens=info.d.match(/[MLCQ]|[-+]?(?:\d*\.\d+|\d+\.?\d*)(?:e[-+]?\d+)?/gi);
+  if(!tokens)return info;
+  var segments=[],current=null,i=0;
+  function point(){return {x:Number(tokens[i++]),y:Number(tokens[i++])};}
+  while(i<tokens.length){
+    var command=tokens[i++];
+    if(command==='M'){current=point();continue;}
+    var count=command==='L'?1:command==='Q'?2:command==='C'?3:0;
+    if(!count||!current)return info;
+    var controls=[current];for(var n=0;n<count;n++)controls.push(point());
+    segments.push({command:command,points:controls});current=controls[controls.length-1];
+  }
+  if(!segments.length)return info;
+  if(isStart)segments=segments.reverse().map(function(s){return {command:s.command,points:s.points.slice().reverse()};});
+  function mix(a,b,t){return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t};}
+  function split(s,t){
+    var rows=[s.points],left=[s.points[0]],right=[s.points[s.points.length-1]];
+    while(rows[rows.length-1].length>1){
+      var row=rows[rows.length-1],next=[];
+      for(var j=1;j<row.length;j++)next.push(mix(row[j-1],row[j],t));
+      rows.push(next);left.push(next[0]);right.unshift(next[next.length-1]);
+    }
+    return {left:{command:s.command,points:left},right:{command:s.command,points:right},point:left[left.length-1]};
+  }
+  var center=w2s(node.x,node.y),gap=arrowTipGap();
+  var hw=nwFull(node)*cam.z/2+gap,hh=nhFull(node)*cam.z/2+gap;
+  function inside(p){return Math.abs(p.x-center.x)<=hw&&Math.abs(p.y-center.y)<=hh;}
+  // Stop at the first node entry along the actual route, before a hidden tail
+  // can cross the box and emerge at an unrelated face.
+  if(inside(segments[0].points[0]))return info;
+  var kept=[],found=false;
+  for(var si=0;si<segments.length&&!found;si++){
+    var s=segments[si],length=0;
+    var xs=s.points.map(function(p){return p.x;}),ys=s.points.map(function(p){return p.y;});
+    if(Math.max.apply(null,xs)<center.x-hw||Math.min.apply(null,xs)>center.x+hw||Math.max.apply(null,ys)<center.y-hh||Math.min.apply(null,ys)>center.y+hh){kept.push(s);continue;}
+    for(var pi=1;pi<s.points.length;pi++)length+=Math.hypot(s.points[pi].x-s.points[pi-1].x,s.points[pi].y-s.points[pi-1].y);
+    var steps=Math.max(2,Math.min(4096,Math.ceil(length/Math.max(2*cam.z,0.01))));
+    for(var step=1;step<=steps;step++){
+      if(!inside(split(s,step/steps).point))continue;
+      var lo=(step-1)/steps,hi=step/steps;
+      for(var b=0;b<32;b++){var mid=(lo+hi)/2;if(inside(split(s,mid).point))hi=mid;else lo=mid;}
+      kept.push(split(s,lo).left);found=true;break;
+    }
+    if(!found)kept.push(s);
+  }
+  if(!found)return info;
+  var tip=kept[kept.length-1].points.slice(-1)[0],oldTip=segments[segments.length-1].points.slice(-1)[0];
+  if(Math.hypot(tip.x-oldTip.x,tip.y-oldTip.y)<0.00001*cam.z)return info;
+  if(isStart)kept=kept.reverse().map(function(s){return {command:s.command,points:s.points.slice().reverse()};});
+  var first=kept[0].points[0],last=kept[kept.length-1].points.slice(-1)[0];
+  var d='M'+first.x+','+first.y;
+  kept.forEach(function(s){d+=' '+s.command+s.points.slice(1).map(function(p){return p.x+','+p.y;}).join(' ');});
+  var head=kept[0].points,tail=kept[kept.length-1].points;
+  var next=Object.assign({},info,{d:d,startPoint:first,endPoint:last,
+    startAngle:Math.atan2(first.y-head[1].y,first.x-head[1].x),
+    endAngle:Math.atan2(last.y-tail[tail.length-2].y,last.x-tail[tail.length-2].x)});
+  if(info.points)next.points=[first].concat(kept.map(function(s){return s.points[s.points.length-1];}));
+  return next;
+}
 function screenLocalToWorld(pt){
   return {x:(pt.x-cam.x)/cam.z,y:(pt.y-cam.y)/cam.z};
 }
@@ -2794,7 +3310,7 @@ function screenLocalToWorld(pt){
 function getElbowSegmentHandles(points){
   var handles=[];
   if(!points||points.length<3)return handles;
-  var eps=Math.max(1,1.5*cam.z);
+  var eps=1.5*cam.z;
   var minLen=Math.max(3,20*cam.z);
   for(var i=0;i<points.length-1;i++){
     var a=points[i],b=points[i+1];
@@ -2810,6 +3326,41 @@ function getElbowSegmentHandles(points){
   return handles;
 }
 
+function smoothElbowEndpointApproach(rawPoints,cpOff){
+  if(!cpOff.smoothEndpoints)return rawPoints;
+  var pts=[],eps=1.5*Math.max(0.15,cam.z),limit=48*Math.max(0.15,cam.z);
+  rawPoints.forEach(function(p){
+    var last=pts[pts.length-1];
+    if(!last||Math.abs(last.x-p.x)>eps||Math.abs(last.y-p.y)>eps)pts.push({x:p.x,y:p.y});
+  });
+  // Remove redundant collinear waypoints before examining the terminal bends.
+  for(var i=1;i<pts.length-1;i++){
+    var a=pts[i-1],b=pts[i],c=pts[i+1];
+    if((Math.abs(a.x-b.x)<=eps&&Math.abs(b.x-c.x)<=eps)||(Math.abs(a.y-b.y)<=eps&&Math.abs(b.y-c.y)<=eps)){pts.splice(i,1);i--;}
+  }
+  function smoothEnd(horizontal){
+    if(pts.length<3)return;
+    var end=pts[pts.length-1],tail=pts[pts.length-2],corner=pts[pts.length-3];
+    var main=horizontal?'x':'y',cross=horizontal?'y':'x',anchorIndex=-1;
+    // A short final leg perpendicular to the node face.
+    if(Math.abs(tail[main]-end[main])<=eps&&Math.abs(tail[cross]-end[cross])<=limit&&Math.abs(corner[cross]-tail[cross])<=eps){
+      anchorIndex=pts.length-3;
+    }else if(pts.length>=4){
+      var before=pts[pts.length-4];
+      // A tiny horizontal-vertical-horizontal (or rotated) hook before the arrow.
+      if(Math.abs(tail[cross]-end[cross])<=eps&&Math.abs(tail[main]-end[main])<=limit&&
+         Math.abs(corner[main]-tail[main])<=eps&&Math.abs(corner[cross]-tail[cross])<=limit&&
+         Math.abs(before[cross]-corner[cross])<=eps)anchorIndex=pts.length-4;
+    }
+    if(anchorIndex<0)return;
+    var anchor=pts[anchorIndex],aligned={x:anchor.x,y:anchor.y};aligned[cross]=end[cross];
+    if(anchorIndex===0){pts=[anchor,aligned,end];}
+    else{pts=pts.slice(0,anchorIndex).concat([aligned,end]);}
+  }
+  if(cpOff.endHorizontal||cpOff.endVertical)smoothEnd(!!cpOff.endHorizontal);
+  if(cpOff.startHorizontal||cpOff.startVertical){pts.reverse();smoothEnd(!!cpOff.startHorizontal);pts.reverse();}
+  return pts;
+}
 function roundedElbowPath(ps,cs,cpOff,lineType){
   if(lineType!=='elbow')return null;
   cpOff=cpOff||{dx:0,dy:0};
@@ -2825,12 +3376,13 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
   var horizontalFirst=Math.abs(dx)>=Math.abs(dy);
   var r=Math.min(zs(22), Math.max(zs(6), Math.min(Math.abs(dx),Math.abs(dy))/3));
   if(!isFinite(r))r=zs(10);
+  if(cpOff.cornerRadius!==undefined)r=zs(clampVal(Number(cpOff.cornerRadius)||6,0,40));
   var d,handle,handle2,handle3,handle4,handle5,handle6,handle7,startAngle,endAngle;
   if(cpOff.points&&cpOff.points.length){
     var dynPts=[ps];
     cpOff.points.forEach(function(p){dynPts.push(w2s(p.x,p.y));});
     dynPts.push(cs);
-    var endpointEps=Math.max(1,1.5*z);
+    var endpointEps=1.5*z;
     if(cpOff.startVertical&&dynPts.length>2){
       var firstDyn=dynPts[1];
       if(Math.abs(firstDyn.x-ps.x)>endpointEps){
@@ -2852,7 +3404,7 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
         }
       }
     }
-    var dynInfo=buildRoundedOrthogonalPath(dynPts,r);
+    var dynInfo=buildRoundedOrthogonalPath(smoothElbowEndpointApproach(dynPts,cpOff),r);
     return {
       d:dynInfo.d,
       handle:(getElbowSegmentHandles(dynInfo.points)[0]||{x:(ps.x+cs.x)/2,y:(ps.y+cs.y)/2,axis:'both'}),
@@ -2905,7 +3457,7 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
       Math.abs(cpOff.startDx||0)>0.0001||Math.abs(cpOff.startDy||0)>0.0001||
       Math.abs(cpOff.endDx||0)>0.0001||Math.abs(cpOff.endDy||0)>0.0001||
       Math.abs(cpOff.finalDx||0)>0.0001||Math.abs(cpOff.finalDy||0)>0.0001;
-    var pathInfo=buildRoundedOrthogonalPath([
+    var pathInfo=buildRoundedOrthogonalPath(smoothElbowEndpointApproach([
       {x:ps.x,y:ps.y},
       {x:startX,y:ps.y},
       {x:startX,y:routeY},
@@ -2916,7 +3468,7 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
       {x:finalX,y:finalY},
       {x:finalX,y:cs.y},
       {x:cs.x,y:cs.y}
-    ],r);
+    ],cpOff),r);
     d=pathInfo.d;
     var hHandles=getElbowSegmentHandles(pathInfo.points);
     handle={x:(startX+turnX)/2,y:routeY,axis:'y'};
@@ -2953,7 +3505,7 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
       Math.abs(cpOff.startDx||0)>0.0001||Math.abs(cpOff.startDy||0)>0.0001||
       Math.abs(cpOff.endDx||0)>0.0001||Math.abs(cpOff.endDy||0)>0.0001||
       Math.abs(cpOff.finalDx||0)>0.0001||Math.abs(cpOff.finalDy||0)>0.0001;
-    var vPathInfo=buildRoundedOrthogonalPath([
+    var vPathInfo=buildRoundedOrthogonalPath(smoothElbowEndpointApproach([
       {x:ps.x,y:ps.y},
       {x:ps.x,y:startY},
       {x:routeX,y:startY},
@@ -2961,7 +3513,7 @@ function roundedElbowPath(ps,cs,cpOff,lineType){
       {x:endX,y:turnY},
       {x:endX,y:cs.y},
       {x:cs.x,y:cs.y}
-    ],r);
+    ],cpOff),r);
     d=vPathInfo.d;
     var vHandles=getElbowSegmentHandles(vPathInfo.points);
     handle={x:routeX,y:(startY+turnY)/2,axis:'x'};
@@ -3028,8 +3580,8 @@ function getLiveRoundedElbowInfo(edgeObj,ps,cs,cpOff){
       var cel=document.getElementById('n'+child.id);
       var pw=pel?pel.offsetWidth:nwFull(parent), ph=nhFull(parent);
       var cw=cel?cel.offsetWidth:nwFull(child), ch=nhFull(child);
-      startAuto=getElbowAutoPortAngle(parent,pw,ph,info,true);
-      endAuto=getElbowAutoPortAngle(child,cw,ch,info,false);
+      startAuto=resolveSavedAttachment(child,parent,pw,ph,'start',getNamedElbowPort(parent,pw,ph,child.parentPort)||getElbowAutoPortAngle(parent,pw,ph,info,true));
+      endAuto=resolveSavedAttachment(child,child,cw,ch,'end',getNamedElbowPort(child,cw,ch,child.childPort)||getElbowAutoPortAngle(child,cw,ch,info,false));
       if(!shouldUseElbowAutoPort(child.parentPort,startAuto))startAuto=null;
       if(!shouldUseElbowAutoPort(child.childPort,endAuto))endAuto=null;
     }
@@ -3040,8 +3592,8 @@ function getLiveRoundedElbowInfo(edgeObj,ps,cs,cpOff){
       var tel=document.getElementById('n'+toN.id);
       var fw=fel?fel.offsetWidth:nwFull(fromN), fh=nhFull(fromN);
       var tw=tel?tel.offsetWidth:nwFull(toN), th=nhFull(toN);
-      startAuto=getElbowAutoPortAngle(fromN,fw,fh,info,true);
-      endAuto=getElbowAutoPortAngle(toN,tw,th,info,false);
+      startAuto=resolveSavedAttachment(edgeObj,fromN,fw,fh,'start',getNamedElbowPort(fromN,fw,fh,edgeObj.fromPort)||getElbowAutoPortAngle(fromN,fw,fh,info,true));
+      endAuto=resolveSavedAttachment(edgeObj,toN,tw,th,'end',getNamedElbowPort(toN,tw,th,edgeObj.toPort)||getElbowAutoPortAngle(toN,tw,th,info,false));
       if(!shouldUseElbowAutoPort(edgeObj.fromPort,startAuto))startAuto=null;
       if(!shouldUseElbowAutoPort(edgeObj.toPort,endAuto))endAuto=null;
     }
@@ -3049,12 +3601,8 @@ function getLiveRoundedElbowInfo(edgeObj,ps,cs,cpOff){
 
   if(startAuto)info.startAngle=startAuto.angle;
   if(endAuto)info.endAngle=endAuto.angle;
-  if(startAuto&&startAuto.mode==='vertical'){
-    cpForPath=Object.assign({},cpForPath,{startVertical:true});
-  }
-  if(endAuto&&endAuto.mode==='vertical'){
-    cpForPath=Object.assign({},cpForPath,{endVertical:true});
-  }
+  cpForPath=applyElbowEndpointModes(cpForPath,startAuto&&startAuto.mode,endAuto&&endAuto.mode);
+  if(startAuto||endAuto)cpForPath=Object.assign({},cpForPath,{smoothEndpoints:true});
   if(endAuto){
     cs2=endAuto.point;
   }
@@ -3451,11 +3999,25 @@ var _edgeDomCache={},_edgeCacheNodes=null,_edgeCacheLinks=null;
 /* 선택된 노드에 직접 연결된 화살표만 흐름을 표시한다.
    프레임마다 전체 지도를 다시 그리지 않고 브라우저의 SVG 경로 애니메이션을 사용한다. */
 var _flowBeads={},_flowNodes=null,_flowLinks=null;
+var flowEnabled=true;
+try{flowEnabled=localStorage.getItem('mspFlowEnabled')!=='false';}catch(e){}
 var _flowMotionPreference=window.matchMedia('(prefers-reduced-motion: reduce)');
+function toggleNodeFlow(){
+  flowEnabled=!flowEnabled;
+  try{localStorage.setItem('mspFlowEnabled',String(flowEnabled));}catch(e){}
+  syncNodeFlow();
+}
 function updateFlowVisibility(){
+  var btn=document.getElementById('btn-flow');
+  if(btn){
+    btn.textContent=flowEnabled?'🔵 구슬 ON':'⚪ 구슬 OFF';
+    btn.setAttribute('aria-pressed',String(flowEnabled));
+    btn.classList.toggle('prim',flowEnabled);
+    btn.title=flowEnabled?(_flowMotionPreference.matches?'구슬 표시 ON — 시스템의 동작 줄이기 설정으로 애니메이션이 숨겨집니다':'구슬 표시 끄기'):'구슬 표시 켜기';
+  }
   var layer=document.getElementById('svg-flow-layer');if(!layer)return;
-  var paused=document.hidden||_flowMotionPreference.matches;
-  layer.style.display=_flowMotionPreference.matches?'none':'';
+  var paused=!flowEnabled||document.hidden||_flowMotionPreference.matches;
+  layer.style.display=(!flowEnabled||_flowMotionPreference.matches)?'none':'';
   if(paused)layer.pauseAnimations();else layer.unpauseAnimations();
 }
 document.addEventListener('visibilitychange',updateFlowVisibility);
@@ -3464,15 +4026,23 @@ function syncNodeFlow(){
   var layer=document.getElementById('svg-flow-layer');if(!layer)return;
   if(_flowNodes!==nodes||_flowLinks!==links){_flowBeads={};_flowNodes=nodes;_flowLinks=links;}
   var desired=[],active={},candidates=[];
-  if(sel!==null&&!linkMode&&!edgePortEdit&&!_flowMotionPreference.matches){
+  if(flowEnabled&&sel!==null&&!linkMode&&!edgePortEdit&&!_flowMotionPreference.matches){
     Object.keys(_edgeDomCache).forEach(function(key){
       var edge=_edgeDomCache[key],arrow=edge.obj.arrow||'none';
       if(!edge.path||!edge.path.isConnected||!edge.a||!edge.b)return;
       if(edge.a.id!==sel&&edge.b.id!==sel)return;
       if(arrow!=='forward'&&arrow!=='backward'&&arrow!=='both')return;
-      var d=edge.path.getAttribute('d');if(!d)return;
+      var d=edge.bridgeFlowPath||edge.path.getAttribute('d');if(!d)return;
       // Cache path length on this retained edge; measuring unchanged paths again is unnecessary.
-      if(edge.flowPath!==d){edge.flowPath=d;edge.flowLength=edge.path.getTotalLength();}
+      if(edge.flowPath!==d){
+        edge.flowPath=d;
+        var measure=edge.path;
+        if(edge.bridgeFlowPath){
+          measure=edge.flowMeasurePath||(edge.flowMeasurePath=document.createElementNS('http://www.w3.org/2000/svg','path'));
+          measure.setAttribute('d',d);
+        }
+        edge.flowLength=measure.getTotalLength();
+      }
       if(!isFinite(edge.flowLength)||edge.flowLength<1)return;
       candidates.push({key:key,edge:edge,d:d,arrow:arrow});
     });
@@ -3528,12 +4098,194 @@ function syncSvgChildren(parent,desired){
   }
   while(cursor){var next=cursor.nextSibling;parent.removeChild(cursor);cursor=next;}
 }
+function flattenBridgeRoute(d,z,withSegments){
+  var tokens=(d||'').match(/[MLCQ]|[-+]?(?:\d*\.\d+|\d+\.?\d*)(?:e[-+]?\d+)?/gi)||[],i=0,current=null,points=[],segments=[],distance=0;
+  function read(){return {x:Number(tokens[i++]),y:Number(tokens[i++])};}
+  while(i<tokens.length){
+    var command=tokens[i++];
+    if(command==='M'){current=read();points.push(current);continue;}
+    var count=command==='L'?1:command==='Q'?2:command==='C'?3:0;if(!count||!current)return [];
+    var controls=[current];for(var k=0;k<count;k++)controls.push(read());
+    var length=0;for(var k=1;k<controls.length;k++)length+=Math.hypot(controls[k].x-controls[k-1].x,controls[k].y-controls[k-1].y);
+    var steps=command==='L'?1:Math.max(4,Math.min(96,Math.ceil(length/Math.max(6,12*z))));
+    var part=withSegments?{command:command,controls:controls,start:distance,samples:[{t:0,distance:distance}]}:null;
+    for(var step=1;step<=steps;step++){
+      var t=step/steps,row=controls.slice();
+      while(row.length>1){var next=[];for(var j=1;j<row.length;j++)next.push({x:row[j-1].x+(row[j].x-row[j-1].x)*t,y:row[j-1].y+(row[j].y-row[j-1].y)*t});row=next;}
+      if(withSegments){var previous=points[points.length-1];distance+=Math.hypot(row[0].x-previous.x,row[0].y-previous.y);part.samples.push({t:t,distance:distance});}
+      points.push(row[0]);
+    }
+    if(withSegments){part.end=distance;segments.push(part);}
+    current=controls[controls.length-1];
+  }
+  if(withSegments)points.segments=segments;
+  return points;
+}
+function buildBridgeFlowPath(d,bridges,z){
+  var parts=flattenBridgeRoute(d,z,true).segments;if(!parts||!parts.length)return d;
+  function split(controls,t){
+    var row=controls.slice(),left=[row[0]],right=[row[row.length-1]];
+    while(row.length>1){
+      var next=[];for(var i=1;i<row.length;i++)next.push({x:row[i-1].x+(row[i].x-row[i-1].x)*t,y:row[i-1].y+(row[i].y-row[i-1].y)*t});
+      row=next;left.push(row[0]);right.unshift(row[row.length-1]);
+    }
+    return {left:left,right:right};
+  }
+  function parameter(part,distance){
+    if(distance<=part.start)return 0;if(distance>=part.end)return 1;
+    for(var i=1;i<part.samples.length;i++){
+      var a=part.samples[i-1],b=part.samples[i];if(distance<=b.distance)return a.t+(b.t-a.t)*(distance-a.distance)/(b.distance-a.distance);
+    }
+    return 1;
+  }
+  function locate(distance){
+    var part=parts[parts.length-1];
+    for(var i=0;i<parts.length;i++)if(distance<=parts[i].end){part=parts[i];break;}
+    var t=parameter(part,distance),point=split(part.controls,t).left.slice(-1)[0];
+    var derivative=part.controls.slice(1).map(function(p,i){return {x:p.x-part.controls[i].x,y:p.y-part.controls[i].y};});
+    var tangent=split(derivative,t).left.slice(-1)[0],length=Math.hypot(tangent.x,tangent.y)||1;
+    return {point:point,tangent:{x:tangent.x/length,y:tangent.y/length}};
+  }
+  function pair(p){return p.x+','+p.y;}
+  function command(controls){return (controls.length===2?' L':controls.length===3?' Q':' C')+controls.slice(1).map(pair).join(' ');}
+  var result='M'+pair(parts[0].controls[0]),cursor=0;
+  function appendRange(from,to){
+    parts.forEach(function(part){
+      var lo=Math.max(from,part.start),hi=Math.min(to,part.end);if(hi<=lo)return;
+      var a=parameter(part,lo),b=parameter(part,hi),piece=split(part.controls,b).left;
+      if(a>0)piece=split(piece,a/b).right;
+      result+=command(piece);
+    });
+  }
+  bridges.sort(function(a,b){return a.motionStart-b.motionStart;}).forEach(function(bridge){
+    var start=locate(bridge.motionStart),end=locate(bridge.motionEnd),reverse=bridge.reversed;
+    bridge.cut[0]=reverse?end.point:start.point;bridge.cut[bridge.cut.length-1]=reverse?start.point:end.point;
+    bridge.startTangent=reverse?{x:-end.tangent.x,y:-end.tangent.y}:start.tangent;
+    bridge.endTangent=reverse?{x:-start.tangent.x,y:-start.tangent.y}:end.tangent;
+    var a=bridge.cut[0],c=bridge.cut[bridge.cut.length-1],ux=bridge.ux,uy=bridge.uy,handle=bridge.span*.65;
+    var m={x:bridge.x-uy*bridge.r*1.3,y:bridge.y+ux*bridge.r*1.3};
+    var first=[a,{x:a.x+bridge.startTangent.x*handle,y:a.y+bridge.startTangent.y*handle},{x:m.x-ux*handle,y:m.y-uy*handle},m];
+    var last=[m,{x:m.x+ux*handle,y:m.y+uy*handle},{x:c.x-bridge.endTangent.x*handle,y:c.y-bridge.endTangent.y*handle},c];
+    bridge.bend='M'+pair(a)+command(first)+command(last);
+    appendRange(cursor,bridge.motionStart);
+    result+=reverse?command(last.slice().reverse())+command(first.slice().reverse()):command(first)+command(last);
+    cursor=bridge.motionEnd;
+  });
+  appendRange(cursor,parts[parts.length-1].end);
+  return result;
+}
+function findLineBridges(entries,z,width,height){
+  var radius=10*z,span=18*z,cell=32,grid={},segments=[],routes=[],bridges=[],byOwner={},nodeOwners={},skipOwners=[];
+  entries.forEach(function(e,index){[e.a,e.b].forEach(function(n){if(n&&n.id!==undefined)(nodeOwners[n.id]||(nodeOwners[n.id]=[])).push(index);});});
+  entries.forEach(function(e,index){var skip=new Set([index]);[e.a,e.b].forEach(function(n){if(n&&nodeOwners[n.id])nodeOwners[n.id].forEach(function(owner){skip.add(owner);});});skipOwners[index]=skip;});
+  entries.forEach(function(entry,owner){
+    var points=flattenBridgeRoute(entry.path.getAttribute('d'),z),distance=0,own=[];
+    for(var i=1;i<points.length;i++){
+      var a=points[i-1],b=points[i],length=Math.hypot(b.x-a.x,b.y-a.y);if(length<0.001)continue;
+      var segment={a:a,b:b,owner:owner,start:distance,length:length};own.push(segment);distance+=length;
+    }
+    routes[owner]=own;own.forEach(function(s){s.total=distance;segments.push(s);});
+  });
+  segments.forEach(function(s,index){
+    var minX=Math.max(-30,Math.min(s.a.x,s.b.x)),maxX=Math.min(width+30,Math.max(s.a.x,s.b.x));
+    var minY=Math.max(-30,Math.min(s.a.y,s.b.y)),maxY=Math.min(height+30,Math.max(s.a.y,s.b.y));
+    if(minX>maxX||minY>maxY)return;var candidates=new Set();
+    for(var x=Math.floor(minX/cell);x<=Math.floor(maxX/cell);x++)for(var y=Math.floor(minY/cell);y<=Math.floor(maxY/cell);y++){
+      var key=x+'_'+y,list=grid[key]||(grid[key]=[]);list.forEach(function(n){if(!skipOwners[s.owner].has(segments[n].owner))candidates.add(n);});list.push(index);
+    }
+    candidates.forEach(function(other){
+      var t=segments[other];if(s.owner===t.owner)return;
+      var sx=s.b.x-s.a.x,sy=s.b.y-s.a.y,tx=t.b.x-t.a.x,ty=t.b.y-t.a.y;
+      var det=sx*ty-sy*tx;if(Math.abs(det)/(s.length*t.length)<0.35)return;
+      var dx=t.a.x-s.a.x,dy=t.a.y-s.a.y,u=(dx*ty-dy*tx)/det,v=(dx*sy-dy*sx)/det;
+      if(u<0||u>1||v<0||v>1)return;
+      var sd=s.start+u*s.length,td=t.start+v*t.length;
+      if(Math.min(sd,s.total-sd,td,t.total-td)<span+4*z)return;
+      var p={x:s.a.x+u*sx,y:s.a.y+u*sy};if(p.x<0||p.x>width||p.y<0||p.y>height)return;
+      var jump=Math.abs(sy/s.length)>Math.abs(ty/t.length)?s:t,owner=jump.owner;
+      var prior=byOwner[owner]||(byOwner[owner]=[]);
+      if(prior.some(function(b){return Math.hypot(b.x-p.x,b.y-p.y)<span*2.2;}))return;
+      var ux=(jump.b.x-jump.a.x)/jump.length,uy=(jump.b.y-jump.a.y)/jump.length;
+      var center=jump===s?sd:td,from=center-span,to=center+span,cut=[],first,last;
+      routes[owner].forEach(function(segment){
+        var lo=Math.max(from,segment.start),hi=Math.min(to,segment.start+segment.length);if(hi<=lo)return;
+        var vx=(segment.b.x-segment.a.x)/segment.length,vy=(segment.b.y-segment.a.y)/segment.length;
+        var a={x:segment.a.x+vx*(lo-segment.start),y:segment.a.y+vy*(lo-segment.start)};
+        var b={x:segment.a.x+vx*(hi-segment.start),y:segment.a.y+vy*(hi-segment.start)};
+        if(!first){first={x:vx,y:vy};cut.push(a);}cut.push(b);last={x:vx,y:vy};
+      });
+      if(cut.length<2)return;
+      var reversed=uy<0||(Math.abs(uy)<0.001&&ux<0);
+      if(reversed){
+        ux=-ux;uy=-uy;cut.reverse();
+        var swap=first;first={x:-last.x,y:-last.y};last={x:-swap.x,y:-swap.y};
+      }
+      var bridge={owner:owner,x:p.x,y:p.y,ux:ux,uy:uy,r:radius,span:span,cut:cut,startTangent:first,endTangent:last,motionStart:from,motionEnd:to,reversed:reversed};prior.push(bridge);bridges.push(bridge);
+    });
+  });
+  return bridges;
+}
+function appendLineBridges(root,desired,cache,seen){
+  var keys=Object.keys(cache).filter(function(key){return seen[key];}),entries=keys.map(function(key){return cache[key];});
+  entries.forEach(function(e){e.bridgeFlowPath=null;e.parts[0].forEach(function(p){p.removeAttribute('mask');});});
+  var vp=document.getElementById('viewport'),width=vp.clientWidth||2000,height=vp.clientHeight||1200;
+  var bridges=findLineBridges(entries,cam.z,width,height);if(!bridges.length)return;
+  var ownerBridges={};
+  bridges.forEach(function(b){(ownerBridges[b.owner]||(ownerBridges[b.owner]=[])).push(b);});
+  Object.keys(ownerBridges).forEach(function(owner){
+    entries[owner].bridgeFlowPath=buildBridgeFlowPath(entries[owner].path.getAttribute('d'),ownerBridges[owner],cam.z);
+  });
+  var ns='http://www.w3.org/2000/svg',defs=document.createElementNS(ns,'defs'),masks={};desired.push(defs);
+  bridges.forEach(function(b){
+    var entry=entries[b.owner],mask=masks[b.owner];
+    if(!mask){
+      mask=document.createElementNS(ns,'mask');var id='edge-crossing-'+b.owner;
+      mask.setAttribute('id',id);mask.setAttribute('maskUnits','userSpaceOnUse');mask.setAttribute('mask-type','luminance');
+      mask.setAttribute('x',-2000);mask.setAttribute('y',-2000);mask.setAttribute('width',width+4000);mask.setAttribute('height',height+4000);
+      var white=document.createElementNS(ns,'rect');white.setAttribute('x',-2000);white.setAttribute('y',-2000);white.setAttribute('width',width+4000);white.setAttribute('height',height+4000);white.setAttribute('fill','#ffffff');mask.appendChild(white);
+      defs.appendChild(mask);masks[b.owner]=mask;entry.parts[0].forEach(function(p){p.setAttribute('mask','url(#'+id+')');});
+    }
+    // Cut only the replaced interval: round mask/background caps would erase
+    // the adjoining straight line and leave a visible gap at either end.
+    var cutD=b.cut.map(function(p,i){return (i?' L':'M')+p.x+','+p.y;}).join('');
+    var cutWidth=entry.parts[0].reduce(function(w,p){return Math.max(w,Number(p.getAttribute('stroke-width'))||0);},0)+1;
+    var hole=document.createElementNS(ns,'path');hole.setAttribute('d',cutD);hole.setAttribute('fill','none');hole.setAttribute('stroke','#000000');hole.setAttribute('stroke-width',cutWidth);hole.setAttribute('stroke-linecap','butt');hole.setAttribute('stroke-linejoin','round');mask.appendChild(hole);
+    var bend=b.bend;
+    entry.parts[0].forEach(function(original){
+      var stroke=original.getAttribute('stroke');if(!stroke||stroke==='rgba(0,0,0,0)')return;
+      var arc=document.createElementNS(ns,'path');arc.setAttribute('d',bend);arc.setAttribute('fill','none');
+      ['stroke','stroke-width','stroke-linecap','stroke-linejoin','opacity','stroke-dasharray'].forEach(function(name){var value=original.getAttribute(name);if(value!==undefined&&value!==null)arc.setAttribute(name,value);});
+      arc.setAttribute('stroke-linecap',stroke.indexOf('var(--bg')===0?'butt':'round');
+      arc.setAttribute('stroke-linejoin','round');
+      arc.setAttribute('pointer-events','none');arc.setAttribute('data-line-bridge','true');desired.push(arc);
+    });
+  });
+}
+function edgeNeedsLightOutline(color){
+  if(typeof isLight!=='undefined'&&isLight)return false;
+  var value=(color||'').trim(),rgb=value.match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i);
+  var r,g,b;
+  if(rgb){r=Number(rgb[1]);g=Number(rgb[2]);b=Number(rgb[3]);}
+  else{
+    var hex=value.replace(/^#/,'');
+    if(hex.length===3)hex=hex.split('').map(function(c){return c+c;}).join('');
+    if(!/^[0-9a-f]{6}$/i.test(hex))return false;
+    r=parseInt(hex.slice(0,2),16);g=parseInt(hex.slice(2,4),16);b=parseInt(hex.slice(4,6),16);
+  }
+  return (r*299+g*587+b*114)/1000<=85;
+}
 function renderCurves(){
   refreshModelIndex();
   if(_edgeCacheNodes!==nodes||_edgeCacheLinks!==links){_edgeDomCache={};_edgeCacheNodes=nodes;_edgeCacheLinks=links;}
   var curveBounds=getWorldViewportBounds(520);
   edgeMergeGuides={h:[],v:[]};
-  var edgeTopPaths=[];
+  var edgeTopPaths=[],organizedBuses={};
+  function rememberOrganizedBus(info){
+    if(!info||!info.organizedBus)return;
+    var b=info.organizedBus,key=b.hubId+'_'+b.side,old=organizedBuses[key];
+    if(!old)organizedBuses[key]=Object.assign({},b);
+    else{old.y1=Math.min(old.y1,b.y1);old.y2=Math.max(old.y2,b.y2);}
+  }
   var svg=document.getElementById('svg-layer');
   var svgH=document.getElementById('svg-handle-layer');
   var svgA=document.getElementById('svg-arrow-layer');
@@ -3582,19 +4334,31 @@ function renderCurves(){
     */
     var bucketSize=18;
     var baseCoord=(side==='top'||side==='bottom')?(pt.x-cam.x)/cam.z:(pt.y-cam.y)/cam.z;
+    baseCoord=Math.round(baseCoord*1e8)/1e8;
     var key=nodeId+'_'+side+'_'+Math.round(baseCoord/bucketSize);
     var idx=arrowSlotCounter[key]||0;
     arrowSlotCounter[key]=idx+1;
     var gap=14*cam.z;
     var limit=(side==='top'||side==='bottom')
-      ? Math.max(0,(nodeW*cam.z)/2-18)
-      : Math.max(0,(nodeH*cam.z)/2-14);
+      ? Math.max(0,(nodeW/2-18)*cam.z)
+      : Math.max(0,(nodeH/2-14)*cam.z);
     var off=clampVal(arrowSlotOffset(idx,gap),-limit,limit);
     if(!off)return {x:pt.x,y:pt.y};
     if(side==='top'||side==='bottom')return {x:pt.x+off,y:pt.y};
     return {x:pt.x,y:pt.y+off};
   }
+  function addContrastOutline(svgEl,d,color,width,opacity,dash){
+    if(!edgeNeedsLightOutline(color))return;
+    var outline=document.createElementNS('http://www.w3.org/2000/svg','path');
+    outline.setAttribute('d',d);outline.setAttribute('fill','none');outline.setAttribute('stroke','#ffffff');
+    outline.setAttribute('stroke-width',parseFloat(width)+1.6);outline.setAttribute('opacity',opacity);
+    outline.setAttribute('stroke-linecap','round');outline.setAttribute('stroke-linejoin','round');
+    outline.setAttribute('pointer-events','none');outline.setAttribute('data-contrast-outline','true');
+    if(dash)outline.setAttribute('stroke-dasharray',dash);
+    svgEl.appendChild(outline);
+  }
   function addDoubleStrokeVisual(svgEl,d,color,width,opacity,dashed){
+    addContrastOutline(svgEl,d,color,Math.max(5,parseFloat(width)+4),opacity,dashed?'10,7':null);
     var rail=document.createElementNS('http://www.w3.org/2000/svg','path');
     rail.setAttribute('d',d);
     rail.setAttribute('fill','none');
@@ -3620,6 +4384,7 @@ function renderCurves(){
   }
   function applyEdgeStrokeStyle(path,style,width,opacity,d,color){
     path.removeAttribute('stroke-dasharray');
+    if(style!=='double')addContrastOutline(svg,d,color,width,opacity,style==='dash'?'9,6':null);
     if(style==='dash'){
       path.setAttribute('stroke',color);
       path.setAttribute('stroke-width',width);
@@ -3648,7 +4413,6 @@ function renderCurves(){
   for(var i=0;i<nodes.length;i++){
     var c=nodes[i]; if(c.pid===null)continue;
     var p=gn(c.pid); if(!p)continue;
-    if(!edgeMaybeVisible(p,c,curveBounds))continue;
     var color=c.lineColor||getColor(c.id);
     var pw=nwFull(p);
     var cw=nwFull(c);
@@ -3714,25 +4478,37 @@ function renderCurves(){
     var pMainY = pAbsDy> pAbsDx ? (pdy>0?1:-1) : 0;
     var cMainX = cAbsDx>=cAbsDy ? (cdx>0?1:-1) : 0;
     var cMainY = cAbsDy> cAbsDx ? (cdy>0?1:-1) : 0;
-    cp1x=ps.x+pMainX*dist+cpOff.dx*cam.z;
-    cp1y=ps.y+pMainY*dist+cpOff.dy*cam.z;
-    cp2x=cs.x+cMainX*dist+cpOff.dx*cam.z;
-    cp2y=cs.y+cMainY*dist+cpOff.dy*cam.z;
+    var curveDx=isFinite(Number(cpOff.dx))?Number(cpOff.dx):0,curveDy=isFinite(Number(cpOff.dy))?Number(cpOff.dy):0;
+    cp1x=ps.x+pMainX*dist+curveDx*cam.z;
+    cp1y=ps.y+pMainY*dist+curveDy*cam.z;
+    cp2x=cs.x+cMainX*dist+curveDx*cam.z;
+    cp2y=cs.y+cMainY*dist+curveDy*cam.z;
     var arr=c.arrow||'none';
     var edgeStartMode=edgeLineType==='elbow'?(elbowPortModeFromName(c.parentPort)||(pPreferred&&pPreferred.mode)):null;
     var edgeEndMode=edgeLineType==='elbow'?(elbowPortModeFromName(c.childPort)||(cPreferred&&cPreferred.mode)):null;
     var edgeBaseCpOff=edgeLineType==='elbow'?applyElbowEndpointModes(cpOff,edgeStartMode,edgeEndMode):cpOff;
     if(edgeLineType!=='elbow'){
       if(arr==='forward'||arr==='both'){
-        var fwTipAngle=Math.atan2(cs.y-cp2y, cs.x-cp2x);
-        cs=getArrowTipForNode(c,cw,ch,fwTipAngle);
+        var fwAttachment=getCurveArrowEndpoint(c,cw,ch,cs,{x:cp2x,y:cp2y});
+        cs=fwAttachment.point;cp2x=fwAttachment.control.x;cp2y=fwAttachment.control.y;
+        var fwTipAngle=Math.atan2(cs.y-cp2y,cs.x-cp2x),fwBase=cs;
         cs=spreadArrowTip(cs,c.id,fwTipAngle,cw,ch);
+        cp2x+=cs.x-fwBase.x;cp2y+=cs.y-fwBase.y;
       }
       if(arr==='backward'||arr==='both'){
-        var bwTipAngle=Math.atan2(ps.y-cp1y, ps.x-cp1x);
-        ps=getArrowTipForNode(p,pw,ph,bwTipAngle);
+        var bwAttachment=getCurveArrowEndpoint(p,pw,ph,ps,{x:cp1x,y:cp1y});
+        ps=bwAttachment.point;cp1x=bwAttachment.control.x;cp1y=bwAttachment.control.y;
+        var bwTipAngle=Math.atan2(ps.y-cp1y,ps.x-cp1x),bwBase=ps;
         ps=spreadArrowTip(ps,p.id,bwTipAngle,pw,ph);
+        cp1x+=ps.x-bwBase.x;cp1y+=ps.y-bwBase.y;
       }
+    }
+    if(edgeLineType!=='elbow'){
+      var manualStart=resolveSavedAttachment(c,p,pw,ph,'start',null),manualEnd=resolveSavedAttachment(c,c,cw,ch,'end',null);
+      if(manualStart){cp1x+=manualStart.point.x-ps.x;cp1y+=manualStart.point.y-ps.y;ps=manualStart.point;}
+      if(manualEnd){cp2x+=manualEnd.point.x-cs.x;cp2y+=manualEnd.point.y-cs.y;cs=manualEnd.point;}
+      if(manualStart){var fixedStart=getCurveArrowEndpoint(p,pw,ph,ps,{x:cp1x,y:cp1y},true);cp1x=fixedStart.control.x;cp1y=fixedStart.control.y;}
+      if(manualEnd){var fixedEnd=getCurveArrowEndpoint(c,cw,ch,cs,{x:cp2x,y:cp2y},true);cp2x=fixedEnd.control.x;cp2y=fixedEnd.control.y;}
     }
     var edgePathInfo=roundedElbowPath(ps,cs,edgeBaseCpOff,edgeLineType)||straightAlignedPathInfo(ps,cs,cpOff,edgeLineType)||{
       d:'M'+ps.x+','+ps.y+' C'+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+cs.x+','+cs.y,
@@ -3740,20 +4516,16 @@ function renderCurves(){
       startAngle:Math.atan2(ps.y-cp1y,ps.x-cp1x),
       endAngle:Math.atan2(cs.y-cp2y,cs.x-cp2x)
     };
-    if(edgeLineType==='elbow'&&arr!=='none'){
-      var startAutoPort=getElbowAutoPortAngle(p,pw,ph,edgePathInfo,true);
-      var endAutoPort=getElbowAutoPortAngle(c,cw,ch,edgePathInfo,false);
+    if(edgeLineType==='elbow'&&(arr!=='none'||c.startAttach||c.endAttach)){
+      var startAutoPort=resolveSavedAttachment(c,p,pw,ph,'start',getNamedElbowPort(p,pw,ph,c.parentPort)||getElbowAutoPortAngle(p,pw,ph,edgePathInfo,true));
+      var endAutoPort=resolveSavedAttachment(c,c,cw,ch,'end',getNamedElbowPort(c,cw,ch,c.childPort)||getElbowAutoPortAngle(c,cw,ch,edgePathInfo,false));
       if(!shouldUseElbowAutoPort(c.parentPort,startAutoPort))startAutoPort=null;
       if(!shouldUseElbowAutoPort(c.childPort,endAutoPort))endAutoPort=null;
       if(startAutoPort){edgePathInfo.startAngle=startAutoPort.angle;}
       if(endAutoPort){edgePathInfo.endAngle=endAutoPort.angle;}
       var edgeCpForPath=edgeBaseCpOff;
-      if(startAutoPort&&startAutoPort.mode==='vertical'){
-        edgeCpForPath=Object.assign({},edgeCpForPath,{startVertical:true});
-      }
-      if(endAutoPort&&endAutoPort.mode==='vertical'){
-        edgeCpForPath=Object.assign({},edgeCpForPath,{endVertical:true});
-      }
+      edgeCpForPath=applyElbowEndpointModes(edgeCpForPath,startAutoPort&&startAutoPort.mode,endAutoPort&&endAutoPort.mode);
+      if(startAutoPort||endAutoPort)edgeCpForPath=Object.assign({},edgeCpForPath,{smoothEndpoints:true});
       if(endAutoPort){
         cs=endAutoPort.point;
       }
@@ -3770,9 +4542,22 @@ function renderCurves(){
       if(startAutoPort){edgePathInfo.startAngle=startAutoPort.angle;}
       if(endAutoPort){edgePathInfo.endAngle=endAutoPort.angle;}
     }
+    var organizedTree=getOrganizedBusPath(c,p,c);
+    if(organizedTree){edgePathInfo=organizedTree;ps=organizedTree.startPoint;cs=organizedTree.endPoint;}
+    if(arr==='forward'||arr==='both'){edgePathInfo=clipArrowRouteAtNode(edgePathInfo,c,false);if(edgePathInfo.endPoint)cs=edgePathInfo.endPoint;}
+    if(arr==='backward'||arr==='both'){edgePathInfo=clipArrowRouteAtNode(edgePathInfo,p,true);if(edgePathInfo.startPoint)ps=edgePathInfo.startPoint;}
+    edgePathInfo=syncArrowGeometryWithPath(edgePathInfo);
+    ps=edgePathInfo.startPoint||ps;cs=edgePathInfo.endPoint||cs;
     var treeTop=(selEdge&&selEdge.type==='tree'&&selEdge.id===c.id)||(sel&&(sel===c.id||sel===p.id));
-    var treeSignature=JSON.stringify([edgePathInfo,ps,cs,cp1x,cp1y,cp2x,cp2y,color,cam.z,sel,selEdge,edgeLineType,edgeStrokeStyle,c.arrow,c.parentPort,c.childPort,c.cp,p.pid,getElbowHandleLimit(c)]);
+    // Reserve slots for all edges before culling offscreen DOM, so zoom cannot
+    // renumber the slots of edges that remain visible.
+    var treeBoundsPoints=(edgePathInfo.points||[ps,{x:cp1x,y:cp1y},{x:cp2x,y:cp2y},cs]).map(screenLocalToWorld);
+    if(!edgeMaybeVisible(p,c,curveBounds,treeBoundsPoints))continue;
+    rememberOrganizedBus(organizedTree);
+    var treeSignature=JSON.stringify([typeof isLight!=='undefined'&&isLight,edgePathInfo,ps,cs,cp1x,cp1y,cp2x,cp2y,color,cam.z,sel,selEdge,edgeLineType,edgeStrokeStyle,c.arrow,c.parentPort,c.childPort,c.cp,p.pid,getElbowHandleLimit(c)]);
     if(!beginEdge('tree-'+c.id,treeSignature,c,p,c,treeTop))continue;
+    activeEdge.endpointInfo={start:Object.assign(screenLocalToWorld(ps),{angle:edgePathInfo.startAngle}),end:Object.assign(screenLocalToWorld(cs),{angle:edgePathInfo.endAngle})};
+    activeEdge.routePoints=(edgePathInfo.points||[]).map(screenLocalToWorld);activeEdge.routeColor=color;activeEdge.routeStyle=edgeStrokeStyle;
     /* 교차 구분용 배경 외곽선 path */
     var bgPath=document.createElementNS('http://www.w3.org/2000/svg','path');
     bgPath.setAttribute('d',edgePathInfo.d);
@@ -3792,23 +4577,23 @@ function renderCurves(){
     path.setAttribute('stroke-linecap','round');
     path.setAttribute('stroke-linejoin','round');
     path.setAttribute('opacity','0.9');
+    var isSelTree=(selEdge&&selEdge.type==='tree'&&selEdge.id===c.id);
+    var isConnTree=sel&&(sel===c.id||sel===p.id);
+    var hasSel=(sel!==null);
+    var opTree=isSelTree?'1':(isConnTree?'1':(hasSel?'0.15':'0.9'));
     if(arr!=='none'){
       /* 화살촉을 별도 레이어(svgA)에 그림 → 노드 위에 항상 표시 */
       if(arr==='forward'||arr==='both'){
         /* 실제 경로의 마지막 진행 방향 기준 */
         var fwAngle=edgePathInfo.endAngle;
-        drawArrowHead(svgA, cs.x, cs.y, fwAngle, color);
+        drawArrowHead(svgA, cs.x, cs.y, fwAngle, color,opTree);
       }
       if(arr==='backward'||arr==='both'){
         var bwAngle=edgePathInfo.startAngle;
-        drawArrowHead(svgA, ps.x, ps.y, bwAngle, color);
+        drawArrowHead(svgA, ps.x, ps.y, bwAngle, color,opTree);
       }
     }
     /* 활성 선 강조 + 노드 선택 시 연결선 강조 */
-    var isSelTree=(selEdge&&selEdge.type==='tree'&&selEdge.id===c.id);
-    var isConnTree=sel&&(sel===c.id||sel===p.id); /* 선택 노드에 연결된 선 */
-    var hasSel=(sel!==null);
-    var opTree= isSelTree?'1' : (isConnTree?'1' : (hasSel?'0.15':'0.9'));
     var swTree= isSelTree?((p.pid===null)?'5':'4') : (isConnTree?((p.pid===null)?'4':'3') : ((p.pid===null)?'3':'2'));
     applyEdgeStrokeStyle(path,edgeStrokeStyle,edgeLineType==='elbow'?scaledLowZoomStroke(swTree,1):swTree,opTree,edgePathInfo.d,color);
     if(isSelTree) path.classList.add('edge-active');
@@ -3819,14 +4604,17 @@ function renderCurves(){
     if(isSelTree||isConnTree)edgeTopPaths.push(path);
     path.style.pointerEvents='stroke'; path.style.cursor='pointer';
     (function(cid){
-      path.addEventListener('click',function(e){
-        e.stopPropagation();
+      function openTreeMenu(e){
+        e.preventDefault();e.stopPropagation();
         selEdge={type:'tree',id:cid};
         renderCurves();
         showArrowMenu(cid,e.clientX,e.clientY,'tree');
-      });
+      }
+      path.addEventListener('click',openTreeMenu);
+      path.addEventListener('contextmenu',openTreeMenu);
     })(c.id);
     svg.appendChild(path);activeEdge.path=path;
+    if(organizedTree)continue;
     /* ── 컨트롤 핸들 (드래그로 곡선 조절) ── */
     var hmx=edgePathInfo.handle.x, hmy=edgePathInfo.handle.y;
     var handle=document.createElementNS('http://www.w3.org/2000/svg','circle');
@@ -4021,8 +4809,8 @@ function renderCurves(){
         var baseDist0=Math.max(Math.abs(psx-csx),Math.abs(psy-csy))*0.5;
         var rafId=null;
         function onMove(ev){
-          var ddx=origCp.dx+(ev.clientX-startX)/cam.z;
-          var ddy=origCp.dy+(ev.clientY-startY)/cam.z;
+          var ddx=(Number(origCp.dx)||0)+(ev.clientX-startX)/cam.z;
+          var ddy=(Number(origCp.dy)||0)+(ev.clientY-startY)/cam.z;
           nc.cp={dx:ddx,dy:ddy};
           if(rafId)cancelAnimationFrame(rafId);
           rafId=requestAnimationFrame(function(){
@@ -4070,6 +4858,8 @@ function renderCurves(){
   }
 
   function hasManualEdgeShape(edgeObj){
+    if(edgeObj&&edgeObj.cp&&edgeObj.cp.organizedBus)return true;
+    if(edgeObj&&(edgeObj.startAttach||edgeObj.endAttach))return true;
     var cp=edgeObj&&edgeObj.cp;
     if(!cp)return false;
     if(cp.points&&cp.points.length)return true;
@@ -4130,7 +4920,7 @@ function renderCurves(){
         var p2={x:sourceX,y:busY};
         var p3={x:info.x,y:busY};
         var p4={x:info.x,y:info.bottom};
-        var r=Math.max(6,Math.min(18,14*z));
+        var r=14*z;
         var busPath=buildRoundedOrthogonalPath([p1,p2,p3,p4],r);
         busMap[refLinkKey(info.lk)]={
           d:busPath.d,
@@ -4214,7 +5004,6 @@ function renderCurves(){
     var lk=links[li];
     var fa=gn(lk.from),ta=gn(lk.to);
     if(!fa||!ta)continue;
-    if(!edgeMaybeVisible(fa,ta,curveBounds))continue;
     var fw=nwFull(fa),tw=nwFull(ta);
     var fh=nhFull(fa), th=nhFull(ta);
     var fx,fy,tx2,ty2;
@@ -4245,31 +5034,43 @@ function renderCurves(){
     var ltAbsDx=Math.abs(ltdx), ltAbsDy=Math.abs(ltdy);
     var lpMX=lpAbsDx>=lpAbsDy?(lpdx>0?1:-1):0, lpMY=lpAbsDy>lpAbsDx?(lpdy>0?1:-1):0;
     var ltMX=ltAbsDx>=ltAbsDy?(ltdx>0?1:-1):0, ltMY=ltAbsDy>ltAbsDx?(ltdy>0?1:-1):0;
-    lcp1x=sc1.x+lpMX*ldist+lcpOff.dx*cam.z;
-    lcp1y=sc1.y+lpMY*ldist+lcpOff.dy*cam.z;
-    lcp2x=sc2.x+ltMX*ldist+lcpOff.dx*cam.z;
-    lcp2y=sc2.y+ltMY*ldist+lcpOff.dy*cam.z;
+    var refCurveDx=isFinite(Number(lcpOff.dx))?Number(lcpOff.dx):0,refCurveDy=isFinite(Number(lcpOff.dy))?Number(lcpOff.dy):0;
+    lcp1x=sc1.x+lpMX*ldist+refCurveDx*cam.z;
+    lcp1y=sc1.y+lpMY*ldist+refCurveDy*cam.z;
+    lcp2x=sc2.x+ltMX*ldist+refCurveDx*cam.z;
+    lcp2y=sc2.y+ltMY*ldist+refCurveDy*cam.z;
     var larr=lk.arrow||'none';
     var linkColor=lk.color||getColor(lk.from);
     var linkStartMode=linkLineType==='elbow'?(elbowPortModeFromName(lk.fromPort)||(faPreferred&&faPreferred.mode)):null;
     var linkEndMode=linkLineType==='elbow'?(elbowPortModeFromName(lk.toPort)||(taPreferred&&taPreferred.mode)):null;
     var linkBaseCpOff=linkLineType==='elbow'?applyElbowEndpointModes(lcpOff,linkStartMode,linkEndMode):lcpOff;
-    var busInfo=referenceBusMap[refLinkKey(lk)];
+    var busInfo=getOrganizedBusPath(lk,fa,ta)||referenceBusMap[refLinkKey(lk)];
     if(busInfo){
       sc1=busInfo.startPoint;
       sc2=busInfo.endPoint;
     }
     if(!busInfo&&linkLineType!=='elbow'){
       if(larr==='forward'||larr==='both'){
-        var lfwTipAngle=Math.atan2(sc2.y-lcp2y, sc2.x-lcp2x);
-        sc2=getArrowTipForNode(ta,tw,th,lfwTipAngle);
+        var lfwAttachment=getCurveArrowEndpoint(ta,tw,th,sc2,{x:lcp2x,y:lcp2y});
+        sc2=lfwAttachment.point;lcp2x=lfwAttachment.control.x;lcp2y=lfwAttachment.control.y;
+        var lfwTipAngle=Math.atan2(sc2.y-lcp2y,sc2.x-lcp2x),lfwBase=sc2;
         sc2=spreadArrowTip(sc2,ta.id,lfwTipAngle,tw,th);
+        lcp2x+=sc2.x-lfwBase.x;lcp2y+=sc2.y-lfwBase.y;
       }
       if(larr==='backward'||larr==='both'){
-        var lbwTipAngle=Math.atan2(sc1.y-lcp1y, sc1.x-lcp1x);
-        sc1=getArrowTipForNode(fa,fw,fh,lbwTipAngle);
+        var lbwAttachment=getCurveArrowEndpoint(fa,fw,fh,sc1,{x:lcp1x,y:lcp1y});
+        sc1=lbwAttachment.point;lcp1x=lbwAttachment.control.x;lcp1y=lbwAttachment.control.y;
+        var lbwTipAngle=Math.atan2(sc1.y-lcp1y,sc1.x-lcp1x),lbwBase=sc1;
         sc1=spreadArrowTip(sc1,fa.id,lbwTipAngle,fw,fh);
+        lcp1x+=sc1.x-lbwBase.x;lcp1y+=sc1.y-lbwBase.y;
       }
+    }
+    if(linkLineType!=='elbow'){
+      var manualFrom=resolveSavedAttachment(lk,fa,fw,fh,'start',null),manualTo=resolveSavedAttachment(lk,ta,tw,th,'end',null);
+      if(manualFrom){lcp1x+=manualFrom.point.x-sc1.x;lcp1y+=manualFrom.point.y-sc1.y;sc1=manualFrom.point;}
+      if(manualTo){lcp2x+=manualTo.point.x-sc2.x;lcp2y+=manualTo.point.y-sc2.y;sc2=manualTo.point;}
+      if(manualFrom){var fixedFrom=getCurveArrowEndpoint(fa,fw,fh,sc1,{x:lcp1x,y:lcp1y},true);lcp1x=fixedFrom.control.x;lcp1y=fixedFrom.control.y;}
+      if(manualTo){var fixedTo=getCurveArrowEndpoint(ta,tw,th,sc2,{x:lcp2x,y:lcp2y},true);lcp2x=fixedTo.control.x;lcp2y=fixedTo.control.y;}
     }
     var linkPathInfo=busInfo||roundedElbowPath(sc1,sc2,linkBaseCpOff,linkLineType)||straightAlignedPathInfo(sc1,sc2,lcpOff,linkLineType)||{
       d:'M'+sc1.x+','+sc1.y+' C'+lcp1x+','+lcp1y+' '+lcp2x+','+lcp2y+' '+sc2.x+','+sc2.y,
@@ -4277,20 +5078,16 @@ function renderCurves(){
       startAngle:Math.atan2(sc1.y-lcp1y,sc1.x-lcp1x),
       endAngle:Math.atan2(sc2.y-lcp2y,sc2.x-lcp2x)
     };
-    if(!busInfo&&linkLineType==='elbow'&&larr!=='none'){
-      var lStartAutoPort=getElbowAutoPortAngle(fa,fw,fh,linkPathInfo,true);
-      var lEndAutoPort=getElbowAutoPortAngle(ta,tw,th,linkPathInfo,false);
+    if(!busInfo&&linkLineType==='elbow'&&(larr!=='none'||lk.startAttach||lk.endAttach)){
+      var lStartAutoPort=resolveSavedAttachment(lk,fa,fw,fh,'start',getNamedElbowPort(fa,fw,fh,lk.fromPort)||getElbowAutoPortAngle(fa,fw,fh,linkPathInfo,true));
+      var lEndAutoPort=resolveSavedAttachment(lk,ta,tw,th,'end',getNamedElbowPort(ta,tw,th,lk.toPort)||getElbowAutoPortAngle(ta,tw,th,linkPathInfo,false));
       if(!shouldUseElbowAutoPort(lk.fromPort,lStartAutoPort))lStartAutoPort=null;
       if(!shouldUseElbowAutoPort(lk.toPort,lEndAutoPort))lEndAutoPort=null;
       if(lStartAutoPort){linkPathInfo.startAngle=lStartAutoPort.angle;}
       if(lEndAutoPort){linkPathInfo.endAngle=lEndAutoPort.angle;}
       var linkCpForPath=linkBaseCpOff;
-      if(lStartAutoPort&&lStartAutoPort.mode==='vertical'){
-        linkCpForPath=Object.assign({},linkCpForPath,{startVertical:true});
-      }
-      if(lEndAutoPort&&lEndAutoPort.mode==='vertical'){
-        linkCpForPath=Object.assign({},linkCpForPath,{endVertical:true});
-      }
+      linkCpForPath=applyElbowEndpointModes(linkCpForPath,lStartAutoPort&&lStartAutoPort.mode,lEndAutoPort&&lEndAutoPort.mode);
+      if(lStartAutoPort||lEndAutoPort)linkCpForPath=Object.assign({},linkCpForPath,{smoothEndpoints:true});
       if(lEndAutoPort){
         sc2=lEndAutoPort.point;
       }
@@ -4307,9 +5104,18 @@ function renderCurves(){
       if(lStartAutoPort){linkPathInfo.startAngle=lStartAutoPort.angle;}
       if(lEndAutoPort){linkPathInfo.endAngle=lEndAutoPort.angle;}
     }
+    if(larr==='forward'||larr==='both'){linkPathInfo=clipArrowRouteAtNode(linkPathInfo,ta,false);if(linkPathInfo.endPoint)sc2=linkPathInfo.endPoint;}
+    if(larr==='backward'||larr==='both'){linkPathInfo=clipArrowRouteAtNode(linkPathInfo,fa,true);if(linkPathInfo.startPoint)sc1=linkPathInfo.startPoint;}
+    linkPathInfo=syncArrowGeometryWithPath(linkPathInfo);
+    sc1=linkPathInfo.startPoint||sc1;sc2=linkPathInfo.endPoint||sc2;
     var refTop=(selEdge&&selEdge.type==='ref'&&selEdge.id===(lk.from+'_'+lk.to))||(sel&&(sel===lk.from||sel===lk.to));
-    var refSignature=JSON.stringify([linkPathInfo.d,linkPathInfo.handle,linkPathInfo.handles,linkPathInfo.points,linkPathInfo.startAngle,linkPathInfo.endAngle,sc1,sc2,lcp1x,lcp1y,lcp2x,lcp2y,linkColor,cam.z,sel,selEdge,linkMode,linkLineType,linkStrokeStyle,lk.arrow,lk.fromPort,lk.toPort,lk.cp,getElbowHandleLimit(lk),busInfo&&busInfo.busOwner,busInfo&&busInfo.busHandle,busInfo&&busInfo.busLinks.map(function(l){return [l.from,l.to];})]);
+    var refBoundsPoints=(linkPathInfo.points||[sc1,{x:lcp1x,y:lcp1y},{x:lcp2x,y:lcp2y},sc2]).map(screenLocalToWorld);
+    if(!edgeMaybeVisible(fa,ta,curveBounds,refBoundsPoints))continue;
+    rememberOrganizedBus(busInfo);
+    var refSignature=JSON.stringify([typeof isLight!=='undefined'&&isLight,linkPathInfo.d,linkPathInfo.handle,linkPathInfo.handles,linkPathInfo.points,linkPathInfo.startAngle,linkPathInfo.endAngle,sc1,sc2,lcp1x,lcp1y,lcp2x,lcp2y,linkColor,cam.z,sel,selEdge,linkMode,linkLineType,linkStrokeStyle,lk.arrow,lk.fromPort,lk.toPort,lk.cp,getElbowHandleLimit(lk),busInfo&&busInfo.busOwner,busInfo&&busInfo.busHandle,busInfo&&busInfo.busLinks.map(function(l){return [l.from,l.to];})]);
     if(!beginEdge('link-'+lk.from+'-'+lk.to,refSignature,lk,fa,ta,refTop))continue;
+    activeEdge.endpointInfo={start:Object.assign(screenLocalToWorld(sc1),{angle:linkPathInfo.startAngle}),end:Object.assign(screenLocalToWorld(sc2),{angle:linkPathInfo.endAngle})};
+    activeEdge.routePoints=(linkPathInfo.points||[]).map(screenLocalToWorld);activeEdge.routeColor=linkColor;activeEdge.routeStyle=linkStrokeStyle;
     /* 교차 구분용 배경 외곽선 */
     var lbgPath=document.createElementNS('http://www.w3.org/2000/svg','path');
     lbgPath.setAttribute('d',linkPathInfo.d);
@@ -4329,6 +5135,10 @@ function renderCurves(){
     lpath.setAttribute('stroke-linejoin','round');
     lpath.setAttribute('opacity','0.9');
     lpath.setAttribute('data-link',lk.from+'-'+lk.to);
+    var isSelRef=(selEdge&&selEdge.type==='ref'&&selEdge.id===(lk.from+'_'+lk.to));
+    var isConnRef=sel&&(sel===lk.from||sel===lk.to);
+    var hasSel2=(sel!==null);
+    var opRef=isSelRef?'1':(isConnRef?'1':(hasSel2?'0.15':'0.85'));
     if(larr!=='none'){
       /* 화살표 방향: 경로는 항상 from→to(M=from ep, 끝=to ep)
          forward(from→to): marker-end(to쪽) 고정
@@ -4336,18 +5146,14 @@ function renderCurves(){
          위치 변경에 무관하게 방향 유지 */
       if(larr==='forward'||larr==='both'){
         var lfwAngle=linkPathInfo.endAngle;
-        drawArrowHead(svgA, sc2.x, sc2.y, lfwAngle, linkColor);
+        drawArrowHead(svgA, sc2.x, sc2.y, lfwAngle, linkColor,opRef);
       }
       if(larr==='backward'||larr==='both'){
         var lbwAngle=linkPathInfo.startAngle;
-        drawArrowHead(svgA, sc1.x, sc1.y, lbwAngle, linkColor);
+        drawArrowHead(svgA, sc1.x, sc1.y, lbwAngle, linkColor,opRef);
       }
     }
     /* 활성 참조선 강조 + 노드 선택 시 연결선 강조 */
-    var isSelRef=(selEdge&&selEdge.type==='ref'&&selEdge.id===(lk.from+'_'+lk.to));
-    var isConnRef=sel&&(sel===lk.from||sel===lk.to);
-    var hasSel2=(sel!==null);
-    var opRef= isSelRef?'1' : (isConnRef?'1' : (hasSel2?'0.15':'0.85'));
     var swRef= isSelRef?'4' : (isConnRef?'3.5' : '2');
     applyEdgeStrokeStyle(lpath,(linkMode&&linkStrokeStyle!=='double')?'dash':linkStrokeStyle,linkLineType==='elbow'?scaledLowZoomStroke(swRef,1):swRef,opRef,linkPathInfo.d,linkColor);
     if(isConnRef) lbgPath.setAttribute('stroke-width',linkLineType==='elbow'?scaledLowZoomStroke(8,1.8):8);
@@ -4355,15 +5161,18 @@ function renderCurves(){
     if(isSelRef||isConnRef)edgeTopPaths.push(lpath);
     lpath.style.pointerEvents='stroke'; lpath.style.cursor='pointer';
     (function(lkref){
-      lpath.addEventListener('click',function(e){
+      function openReferenceMenu(e){
         if(linkMode)return;
-        e.stopPropagation();
+        e.preventDefault();e.stopPropagation();
         selEdge={type:'ref',id:lkref.from+'_'+lkref.to};
         renderCurves();
         showArrowMenu(lkref,e.clientX,e.clientY,'link');
-      });
+      }
+      lpath.addEventListener('click',openReferenceMenu);
+      lpath.addEventListener('contextmenu',openReferenceMenu);
     })(lk);
     svg.appendChild(lpath);activeEdge.path=lpath;
+    if(busInfo&&busInfo.organizedBus)continue;
     if(busInfo&&shouldShowReferenceBusHandle(busInfo)){
       appendReferenceBusHandle(svgH,busInfo,lpath);
     }
@@ -4550,8 +5359,8 @@ function renderCurves(){
         var ldist0=Math.max(Math.abs(lsc1.x-lsc2.x),Math.abs(lsc1.y-lsc2.y))*0.5;
         var rafId=null;
         function onMove(ev){
-          var ddx=origCp.dx+(ev.clientX-startX)/cam.z;
-          var ddy=origCp.dy+(ev.clientY-startY)/cam.z;
+          var ddx=(Number(origCp.dx)||0)+(ev.clientX-startX)/cam.z;
+          var ddy=(Number(origCp.dy)||0)+(ev.clientY-startY)/cam.z;
           lkref2.cp={dx:ddx,dy:ddy};
           if(rafId)cancelAnimationFrame(rafId);
           rafId=requestAnimationFrame(function(){
@@ -4618,9 +5427,13 @@ function renderCurves(){
     svgH.appendChild(g);
   }
   finishEdge();
+  var busHandleLayer=document.createDocumentFragment();
+  Object.keys(organizedBuses).forEach(function(key){appendOrganizedBusHandle(busHandleLayer,organizedBuses[key]);});
+  desired[1].push.apply(desired[1],Array.from(busHandleLayer.childNodes));
   // Selected paths stay above other edges, with their original handle/arrow layers.
   var topSet=new Set(edgeTopPaths);
   desired[0]=desired[0].filter(function(el){return !topSet.has(el);}).concat(edgeTopPaths);
+  appendLineBridges(roots[0],desired[0],_edgeDomCache,seenEdges);
   for(var ei=0;ei<3;ei++)syncSvgChildren(roots[ei],desired[ei]);
   for(var key in _edgeDomCache)if(!seenEdges[key])delete _edgeDomCache[key];
   _curveCamera={x:cam.x,y:cam.y,z:cam.z};
@@ -4666,6 +5479,9 @@ function renderNodes(){
       if(validNodes===0) return;
 
       minX-=PAD; minY-=PAD+22; maxX+=PAD; maxY+=PAD;
+      var autoBounds={left:minX,top:minY,right:maxX,bottom:maxY};
+      var resizedBounds=manualGroupBoxBounds(autoBounds,grp.boxOffsets);
+      minX=resizedBounds.left;minY=resizedBounds.top;maxX=resizedBounds.right;maxY=resizedBounds.bottom;
       if(selGroup!==grp.id&&(maxX<nodeBounds.x1||minX>nodeBounds.x2||maxY<nodeBounds.y1||minY>nodeBounds.y2)){
         return;
       }
@@ -4752,6 +5568,7 @@ function renderNodes(){
             var nd=gn(nid2); if(nd)initPos[nid2]={x:nd.x,y:nd.y};
           });
           var moved=false;
+          var previousDelta={x:0,y:0};
           function onMove(ev){
             var wp1=s2w(ev.clientX,ev.clientY);
             var dx=wp1.x-wp0.x, dy=wp1.y-wp0.y;
@@ -4760,12 +5577,16 @@ function renderNodes(){
             grp.nodeIds.forEach(function(nid2){
               var nd=gn(nid2); if(nd&&initPos[nid2]){nd.x=initPos[nid2].x+dx; nd.y=initPos[nid2].y+dy;}
             });
+            // Nodes use their initial position; route points use only the
+            // incremental delta so repeated mouse events cannot over-shift them.
+            shiftInternalEdgeControls(grp.nodeIds,dx-previousDelta.x,dy-previousDelta.y);
+            previousDelta={x:dx,y:dy};
             requestFastRender({forceCurves:true,drawMM:false});
           }
           function onUp(){
             document.removeEventListener('mousemove',onMove);
             document.removeEventListener('mouseup',onUp);
-            if(moved)saveAll();
+            if(moved){saveAll();requestFastRender({forceCurves:true});}
             setTimeout(function(){showGroupPanel(grp.id);},30);
           }
           document.addEventListener('mousemove',onMove);
@@ -4791,9 +5612,12 @@ function renderNodes(){
           saveAll(); renderNodes();
         });
         wrap.appendChild(del);
+        addGroupBoxResizeHandles(wrap,grp);
         world.insertBefore(wrap, world.firstChild);
       }
 
+      wrap._autoBounds=autoBounds;
+      wrap.classList.toggle('grp-selected',selGroup===grp.id);
       wrap.style.left=bsx+'px'; wrap.style.top=bsy+'px';
       wrap.style.width=bw+'px'; wrap.style.height=bh+'px';
       var bg=wrap.querySelector('.group-box-bg');
@@ -4810,7 +5634,7 @@ function renderNodes(){
         bg.style.pointerEvents='all';
       }
       lbl2.style.background=gc2;
-      lbl2.style.color=getNodeFontColor(gc2, null);
+      lbl2.style.color=getNodeFontColor(gc2, grp.fontColor);
       lbl2.textContent=grp.name||'그룹';
       lbl2.style.fontSize=(grp.fontSize||0.82)+'rem';
 
@@ -5147,9 +5971,21 @@ function updatePanel(){
   /* 폰트 색상 */
   var fcInput=document.getElementById('np-font-color');
   if(fcInput){
-    fcInput.value=n.fontColor||'#ffffff';
-    fcInput.oninput=function(){var nd=gn(sel);if(nd){nd.fontColor=fcInput.value;saveAll();renderAll();}};
+    var nodeElement=_nodeElements[n.id];
+    fcInput.value=getNodeFontColor(nodeElement?nodeElement.style.background:getColor(n.id),n.fontColor);
+    var fontUndoPushed=false;
+    fcInput.onpointerdown=function(){fontUndoPushed=false;};
+    function applyLiveNodeFontColor(){
+      var nd=gn(n.id);if(!nd||sel!==n.id||nd.fontColor===fcInput.value)return;
+      if(!fontUndoPushed){pushUndoState();fontUndoPushed=true;}
+      nd.fontColor=fcInput.value;
+      var element=_nodeElements[nd.id];if(element){element.style.color=nd.fontColor;element._mmStyleKey=null;}
+      saveAll({defer:true});
+    }
+    fcInput.oninput=applyLiveNodeFontColor;
+    fcInput.onchange=function(){applyLiveNodeFontColor();saveAll();fontUndoPushed=false;};
   }
+  document.getElementById('np-font-auto').onclick=function(e){e.stopPropagation();var nd=gn(n.id);if(!nd)return;pushUndoState();delete nd.fontColor;saveAll();renderAll();};
 }
 
 
@@ -5433,8 +6269,9 @@ function renderMemoImgs(n){
     var del=document.createElement('button');del.className='img-del';del.textContent='✕';del.title='삭제';
     (function(i,k){del.onclick=function(e){
       e.stopPropagation();
-      if(k.startsWith('idb_img_'))idbDelImg(k);
-      n.imgs.splice(i,1);saveAll();renderMemoImgs(n);renderNodes();
+      n.imgs.splice(i,1);
+      if(k.startsWith('idb_img_')&&!imageKeyInUse(k))idbDelImg(k);
+      saveAll();renderMemoImgs(n);renderNodes();
     };})(idx,keyOrSrc);
     wrap.appendChild(im);wrap.appendChild(del);grid.appendChild(wrap);
   });
@@ -5510,6 +6347,102 @@ function startEdit(id){
 }
 
 /* ════════════════ ADD/DELETE ════════════════ */
+function getEdgeInsertionPoint(entry,a,b){
+  var point={x:(a.x+b.x)/2,y:(a.y+b.y)/2},tangent={x:b.x-a.x,y:b.y-a.y};
+  var path=entry&&entry.path;
+  if(path){
+    try{
+      var length=path.getTotalLength();
+      if(isFinite(length)&&length>0){
+        var middle=length/2,delta=Math.min(length/4,Math.max(0.5,2*cam.z));
+        point=screenLocalToWorld(path.getPointAtLength(middle));
+        var before=path.getPointAtLength(middle-delta),after=path.getPointAtLength(middle+delta);
+        tangent={x:after.x-before.x,y:after.y-before.y};
+      }
+    }catch(e){}
+  }
+  var route=entry&&entry.routePoints,segment=-1,projection=null;
+  if(route&&route.length>1){
+    var best=Infinity;
+    for(var i=1;i<route.length;i++){
+      var p=route[i-1],q=route[i],dx=q.x-p.x,dy=q.y-p.y,den=dx*dx+dy*dy;
+      if(!den)continue;
+      var t=clampVal(((point.x-p.x)*dx+(point.y-p.y)*dy)/den,0,1);
+      var candidate={x:p.x+dx*t,y:p.y+dy*t},distance=Math.hypot(candidate.x-point.x,candidate.y-point.y);
+      if(distance<best){best=distance;segment=i;projection=candidate;tangent={x:dx,y:dy};}
+    }
+    if(segment>=0)return {point:projection,tangent:tangent,segment:segment,route:route};
+  }
+  return {point:point,tangent:tangent,segment:-1,route:null};
+}
+function splitInsertedEdgeRoute(info,node,oldCp){
+  var result=[{dx:0,dy:0},{dx:0,dy:0}];
+  if(!info.route||info.segment<1)return result;
+  var route=info.route,cut=info.segment;
+  var before=route.slice(1,cut).map(function(p){return {x:p.x,y:p.y};});
+  var after=route.slice(cut,-1).map(function(p){return {x:p.x,y:p.y};});
+  var hw=nwFull(node)/2+6,hh=nhFull(node)/2+6;
+  function covered(p){return Math.abs(p.x-node.x)<=hw&&Math.abs(p.y-node.y)<=hh;}
+  while(before.length&&covered(before[before.length-1]))before.pop();
+  while(after.length&&covered(after[0]))after.shift();
+  // A straight half still needs a waypoint to avoid the default elbow detour.
+  if(!before.length)before.push({x:(route[0].x+node.x)/2,y:(route[0].y+node.y)/2});
+  if(!after.length)after.push({x:(node.x+route[route.length-1].x)/2,y:(node.y+route[route.length-1].y)/2});
+  result=[{points:before},{points:after}];
+  if(oldCp&&oldCp.cornerRadius!==undefined)result.forEach(function(cp){cp.cornerRadius=oldCp.cornerRadius;});
+  return result;
+}
+function insertNodeOnEdge(target,type){
+  if(lockMode){showToast('🔒 잠금을 해제한 뒤 중간 노드를 추가하세요');return null;}
+  var tree=type==='tree',edge=tree?gn(target):target;
+  if(!edge||(tree?edge.pid===null:links.indexOf(edge)<0)){showToast('연결선을 다시 선택해 주세요');return null;}
+  var a=gn(tree?edge.pid:edge.from),b=gn(tree?edge.id:edge.to);
+  if(!a||!b||a.id===b.id){showToast('연결된 두 노드를 확인해 주세요');return null;}
+  var key=tree?'tree-'+b.id:'link-'+a.id+'-'+b.id;
+  var entry=_edgeDomCache[key],info=getEdgeInsertionPoint(entry,a,b);
+  var color=entry&&entry.routeColor||(tree?(edge.lineColor||getColor(b.id)):(edge.color||getColor(a.id)));
+  if(!isFinite(info.point.x)||!isFinite(info.point.y))return null;
+  if(memoOpen)saveMemoTxt();
+  pushUndoState();
+  // Imported maps may contain an outdated next-id counter.
+  var next=Math.max(1,Number(nid)||1);nodes.forEach(function(n){next=Math.max(next,Number(n.id)+1);});nid=next+1;
+  var newNode={id:next,text:'새 노드',x:info.point.x,y:info.point.y,pid:tree?a.id:null,star:false,
+    customColor:b.customColor||getColor(b.id),fontColor:b.fontColor||null,
+    bold:!!b.bold,underline:!!b.underline,fsize:b.fsize,scale:1,memo:'',imgs:[]};
+  var routes=splitInsertedEdgeRoute(info,newNode,edge.cp);
+  var horizontal=Math.abs(info.tangent.x)>=Math.abs(info.tangent.y);
+  var outgoing=horizontal?(info.tangent.x>=0?'right':'left'):(info.tangent.y>=0?'bottom':'top');
+  var incoming={right:'left',left:'right',bottom:'top',top:'bottom'}[outgoing];
+  function copySetting(source,destination,name){if(source[name]!==undefined)destination[name]=JSON.parse(JSON.stringify(source[name]));}
+  if(tree){
+    ['arrow','lineType','strokeStyle'].forEach(function(name){copySetting(edge,newNode,name);});
+    newNode.lineColor=color;edge.lineColor=color;
+    copySetting(edge,newNode,'parentPort');copySetting(edge,newNode,'startAttach');
+    newNode.childPort=incoming;newNode.cp=routes[0];
+    edge.pid=newNode.id;edge.parentPort=outgoing;edge.cp=routes[1];delete edge.startAttach;
+  }else{
+    var first=Object.assign({},edge,{from:a.id,to:newNode.id,color:color,cp:routes[0]});
+    var second=Object.assign({},edge,{from:newNode.id,to:b.id,color:color,cp:routes[1]});
+    delete first.toPort;delete first.endAttach;delete second.fromPort;delete second.startAttach;
+    first.toPort=incoming;second.fromPort=outgoing;
+    links.splice(links.indexOf(edge),1,first,second);
+  }
+  nodes.push(newNode);
+  groups.forEach(function(group){
+    if(group.nodeIds.indexOf(a.id)>=0&&group.nodeIds.indexOf(b.id)>=0&&group.nodeIds.indexOf(newNode.id)<0)group.nodeIds.push(newNode.id);
+  });
+  sel=newNode.id;selEdge=null;selGroup=null;multiSel=[];edgePortEdit=null;
+  linkMode=false;linkFrom=null;linkFromPort=null;reconnectMode=false;reconnectNodeId=null;
+  clearLinkModeUi();document.body.classList.remove('reconnect-mode');
+  if(memoOpen)closeMemo();
+  closeArrowMenu();invalidateModelIndex();
+  // Adding an intermediate node must not rearrange the map or fit the camera.
+  _lastLayoutKey=layoutKey();
+  saveAll();renderAll();
+  setTimeout(function(){if(gn(newNode.id)===newNode)startEdit(newNode.id);},80);
+  showToast('＋ 중간 노드 추가됨 — 이름을 입력하세요 (Ctrl+Z로 복구)');
+  return newNode;
+}
 function addChild(pid){
   var par=gn(pid);if(!par)return;
   var dir, isVertical=false;
@@ -5674,6 +6607,23 @@ function deleteSelectedNodes(){
 function undoDelete(){
   if(!undoStack.length){showToast('↩ 되돌릴 내용이 없습니다');return;}
   var prev=undoStack.pop();
+  if(prev.transferCats){
+    closeMemo();
+    prev.transferCats.forEach(function(snapshot){
+      var c=getCat(snapshot.id);if(c)Object.assign(c,snapshot);
+    });
+    var restored=getCat(prev.catId);
+    if(!restored){showToast('복구할 카테고리가 삭제되었습니다');return;}
+    // Prevent loadCat from writing the state being undone back into the category.
+    var current=getCat(curCatId);
+    if(current){nodes=current.nodes;nid=current.nid;links=current.links||[];groups=current.groups||[];cam=current.cam||{x:0,y:0,z:1};nextGid=current.nextGid||1;}
+    loadCat(prev.catId,false);saveAll();
+    showToast('↩ 카테고리 복사 / 이동을 되돌렸습니다');return;
+  }
+  if(prev.catId!==undefined&&prev.catId!==curCatId){
+    if(!getCat(prev.catId)){showToast('복구할 카테고리가 삭제되었습니다');return;}
+    loadCat(prev.catId,false);
+  }
   nodes=prev.nodes;nid=prev.nid;sel=prev.sel;
   if(prev.links!==undefined) links=prev.links;
   if(prev.groups!==undefined) groups=prev.groups;
@@ -5681,6 +6631,110 @@ function undoDelete(){
   multiSel=prev.multiSel||[];
   saveAll();renderAll();
   showToast('↩ 복구되었습니다');
+}
+
+/* Category transfer: node IDs are local to each category. */
+var nodeClipboard=null,transferSelection=[];
+function selectedTransferIds(contextId){
+  if(multiSel.length&&(!contextId||multiSel.indexOf(contextId)>=0))return multiSel.filter(function(id){return !!gn(id);});
+  var id=contextId||sel;return gn(id)?[id]:[];
+}
+function makeNodeBundle(ids,includeChildren){
+  var included={};ids.forEach(function(id){if(gn(id))included[id]=true;});
+  if(includeChildren){
+    var changed=true;
+    while(changed){changed=false;nodes.forEach(function(n){if(n.pid!==null&&included[n.pid]&&!included[n.id]){included[n.id]=true;changed=true;}});}
+  }
+  var bundle={nodes:nodes.filter(function(n){return included[n.id];}),
+    links:links.filter(function(l){return included[l.from]&&included[l.to];}),
+    groups:groups.filter(function(g){return g.nodeIds.some(function(id){return included[id];});}).map(function(g){var copy=Object.assign({},g);copy.nodeIds=g.nodeIds.filter(function(id){return included[id];});return copy;})};
+  return JSON.parse(JSON.stringify(bundle));
+}
+function copySelectedNodes(contextId){
+  if(memoOpen)saveMemoTxt();
+  var ids=selectedTransferIds(contextId);
+  if(!ids.length){showToast('복사할 노드를 선택하세요');return;}
+  nodeClipboard=makeNodeBundle(ids,true);
+  showToast('📋 '+nodeClipboard.nodes.length+'개 노드 복사됨 — 카테고리 전환 후 Ctrl+V');
+}
+function appendNodeBundle(target,bundle,point){
+  var copies=JSON.parse(JSON.stringify(bundle)),idMap={},maxId=0;
+  target.nodes.forEach(function(n){maxId=Math.max(maxId,n.id);});
+  target.nid=Math.max(target.nid||1,maxId+1);
+  copies.nodes.forEach(function(n){idMap[n.id]=target.nid++;});
+  var minX=Infinity,minY=Infinity,maxY=-Infinity,right=-Infinity;
+  copies.nodes.forEach(function(n){minX=Math.min(minX,n.x-nwFull(n)/2);minY=Math.min(minY,n.y-nhFull(n)/2);maxY=Math.max(maxY,n.y+nhFull(n)/2);});
+  target.nodes.forEach(function(n){right=Math.max(right,n.x+nwFull(n)/2);});
+  var dx=point?point.x-(minX+100):(isFinite(right)?right+100:0)-minX;
+  var dy=(point?point.y:0)-(minY+maxY)/2;
+  function shiftCp(cp){
+    if(cp&&cp.points)cp.points.forEach(function(p){p.x+=dx;p.y+=dy;});
+    if(cp&&cp.organizedBus){var mappedHub=idMap[cp.organizedBus.hubId];if(mappedHub===undefined)delete cp.organizedBus;else cp.organizedBus.hubId=mappedHub;}
+  }
+  copies.nodes.forEach(function(n){
+    var oldParent=n.pid;n.id=idMap[n.id];n.pid=idMap[oldParent]===undefined?null:idMap[oldParent];
+    if(n.pid===null){delete n.cp;delete n.fromPort;delete n.toPort;}else shiftCp(n.cp);
+    n.x+=dx;n.y+=dy;
+  });
+  copies.links.forEach(function(l){l.from=idMap[l.from];l.to=idMap[l.to];shiftCp(l.cp);});
+  target.links=target.links||[];target.groups=target.groups||[];
+  var maxGid=0;target.groups.forEach(function(g){maxGid=Math.max(maxGid,g.id);});
+  target.nextGid=Math.max(target.nextGid||1,maxGid+1);
+  copies.groups.forEach(function(g){g.id=target.nextGid++;g.nodeIds=g.nodeIds.map(function(id){return idMap[id];});});
+  target.nodes=target.nodes.concat(copies.nodes);target.links=target.links.concat(copies.links);target.groups=target.groups.concat(copies.groups);
+  return copies.nodes.map(function(n){return n.id;});
+}
+function pasteNodeBundle(point){
+  if(!nodeClipboard){showToast('먼저 노드를 복사하세요');return;}
+  if(memoOpen){saveMemoTxt();closeMemo();}
+  pushUndoState();saveAll();
+  var target=getCat(curCatId),ids=appendNodeBundle(target,nodeClipboard,point);
+  nodes=target.nodes;nid=target.nid;links=target.links;groups=target.groups;nextGid=target.nextGid;
+  invalidateModelIndex();sel=ids[0];multiSel=ids;selEdge=null;selGroup=null;
+  saveAll();renderAll();fitView();showToast('📋 '+ids.length+'개 노드 붙여넣기 완료');
+}
+function closeTransferModal(){document.getElementById('transfer-modal').style.display='none';transferSelection=[];}
+function openTransferModal(contextId){
+  transferSelection=selectedTransferIds(contextId);
+  if(!transferSelection.length){showToast('복사 / 이동할 노드를 선택하세요');return;}
+  var select=document.getElementById('transfer-target');select.innerHTML='';
+  function catPath(c){var path=[c.name],seen={};while(c.parentId!==null&&!seen[c.id]){seen[c.id]=true;c=getCat(c.parentId);if(!c)break;path.unshift(c.name);}return path.join(' / ');}
+  cats.filter(function(c){return c.id!==curCatId;}).forEach(function(c){var opt=document.createElement('option');opt.value=c.id;opt.textContent=(c.icon||'🗂')+' '+catPath(c);select.appendChild(opt);});
+  if(!select.options.length){showToast('먼저 대상 카테고리를 만들어 주세요');return;}
+  document.getElementById('transfer-desc').checked=true;
+  function updateCount(){var count=makeNodeBundle(transferSelection,document.getElementById('transfer-desc').checked).nodes.length;document.getElementById('transfer-count').textContent='선택 '+transferSelection.length+'개 · 복사 / 이동 대상 '+count+'개';}
+  document.getElementById('transfer-desc').onchange=updateCount;updateCount();
+  document.getElementById('transfer-modal').style.display='flex';select.focus();
+}
+function submitNodeTransfer(move){
+  var target=getCat(Number(document.getElementById('transfer-target').value));
+  if(!target||target.id===curCatId)return;
+  if(memoOpen){saveMemoTxt();closeMemo();}
+  var bundle=makeNodeBundle(transferSelection,document.getElementById('transfer-desc').checked);
+  if(!bundle.nodes.length)return;
+  saveAll();var source=getCat(curCatId);
+  var snapshots=JSON.parse(JSON.stringify([source,target]));
+  pushUndoState();
+  undoStack[undoStack.length-1].transferCats=snapshots;
+  undoStack[undoStack.length-1]._bytes+=JSON.stringify(snapshots).length*2;
+  var ids=appendNodeBundle(target,bundle);
+  if(move){
+    var moved={};bundle.nodes.forEach(function(n){moved[n.id]=true;});
+    // With descendants excluded, keep children in the source and reconnect to the nearest remaining ancestor.
+    nodes.forEach(function(n){if(!moved[n.id]&&moved[n.pid]){var p=gn(n.pid),seen={};while(p&&moved[p.id]&&!seen[p.id]){seen[p.id]=true;p=gn(p.pid);}n.pid=p?p.id:null;delete n.cp;}});
+    nodes=nodes.filter(function(n){return !moved[n.id];});
+    links=links.filter(function(l){return !moved[l.from]&&!moved[l.to];});
+    groups=groups.map(function(g){var copy=Object.assign({},g);copy.nodeIds=g.nodeIds.filter(function(id){return !moved[id];});return copy;}).filter(function(g){return g.nodeIds.length;});
+    source.nodes=nodes;source.links=links;source.groups=groups;
+  }
+  closeTransferModal();loadCat(target.id,false);sel=ids[0];multiSel=ids;
+  saveAll();renderAll();fitView();showToast((move?'📦 이동':'📋 복사')+' 완료: '+ids.length+'개 노드 → '+target.name+' (Ctrl+Z로 복구)');
+}
+// Copies share immutable image records; delete a record only when no map or undo uses it.
+function imageKeyInUse(key){
+  function used(list){return (list||[]).some(function(n){return (n.imgs||[]).indexOf(key)>=0;});}
+  return cats.some(function(c){return used(c.id===curCatId?nodes:c.nodes);})||
+    (nodeClipboard&&used(nodeClipboard.nodes))||undoStack.some(function(s){return used(s.nodes)||(s.transferCats||[]).some(function(c){return used(c.nodes);});});
 }
 function showToast(msg){
   var t=document.getElementById('toast');
@@ -5943,12 +6997,18 @@ function showCtx(x,y,id,emptySpace,wx,wy){
   document.getElementById('ctx-edit').style.display=isEmptySpace?'none':'flex';
   document.getElementById('ctx-star').style.display=isEmptySpace?'none':'flex';
   document.getElementById('ctx-memo').style.display=isEmptySpace?'none':'flex';
+  document.getElementById('ctx-copy').style.display=isEmptySpace?'none':'flex';
+  document.getElementById('ctx-transfer').style.display=isEmptySpace?'none':'flex';
+  document.getElementById('ctx-organize-lines').style.display=isEmptySpace?'none':'flex';
+  document.getElementById('ctx-paste').style.display=nodeClipboard?'flex':'none';
   /* 삭제: 루트 포함 모든 노드 삭제 가능 (빈공간은 숨김) */
   document.getElementById('ctx-del').style.display=isEmptySpace?'none':'flex';
   if(!isEmptySpace) document.getElementById('ctx-star').textContent=(n&&n.star)?'☆ 중요 표시 해제':'⭐ 중요 표시 추가';
   var hasMulti=multiSel.length>0&&multiSel.indexOf(id)<0;
   document.getElementById('ctx-group').style.display=(!isEmptySpace&&hasMulti)?'flex':'none';
   document.getElementById('ctx-reparent').style.display=(!isEmptySpace&&multiSel.length>=2)?'flex':'none';
+  m.style.left=Math.max(4,Math.min(x,window.innerWidth-m.offsetWidth-4))+'px';
+  m.style.top=Math.max(4,Math.min(y,window.innerHeight-m.offsetHeight-4))+'px';
 }
 function hideCtx(){document.getElementById('ctx').style.display='none';}
 
@@ -6120,6 +7180,8 @@ function exportHTML(){
     
     var ctx = clone.querySelector('#ctx');
     if(ctx) ctx.style.display = 'none';
+    var transferModal = clone.querySelector('#transfer-modal');
+    if(transferModal) transferModal.style.display = 'none';
     
     var alignMenu = clone.querySelector('#align-menu');
     if(alignMenu) alignMenu.style.display = 'none';
@@ -6166,6 +7228,7 @@ function toggleTheme(){
   r.style.setProperty('--sur2',isLight?'#e8ebf5':'#1f2336');r.style.setProperty('--bdr',isLight?'#c8cde0':'#2b3050');
   r.style.setProperty('--txt',isLight?'#1a1d2e':'#e9ebf5');r.style.setProperty('--mut',isLight?'#6b7494':'#7a82a8');
   document.getElementById('btn-theme').textContent=isLight?'🌙 다크':'☀️ 라이트';
+  renderCurves();
 }
 
 /* ════════════════ EVENTS ════════════════ */
@@ -6262,7 +7325,13 @@ document.addEventListener('click',function(e){
   if(!document.getElementById('memo-tooltip').contains(e.target))hideMemoTooltip();
 });
 document.addEventListener('keydown',function(e){
-  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  if(document.getElementById('transfer-modal').style.display==='flex'){
+    if(e.key==='Escape'){e.preventDefault();closeTransferModal();}
+    return;
+  }
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT'||e.target.isContentEditable)return;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='c'){e.preventDefault();copySelectedNodes();return;}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='v'){e.preventDefault();pasteNodeBundle();return;}
   if(e.key==='Tab'){e.preventDefault();if(sel)addChild(sel);}
   else if(e.key==='Enter'){if(sel)addSibling(sel);}
   else if(e.key==='Delete'||e.key==='Backspace'){
@@ -6452,6 +7521,7 @@ document.getElementById('search-close').onclick=closeSearch;
 
 document.getElementById('btn-lock').onclick=toggleLock;
 document.getElementById('btn-link-mode').onclick=toggleLinkMode;
+document.getElementById('btn-flow').onclick=toggleNodeFlow;
 document.getElementById('btn-help').onclick=openHelp;
 document.getElementById('help-modal').addEventListener('click',function(e){if(e.target===this)closeHelp();});
 document.getElementById('btn-backup').onclick=openBackupModal;
@@ -6784,6 +7854,10 @@ document.getElementById('ctx-sib').onclick=function(){var id=parseInt(document.g
 document.getElementById('ctx-edit').onclick=function(){var id=parseInt(document.getElementById('ctx').dataset.nid);hideCtx();startEdit(id);};
 document.getElementById('ctx-star').onclick=function(){var id=parseInt(document.getElementById('ctx').dataset.nid);hideCtx();toggleStar(id);};
 document.getElementById('ctx-memo').onclick=function(){var id=parseInt(document.getElementById('ctx').dataset.nid);hideCtx();openMemo(id);};
+document.getElementById('ctx-copy').onclick=function(){var id=Number(document.getElementById('ctx').dataset.nid);hideCtx();copySelectedNodes(id);};
+document.getElementById('ctx-transfer').onclick=function(){var id=Number(document.getElementById('ctx').dataset.nid);hideCtx();openTransferModal(id);};
+document.getElementById('ctx-organize-lines').onclick=function(){var id=Number(document.getElementById('ctx').dataset.nid);hideCtx();if(gn(id)){sel=id;organizeHubConnections();}};
+document.getElementById('ctx-paste').onclick=function(){var m=document.getElementById('ctx');var point=m.dataset.empty?{x:Number(m.dataset.wx),y:Number(m.dataset.wy)}:null;hideCtx();pasteNodeBundle(point);};
 document.getElementById('ctx-group').onclick=function(){
   var id=parseInt(document.getElementById('ctx').dataset.nid);
   hideCtx();groupToNode(id);
@@ -7027,7 +8101,7 @@ setTimeout(function(){document.getElementById('hint').style.opacity='0';},6000);
 
 
 /* ════ 화살촉 전용 레이어에 삼각형 그리기 ════ */
-function drawArrowHead(svgA, ex, ey, angle, color){
+function drawArrowHead(svgA, ex, ey, angle, color,opacity){
   var arrowScale=lowZoomVisualScale(0.45);
   var size=13*arrowScale, half=5*arrowScale;
   /* 화살촉 삼각형 꼭짓점 (로컬좌표) */
@@ -7046,6 +8120,7 @@ function drawArrowHead(svgA, ex, ey, angle, color){
   var poly=document.createElementNS('http://www.w3.org/2000/svg','polygon');
   poly.setAttribute('points', rotated.map(function(p){return p.x+','+p.y;}).join(' '));
   poly.setAttribute('fill', color);
+  poly.setAttribute('opacity',opacity===undefined?'1':opacity);
   poly.setAttribute('stroke','rgba(255,255,255,0.75)');
   poly.setAttribute('stroke-width','1.5');
   poly.setAttribute('stroke-linejoin','round');
