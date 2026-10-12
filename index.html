@@ -617,7 +617,8 @@ body.mobile-ui #gp-font-mobile{display:inline-flex;}
 body.mobile-ui #btn-child>span,body.mobile-ui #btn-sibling>span{display:none;}
 body.mobile-ui{
   --tb:calc(60px + env(safe-area-inset-top,0px));
-  --mobile-control-height:calc(68px + env(safe-area-inset-bottom,0px));
+  --mobile-bar-height:calc(68px + env(safe-area-inset-bottom,0px));
+  --mobile-control-height:var(--mobile-bar-height);
   --mobile-inset:var(--mobile-bottom-inset,0px);
   height:100vh;height:var(--mobile-view-height,100dvh);
   overscroll-behavior:none;
@@ -667,13 +668,18 @@ body.mobile-ui #svg-layer,body.mobile-ui #svg-handle-layer,
 body.mobile-ui #svg-arrow-layer{touch-action:none;}
 body.mobile-ui #mobile-controls{
   display:flex;position:fixed;left:0;right:0;
-  bottom:var(--mobile-inset);height:var(--mobile-control-height);z-index:125;
+  bottom:var(--mobile-inset);height:var(--mobile-bar-height);z-index:125;
   align-items:flex-start;gap:4px;
   padding:8px max(8px,env(safe-area-inset-right,0px))
     env(safe-area-inset-bottom,0px) max(8px,env(safe-area-inset-left,0px));
   background:var(--sur);border-top:1px solid var(--bdr);
   box-shadow:0 -4px 20px rgba(0,0,0,.18);
+  transition:transform .2s ease;touch-action:pan-x;
 }
+body.mobile-ui.mobile-tools-hidden{--mobile-control-height:0px;}
+body.mobile-ui.mobile-tools-hidden #mobile-controls{transform:translateY(110%);pointer-events:none;}
+#mobile-controls-handle{display:none;}
+body.mobile-ui #mobile-controls-handle{display:flex;position:fixed;right:max(8px,env(safe-area-inset-right,0px));bottom:calc(var(--mobile-control-height) + var(--mobile-inset) + 4px);z-index:126;min-height:44px;min-width:64px;padding:4px 10px;align-items:center;justify-content:center;border-radius:22px;background:var(--sur);color:var(--txt);border:1px solid var(--bdr);font:inherit;font-size:.75rem;touch-action:none;box-shadow:0 2px 10px rgba(0,0,0,.25);transition:bottom .2s ease;}
 body.mobile-ui #mobile-controls button{
   flex:1;min-width:0;min-height:48px;border:1px solid var(--bdr);
   background:var(--sur2);color:var(--txt);border-radius:10px;
@@ -939,7 +945,7 @@ body.mobile-ui.link-mode .node .link-port{opacity:.85;}
   body.mobile-ui #help-box .hr{grid-template-columns:minmax(0,180px) minmax(0,1fr);gap:12px;}
 }
 @media(max-height:480px){
-  body.mobile-ui{--tb:calc(54px + env(safe-area-inset-top,0px));--mobile-control-height:calc(58px + env(safe-area-inset-bottom,0px));}
+  body.mobile-ui{--tb:calc(54px + env(safe-area-inset-top,0px));--mobile-bar-height:calc(58px + env(safe-area-inset-bottom,0px));}
   body.mobile-ui #mobile-controls{padding-top:5px;}
   body.mobile-ui #mobile-controls button{min-height:46px;flex-direction:row;font-size:.7rem;}
   body.mobile-ui #memo-head{min-height:54px;}
@@ -949,6 +955,7 @@ body.mobile-ui.link-mode .node .link-port{opacity:.85;}
 }
 @media(prefers-reduced-motion:reduce){
   body.mobile-ui #sidebar,body.mobile-ui #memo-panel{transition:none;}
+  body.mobile-ui #mobile-controls,body.mobile-ui #mobile-controls-handle{transition:none;}
   body.mobile-ui .node.selected,body.mobile-ui .node.starred,
   body.mobile-ui .node.search-current,body.mobile-ui .group-box-bg{animation:none!important;}
 }
@@ -1050,6 +1057,7 @@ body.mobile-ui.link-mode .node .link-port{opacity:.85;}
 </div>
 
 <div id="mobile-sidebar-backdrop" aria-hidden="true"></div>
+<button id="mobile-controls-handle" type="button" aria-controls="mobile-controls" aria-expanded="true" title="위아래로 밀거나 눌러 하단 도구 접기·펼치기">⌄ 도구 접기</button>
 <div id="mobile-controls" role="toolbar" aria-label="터치 도구">
  <button id="mobile-new-node" type="button" aria-label="독립 노드 추가">＋<span>새 노드</span></button>
  <button id="mobile-node-menu" type="button" disabled>⋯<span>노드 메뉴</span></button>
@@ -1234,9 +1242,9 @@ body.mobile-ui.link-mode .node .link-port{opacity:.85;}
     <div class="hr"><span class="hk">화면 이동·확대</span><span class="hd">빈 공간을 한 손가락으로 끌어 이동하고, 두 손가락을 벌리거나 오므려 확대·축소합니다. 잠긴 노드 위에서도 화면을 이동할 수 있습니다.</span></div>
     <div class="hr"><span class="hk">노드 선택·이동</span><span class="hd">노드를 한 번 누르면 선택합니다. 잠금이 꺼져 있으면 노드를 끌어 위치를 바꿀 수 있습니다.</span></div>
     <div class="hr"><span class="hk">이름·메모·삭제</span><span class="hd">노드를 길게 누르거나 선택 후 아래의 「노드 메뉴」를 누르세요. 두 번 누르면 이름을 편집합니다. 메뉴의 「노드 설정」에서 색상·크기·글자 모양을 바꿉니다.</span></div>
-    <div class="hr"><span class="hk">여러 노드 선택</span><span class="hd">아래의 「다중 선택」을 켠 뒤 노드를 눌러 선택·해제합니다. 선택된 노드를 끌면 함께 이동합니다. 위쪽 「그룹」으로 묶거나 메뉴에서 함께 삭제할 수 있습니다.</span></div>
+    <div class="hr"><span class="hk">여러 노드 선택</span><span class="hd">펜으로 빈 공간을 끌면 사각형 영역 안의 노드를 선택합니다. 손가락은 「다중 선택」을 켠 뒤 빈 공간을 끌거나 노드를 눌러 선택·해제합니다. 선택된 노드를 끌면 함께 이동합니다.</span></div>
     <div class="hr"><span class="hk">카테고리·검색·상단 도구</span><span class="hd">「카테고리」로 목록을 열고, 연필 버튼으로 이름을 바꿉니다. 「검색」으로 노드를 찾습니다. 상단 도구는 좌우로 밀면 나머지 버튼을 볼 수 있습니다.</span></div>
-    <div class="hr"><span class="hk">새 노드·되돌리기</span><span class="hd">아래의 「새 노드」는 화면 중앙에 독립 노드를 만듭니다. 「되돌리기」로 이동·이름 변경·삭제 등 지원 작업을 복구하고 「선택 해제」로 선택을 지웁니다.</span></div>
+    <div class="hr"><span class="hk">새 노드·되돌리기·도구 접기</span><span class="hd">아래의 「새 노드」로 독립 노드를 만듭니다. 「되돌리기」로 지원 작업을 복구합니다. 손잡이나 도구 줄을 아래로 밀면 접고, 손잡이를 위로 밀면 펼칩니다. 손잡이를 눌러도 접거나 펼칠 수 있습니다.</span></div>
     <div class="hr"><span class="hk">모바일 메모와 저장</span><span class="hd">메모창에서 입력한 내용은 자동 저장됩니다. 「닫기」로 지도로 돌아갑니다. 저장 데이터는 기기별로 다르므로 PC에서 옮길 때는 JSON 백업·불러오기를 사용하세요.</span></div>
   </div>
   </details>
@@ -8601,8 +8609,44 @@ function ipInit(){
 /* Touch canvas uses the same drag/undo handlers as desktop. Native scrolling
    stays enabled in forms and panels; only the map owns pan/pinch gestures. */
 var mobileUi=false,multiTouchSelect=false,mobileEditor=null,_grpFontTouchAt=-2000;
+var mobileToolsHidden=false,_toolsSwipe=null,_toolsClickUntil=0;
+try{mobileToolsHidden=localStorage.getItem('mspMobileToolsHidden')==='true';}catch(e){}
 var _mobileMedia=window.matchMedia('(max-width: 1024px), (pointer: coarse)');
 var _touchPoints={},_touchGesture=null,_mobileMouseDispatch=false,_touchSuppressUntil=0,_lastNodeTap=null,_mobileViewportRAF=null;
+function setMobileToolsHidden(hidden,persist){
+  mobileToolsHidden=!!hidden;
+  document.body.classList.toggle('mobile-tools-hidden',mobileUi&&mobileToolsHidden);
+  var handle=document.getElementById('mobile-controls-handle'),bar=document.getElementById('mobile-controls');
+  handle.textContent=mobileToolsHidden?'⌃ 도구':'⌄ 도구';handle.setAttribute('aria-expanded',String(!mobileToolsHidden));
+  handle.setAttribute('aria-label',mobileToolsHidden?'하단 도구 펼치기':'하단 도구 접기');
+  bar.setAttribute('aria-hidden',String(!mobileUi||mobileToolsHidden));if('inert' in bar)bar.inert=!mobileUi||mobileToolsHidden;
+  if(persist!==false){try{localStorage.setItem('mspMobileToolsHidden',String(mobileToolsHidden));}catch(e){}}
+  if(mobileUi)requestViewportRender({forceNodes:true});
+}
+(function(){
+  var handle=document.getElementById('mobile-controls-handle'),bar=document.getElementById('mobile-controls');
+  function start(e){
+    if(e.button!==0)return;
+    _toolsClickUntil=0;_toolsSwipe={id:e.pointerId,x:e.clientX,y:e.clientY,target:this,moved:false};
+    if(this===handle){e.preventDefault();handle.setPointerCapture(e.pointerId);}
+  }
+  function move(e){
+    var g=_toolsSwipe;if(!g||g.id!==e.pointerId)return;
+    var dx=e.clientX-g.x,dy=e.clientY-g.y;
+    if(Math.abs(dy)>8&&Math.abs(dy)>Math.abs(dx)){
+      g.moved=true;e.preventDefault();try{g.target.setPointerCapture(e.pointerId);}catch(err){}
+    }
+  }
+  function end(e){
+    var g=_toolsSwipe;if(!g||g.id!==e.pointerId)return;_toolsSwipe=null;
+    if(e.type==='pointercancel')return;
+    var dy=e.clientY-g.y;
+    if(g.moved){e.preventDefault();_toolsClickUntil=performance.now()+450;if(Math.abs(dy)>24)setMobileToolsHidden(dy>0);}
+    else if(g.target===handle){e.preventDefault();_toolsClickUntil=performance.now()+450;setMobileToolsHidden(!mobileToolsHidden);}
+  }
+  [handle,bar].forEach(function(el){el.addEventListener('pointerdown',start);el.addEventListener('pointermove',move,{passive:false});el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);el.addEventListener('click',function(e){if(e.detail!==0&&performance.now()<_toolsClickUntil){e.preventDefault();e.stopImmediatePropagation();}},true);});
+  handle.onclick=function(e){e.stopPropagation();if(e.detail===0||performance.now()>=_toolsClickUntil)setMobileToolsHidden(!mobileToolsHidden);};
+})();
 function updateMobileControls(){
   if(!mobileUi)return;
   var selected=!!gn(sel)||multiSel.length>0;
@@ -8636,6 +8680,7 @@ function updateMobileViewport(){
 }
 function updateMobileUi(){
   mobileUi=_mobileMedia.matches;document.body.classList.toggle('mobile-ui',mobileUi);
+  setMobileToolsHidden(mobileToolsHidden,false);
   setMobileSidebar(false);updateMobileControls();updateMobileViewport();
   if(mobileUi)document.getElementById('hint').textContent='한 손가락 이동 · 두 손가락 확대 · 노드 길게 눌러 메뉴';
   else document.getElementById('hint').textContent='사이드바에 마우스를 가져가면 열림 | 📌 핸들을 클릭으로 고정 | 노드 메모 마우스 올리면 미리보기 | 카테고리 드래그로 순서 변경';
@@ -8657,23 +8702,31 @@ function saveMobileNodeEditor(){
   }
   closeMobileNodeEditor();updateMobileControls();
 }
-function mobileEmitMouse(type,target,x,y){
+function mobileEmitMouse(type,target,x,y,shift){
   _mobileMouseDispatch=true;
-  try{(target||document).dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,view:window,button:0,buttons:type==='mouseup'||type==='click'?0:1,clientX:x,clientY:y}));}
+  try{(target||document).dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,view:window,button:0,buttons:type==='mouseup'||type==='click'?0:1,clientX:x,clientY:y,shiftKey:!!shift}));}
   finally{_mobileMouseDispatch=false;}
 }
 function mobileClearLongPress(){if(_touchGesture&&_touchGesture.timer){clearTimeout(_touchGesture.timer);_touchGesture.timer=null;}}
 function mobileFinishDrag(){
   if(_touchGesture&&_touchGesture.dragStarted){mobileEmitMouse('mouseup',document,_touchGesture.x,_touchGesture.y);_touchGesture.dragStarted=false;}
 }
+function mobileCancelSelection(){
+  var g=_touchGesture;if(!g||!g.selecting)return;
+  selBox=null;document.getElementById('sel-box').style.display='none';document.getElementById('viewport').classList.remove('sel-dragging');
+  if(g.previousSelection){sel=g.previousSelection.sel;selEdge=g.previousSelection.edge;multiSel=g.previousSelection.multi;}
+  g.dragStarted=false;renderAll();
+}
 function mobileCancelGestures(){
   if(!_touchGesture)return;
+  mobileCancelSelection();
   mobileClearLongPress();mobileFinishDrag();
   if(_touchGesture&&_touchGesture.kind==='pinch'){saveAll();requestViewportRender({forceNodes:true});}
   _touchPoints={};_touchGesture=null;panSt=null;movSt=null;multiDrag=null;
   document.getElementById('viewport').classList.remove('panning','moving');updateMobileControls();
 }
 function mobileBeginPinch(){
+  mobileCancelSelection();
   mobileClearLongPress();mobileFinishDrag();
   var points=Object.values(_touchPoints),a=points[0],b=points[1],x=(a.x+b.x)/2,y=(a.y+b.y)/2;
   _touchGesture={kind:'pinch',anchor:s2w(x,y),distance:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),zoom:cam.z};
@@ -8698,12 +8751,14 @@ function mobileCanvasTarget(e){
   function usable(e){return mobileUi&&e.pointerType!=='mouse'&&!e.target.closest('input,textarea,select,button,[contenteditable="true"],#grp-font-slider-wrap');}
   viewport.addEventListener('pointerdown',function(e){
     if(!usable(e))return;
+    if(e.pointerType==='touch'&&_touchGesture&&_touchGesture.pointerType==='pen'){e.preventDefault();return;}
+    if(e.pointerType==='pen'&&_touchGesture)mobileCancelGestures();
     e.preventDefault();_touchSuppressUntil=performance.now()+1200;
     _touchPoints[e.pointerId]={x:e.clientX,y:e.clientY};
     try{viewport.setPointerCapture(e.pointerId);}catch(err){}
     if(Object.keys(_touchPoints).length>1){mobileBeginPinch();return;}
     var target=mobileCanvasTarget(e),node=target.closest('.node');
-    _touchGesture={kind:'single',id:e.pointerId,target:target,nodeId:node?Number(node.dataset.id):null,startX:e.clientX,startY:e.clientY,x:e.clientX,y:e.clientY,dragStarted:false,longPressed:false,moved:false};
+    _touchGesture={kind:'single',pointerType:e.pointerType,id:e.pointerId,target:target,nodeId:node?Number(node.dataset.id):null,startX:e.clientX,startY:e.clientY,x:e.clientX,y:e.clientY,dragStarted:false,longPressed:false,moved:false};
     if(node||target===viewport||target.id==='world'||target.tagName.toLowerCase()==='svg'){
       _touchGesture.timer=setTimeout(function(){
         var g=_touchGesture;if(!g||g.kind!=='single'||g.moved)return;g.longPressed=true;_lastNodeTap=null;
@@ -8727,13 +8782,16 @@ function mobileCanvasTarget(e){
     g.moved=true;mobileClearLongPress();_lastNodeTap=null;
     if(!g.dragStarted){
       var plain=g.target===viewport||g.target.id==='world'||g.target.tagName.toLowerCase()==='svg';
-      if(plain||(g.nodeId!==null&&lockMode)||(multiTouchSelect&&g.nodeId!==null&&multiSel.indexOf(g.nodeId)<0)){
+      var selectionSurface=plain||(g.nodeId===null&&g.target.closest('svg')&&!g.target.closest('[data-handle],.link-del-btn'));
+      if(selectionSurface&&(g.pointerType==='pen'||multiTouchSelect)&&!linkMode&&!edgePortEdit&&!reconnectMode){
+        g.selecting=true;g.previousSelection={sel:sel,edge:selEdge,multi:multiSel.slice()};sel=null;closeArrowMenu();mobileEmitMouse('mousedown',viewport,g.startX,g.startY,true);
+      }else if(plain||(g.nodeId!==null&&lockMode)||(multiTouchSelect&&g.nodeId!==null&&multiSel.indexOf(g.nodeId)<0)){
         hideCtx();hideMemoTooltip();panelVisible=false;
         panSt={sx:g.startX,sy:g.startY,cx:cam.x,cy:cam.y};viewport.classList.add('panning');
       }else mobileEmitMouse('mousedown',g.target,g.startX,g.startY);
       g.dragStarted=true;
     }
-    mobileEmitMouse('mousemove',document,g.x,g.y);
+    mobileEmitMouse('mousemove',document,g.x,g.y,g.selecting);
   },{passive:false});
   function end(e,cancelled){
     if(!_touchPoints[e.pointerId])return;
@@ -8743,6 +8801,7 @@ function mobileCanvasTarget(e){
       if(!Object.keys(_touchPoints).length){saveAll();requestViewportRender({forceNodes:true});_touchGesture=null;}return;
     }
     if(g){
+      if(cancelled)mobileCancelSelection();
       mobileFinishDrag();
       if(!cancelled&&!g.moved&&!g.longPressed){
         if(g.nodeId!==null&&multiTouchSelect&&!linkMode&&!edgePortEdit&&!reconnectMode){
@@ -8782,7 +8841,7 @@ document.getElementById('mobile-undo').onclick=function(e){e.stopPropagation();h
 document.getElementById('mobile-multi').onclick=function(e){
   e.stopPropagation();if(linkMode||edgePortEdit)exitLinkMode();if(reconnectMode){reconnectMode=false;reconnectNodeId=null;document.body.classList.remove('reconnect-mode');}multiTouchSelect=!multiTouchSelect;
   if(multiTouchSelect){if(!multiSel.length&&gn(sel))multiSel=[sel];sel=null;selEdge=null;panelVisible=false;}
-  hideCtx();renderAll();updateMobileControls();showToast(multiTouchSelect?'노드를 눌러 선택하거나 해제하세요':'다중 선택 모드 종료');
+  hideCtx();renderAll();updateMobileControls();showToast(multiTouchSelect?'빈 공간을 끌어 영역 선택하거나 노드를 눌러 선택하세요':'다중 선택 모드 종료');
 };
 document.getElementById('mobile-clear').onclick=function(e){
   e.stopPropagation();sel=null;selEdge=null;multiSel=[];multiTouchSelect=false;panelVisible=false;deselectGroup();hideCtx();renderAll();updateMobileControls();
