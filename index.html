@@ -9,6 +9,15 @@
 <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" data-pwa>
 <link rel="apple-touch-icon" href="./icons/icon-192.png" data-pwa>
 <style>
+#group-members-modal{position:fixed;inset:0;z-index:820;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;padding:16px;}
+#group-members-box{width:520px;max-width:100%;max-height:calc(var(--mobile-view-height,100dvh) - 32px);display:flex;flex-direction:column;gap:12px;overflow:auto;background:var(--sur);border:1px solid var(--bdr);border-radius:16px;padding:18px;color:var(--txt);}
+#group-members-box h2{font-size:1.1rem;}#group-members-box p{font-size:.85rem;color:var(--mut);line-height:1.6;}
+#group-members-search{width:100%;padding:11px;background:var(--sur2);color:var(--txt);border:1px solid var(--bdr);border-radius:8px;font-size:16px;user-select:text;}
+#group-members-list{overflow:auto;min-height:80px;max-height:45vh;touch-action:pan-y;}
+.group-member-row{display:flex;align-items:center;gap:12px;min-height:44px;padding:9px;border-bottom:1px solid var(--bdr);cursor:pointer;word-break:break-word;}
+.group-member-row input{width:20px;height:20px;flex-shrink:0;accent-color:var(--acc);}.group-member-row span{white-space:pre-wrap;}
+#group-members-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;}#group-members-count{font-size:.85rem;color:var(--mut);}
+#group-members-more[hidden]{display:none;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
   --bg:#0e1018;--sur:#181b27;--sur2:#1f2336;--bdr:#2b3050;
@@ -583,7 +592,7 @@ body.lock-mode #viewport{cursor:default!important;}
   color:#38b2ff!important;
 }
 body.link-mode #viewport{cursor:crosshair!important;}
-body.link-mode .node{outline:1.5px dashed #38b2ff;outline-offset:2px;}
+body.link-mode .node{outline:1.5px dashed #38b2ff;outline-offset:2px;z-index:210!important;}
 /* 연결 포트 도트 */
 .link-port{position:absolute;width:12px;height:12px;border-radius:50%;
   background:#38b2ff;border:2px solid #fff;cursor:crosshair;z-index:20;
@@ -592,6 +601,8 @@ body.link-mode .node{outline:1.5px dashed #38b2ff;outline-offset:2px;}
 body.link-mode .node:hover .link-port{opacity:1;}
 body.link-mode .node:hover .link-port:hover{transform:translate(-50%,-50%) scale(1.4);background:#fff;border-color:#38b2ff;}
 body.link-mode .node.port-edit-target .link-port{opacity:.72;}
+body.line-junction-mode .node{cursor:crosshair;z-index:210!important;}
+body.line-junction-mode .node .link-port{opacity:.72;}
 body.link-mode .node.port-edit-target{outline:2px dashed #38b2ff;outline-offset:4px;}
 
 body.link-mode .node.link-from{
@@ -1018,7 +1029,7 @@ body.mobile-ui.link-mode .node .link-port{opacity:.85;}
   <button class="tbtn" id="btn-zo">－</button>
   <div class="sep"></div>
   <button class="tbtn" id="btn-lock" title="노드 이동 잠금 모드 (실수로 노드가 움직이지 않도록)">🔒 잠금</button>
-  <button class="tbtn" id="btn-link-mode" title="참조 연결 모드 (노드 클릭 → 연결할 노드 클릭)">🔗 연결</button>
+  <button class="tbtn" id="btn-link-mode" title="연결 모드 (출발 노드 → 대상 노드 또는 선의 원하는 지점)">🔗 연결</button>
   <button class="tbtn" id="btn-flow" aria-pressed="true" title="연결선을 따라 움직이는 구슬 표시 켜기 / 끄기">🔵 구슬 ON</button>
   <button class="tbtn" id="btn-group" title="선택한 노드들을 그룹으로 묶기 (노드 2개 이상 선택 후)">📦 그룹</button>
   <button class="tbtn" id="btn-color-opt" title="노드 색상 연해짐 설정">🎨 색상설정</button>
@@ -1126,6 +1137,7 @@ body.mobile-ui.link-mode .node .link-port{opacity:.85;}
   <button class="tbtn" id="gp-font-auto" title="배경색에 맞춰 제목 글자색 자동 선택">자동</button>
   <button class="tbtn" id="gp-font-mobile" type="button">글자 크기</button>
   <button class="tbtn" id="gp-box-auto" title="테두리를 내부 노드에 맞는 자동 크기로 복원">테두리 자동</button>
+  <button class="tbtn" id="gp-members" type="button" title="그룹에 포함할 노드를 추가하거나 제외">노드 수정</button>
   <button class="npbtn" id="gp-del" title="그룹 삭제" style="color:#ff6b6b;border-color:#ff6b6b;">🗑</button>
   <button class="npbtn" id="gp-close" title="닫기" style="font-size:.8rem;opacity:.6;">✕</button>
 </div>
@@ -1194,6 +1206,8 @@ body.mobile-ui.link-mode .node .link-port{opacity:.85;}
   <div class="ctx-row" id="ctx-new-independent" style="display:none;">＋ 독립 노드 생성</div>
   <div class="ctx-row ctx-sep" id="ctx-sep-top" style="display:none;"></div>
   <div class="ctx-row" id="ctx-child">＋ 하위 노드 추가</div>
+  <div class="ctx-row" id="ctx-reference-add">＋ 분기선에 노드 추가</div>
+  <div class="ctx-row" id="ctx-reference-convert">┬ 하위 노드만 분기선 정리 (위치 유지)</div>
   <div class="ctx-row" id="ctx-sib">＋ 같은 단계 노드 추가</div>
   <div class="ctx-row" id="ctx-node-settings" style="display:none">🎛 노드 설정</div>
   <div class="ctx-row" id="ctx-edit">✏️ 텍스트 편집</div>
@@ -1202,7 +1216,7 @@ body.mobile-ui.link-mode .node .link-port{opacity:.85;}
   <div class="ctx-row" id="ctx-copy">📋 복사 (Ctrl+C)</div>
   <div class="ctx-row" id="ctx-paste">📋 붙여넣기 (Ctrl+V)</div>
   <div class="ctx-row" id="ctx-transfer">📁 다른 카테고리로 복사 / 이동</div>
-  <div class="ctx-row" id="ctx-organize-lines">≡ 연결선 정리</div>
+  <div class="ctx-row" id="ctx-organize-lines" title="노드를 좌우 세로열로 재배치하고 연결선을 정리합니다">≡ 연결선·노드 재배치</div>
   <div class="ctx-row" id="ctx-group">🔗 이 노드 아래로 모으기</div>
   <div class="ctx-row" id="ctx-reparent">📦 새 상위 노드로 묶기</div>
   <div class="ctx-row red" id="ctx-del">🗑 삭제</div>
@@ -1306,19 +1320,24 @@ body.mobile-ui.link-mode .node .link-port{opacity:.85;}
 <div class="hr"><span class="hk">선 메뉴 → ＋ 중간 노드 추가</span><span class="hd">두 노드를 잇는 선을 클릭하거나 우클릭한 뒤 「중간 노드 추가」를 누르세요. 선 가운데에 새 노드가 생기고 앞 노드 → 새 노드 → 뒤 노드로 연결됩니다. 이름을 입력한 뒤 Enter로 완료합니다. 부모·자식 선과 참조선 모두 지원하며 선 색상·스타일·화살표를 유지합니다. 같은 그룹의 두 노드 사이에 넣으면 새 노드도 그룹에 포함됩니다. 화면 위치와 배율은 유지되며 Ctrl+Z로 삽입을 되돌립니다.</span></div>
 <div class="hr"><span class="hk">선 메뉴의 🎨</span><span class="hd">선 색상을 고릅니다. 팔레트의 ＋로 원하는 사용자 색상을 추가합니다.</span></div>
 <div class="hr"><span class="hk">선의 원형 조절점 드래그</span><span class="hd">선에 마우스를 올려 나타나는 조절점을 끌면 굽힘이나 꺾임 위치를 바꿀 수 있습니다. 가까운 같은 축 선에 맞춰지는 경우도 있습니다.</span></div>
+<div class="hr"><span class="hk">원형 손잡이 숨기기</span><span class="hd">원을 클릭하거나 터치한 뒤 「원형 손잡이 숨기기」를 누르면 연결선은 유지하고 원만 숨깁니다. PC에서는 원 선택 후 Delete로도 숨길 수 있습니다. 해당 선을 선택해 「원형 손잡이 다시 표시」로 복원합니다.</span></div>
+<div class="hr"><span class="hk">🔗 노드 → 선 중간 연결</span><span class="hd">연결 아이콘을 켜고 출발 노드를 누른 뒤 기존 선의 원하는 지점을 누릅니다. 직선·곡선·공통선의 중간에 연결하며 원래 선과 노드 위치는 유지합니다.</span></div>
 <div class="hr"><span class="hk">주변 선을 이 선에 합치기</span><span class="hd">기준이 될 꺾은선을 클릭한 뒤 이 버튼을 누르세요. 현재 화면에 있는 같은 색·스타일의 꺾은선 중, 지도 좌표에서 80 이내이고 30 이상 겹치는 공통 구간을 기준 선 위치로 맞춰 저장합니다. 노드 연결은 유지되고 Ctrl+Z로 되돌릴 수 있습니다.</span></div>
 <div class="hr"><span class="hk">중앙 노드 우클릭 → ≡ 연결선 정리</span><span class="hd">직접 연결된 노드가 2개 이상인 중앙 노드를 우클릭하고 「연결선 정리」를 누르세요. 우클릭한 노드를 기준으로 연결된 노드를 왼쪽·오른쪽의 세로열로 배치하고 공통 세로선에 연결합니다. 서로 다른 공통선이 같은 노드의 같은 면에 연결되면 마지막 수평 구간과 화살촉을 위·아래로 벌려 표시합니다. 기존 부모 관계·화살표 방향·선 색상과 스타일을 유지하며 위치와 경로를 저장합니다. Ctrl+Z로 배치와 선을 함께 복원할 수 있습니다.</span></div>
 <div class="hr"><span class="hk">공통선의 원형 손잡이 드래그</span><span class="hd">연결선 정리 후 공통 세로선에 표시되는 원을 좌우로 끌면 같은 공통선에 붙은 가지선이 함께 따라옵니다. 잠금 상태에서는 먼저 잠금을 해제하세요. 개별 선의 접점 이동이나 곡선 전환을 사용하면 해당 선은 공통선에서 분리되어 개별 조정됩니다.</span></div>
 <div class="hr"><span class="hk">조절점 더블클릭</span><span class="hd">해당 선의 경로 조정값을 초기화합니다.</span></div>
 <div class="hr"><span class="hk">선 메뉴 → 접점 이동</span><span class="hd">「도착점」 또는 「출발점」을 선택한 뒤 ← / ↑ 또는 → / ↓를 누르세요. 노드 위·아랫면에서는 좌우로, 좌·우면에서는 상하로 10씩 이동합니다. 겹치는 선을 바로 옆으로 분리할 때 사용하세요.</span></div>
 <div class="hr"><span class="hk">접점 이동의 초기화</span><span class="hd">선택한 출발점 또는 도착점의 수동 위치를 해제하고 자동 위치로 되돌립니다. 이동한 접점은 저장되며 Ctrl+Z로 되돌릴 수 있습니다.</span></div>
-<div class="hr"><span class="hk">선 선택 → 🔗 연결</span><span class="hd">선의 양 끝 노드에 표시되는 점을 클릭해 연결면을 변경합니다.</span></div>
+<div class="hr"><span class="hk">선 설정 → 연결점 포트 수정</span><span class="hd">선 설정창의 「연결점 포트 수정」을 누른 뒤 양 끝 노드에 표시되는 점을 클릭해 연결면을 변경합니다. 🔗 연결 아이콘은 출발 노드를 선택한 뒤 다른 노드 또는 선 중간에 연결할 때 사용합니다.</span></div>
+<div class="hr"><span class="hk">부모 노드 메뉴 → ┬ 분기선으로 정리</span><span class="hd">부모에서 내려온 선을 가로 공통선으로 나누고 자식 노드 위로 연결합니다. 예: CBP → LP Heater A/B. 노드 위치·부모 관계·선 방향·색상은 유지하고 선 모양만 바꿉니다. 자식들을 다중 선택하면 선택한 자식의 선만 정리합니다. 공통선의 원을 위아래로 끌어 높이를 조정할 수 있습니다. Ctrl+Z로 복구합니다.</span></div>
+<div class="hr"><span class="hk">노드 메뉴 → ＋ 분기선에 노드 추가</span><span class="hd">분기선의 부모 또는 자식 노드에서 같은 공통선에 연결될 새 노드를 추가합니다. 기존 노드는 이동하지 않고 새 노드만 같은 줄의 빈 곳에 배치합니다. 부모를 선택해 「하위 노드 추가」를 눌러도 기존 분기선에 이어집니다.</span></div>
 <div class="hr"><span class="hk">🔀 / ✂️ / 🗑 / Delete</span><span class="hd">부모·자식 선 메뉴의 🔀는 새 부모 선택, ✂️는 관계 끊기입니다. 참조선 메뉴의 🗑는 참조선을 삭제합니다. 선을 선택하고 Delete를 눌러도 연결을 끊을 수 있습니다.</span></div></div>
 </details>
 <details class="help-section" id="help-group">
-  <summary class="help-title">그룹: 제목·크기·배경·이동 <span class="help-section-count">8개 항목</span></summary>
+  <summary class="help-title">그룹: 제목·크기·배경·이동 <span class="help-section-count">9개 항목</span></summary>
   <div class="help-table"><div class="hr"><span class="hk">여러 노드 선택 → 📦 그룹</span><span class="hd">빈 공간에서 Shift+드래그로 2개 이상 선택한 다음 「그룹」을 누르세요. 노드 위치를 유지한 채 둘레에 그룹 박스를 만듭니다.</span></div>
 <div class="hr"><span class="hk">그룹 제목 클릭</span><span class="hd">그룹 설정 패널을 엽니다. 그룹 이름·색상·배경 표시를 바꿀 수 있습니다.</span></div>
+<div class="hr"><span class="hk">그룹 설정 → 노드 수정</span><span class="hd">검색 목록에서 그룹에 포함할 노드를 체크하고 「적용」을 누르세요. 체크를 해제하면 그룹에서만 제외하며 노드는 삭제하지 않습니다. 노드 위치와 그룹 이름·색상은 유지하고 테두리는 포함된 노드에 맞춥니다. Ctrl+Z로 복구합니다.</span></div>
 <div class="hr"><span class="hk">그룹 제목 더블클릭</span><span class="hd">「폰트 크기」 가로 슬라이더가 나타납니다. 구슬을 왼쪽으로 움직이면 작아지고 오른쪽으로 움직이면 커집니다. 제목 크기는 바로 반영되어 저장됩니다.</span></div>
 <div class="hr"><span class="hk">그룹 테두리 크기 조절</span><span class="hd">그룹 제목을 클릭한 뒤 테두리의 연두색 사각 손잡이를 끌어 크기를 줄이거나 늘리세요. 노드와 연결선은 이동하지 않으며 박스 비활성화 상태에서도 조절할 수 있습니다. 「테두리 자동」은 내부 노드에 맞는 크기로 복원합니다. 수동 크기는 저장되고 Ctrl+Z로 되돌릴 수 있습니다.</span></div>
 <div class="hr"><span class="hk">그룹 제목 드래그</span><span class="hd">그룹에 포함된 노드와 내부 연결선의 수동 꺾임 위치를 함께 옮깁니다. 내부 선 모양을 유지하며, 외부 노드와 연결된 선은 외부 끝점을 유지하고 그룹 쪽 끝점이 따라옵니다. Ctrl+Z로 노드와 선을 함께 복원할 수 있습니다.</span></div>
@@ -1479,6 +1498,8 @@ var PALETTE=[
 var HGAP=220,VGAP=70,NH=40,RH=50;
 
 /* ════════════════ STATE ════════════════ */
+var groupMemberEdit=null;
+var pendingBranchName=null;
 var cats=[];
 var curCatId=1;
 var nextCatId=1;
@@ -1562,6 +1583,8 @@ var linkMode=false;
 var linkFromPort=null;  // 연결 시작 포트 방향
 var selEdge=null;       // 선택된 선 {type:'tree'|'ref', id}
 var edgePortEdit=null;  // 선택된 선의 연결점 수정 모드 {type:'tree'|'ref', id}
+var handleSelection=null,handleClickStart=null,handleMenuTimer=null; // 손잡이 선택은 선 삭제와 구분
+var lineJunctionPending=null; // 기존 선의 중간에서 연결할 대상 노드 선택
 var panelVisible=false;   // 연결 모드 상태
 var linkFrom=null;    // 연결 시작 노드 id
 var memoOpen=false,isLight=false;
@@ -1785,6 +1808,7 @@ function flushPendingSave(){
 window.addEventListener('pagehide',flushPendingSave);
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')flushPendingSave();});
 function saveAll(opts){
+  pruneLineJunctions();
   var cc=getCat(curCatId);
   if(cc){cc.nodes=nodes;cc.nid=nid;cc.cam=cam;cc.links=links;cc.groups=groups;cc.nextGid=nextGid;}
   /* 백업본(내보낸 파일)인 경우 localStorage에 저장하지 않음 (원본의 localStorage 데이터를 덮어쓰는 것 방지) */
@@ -1827,6 +1851,8 @@ function loadAll(){
 
 /* ════════════════ LOAD CATEGORY ════════════════ */
 function loadCat(id,doFit){
+  closeBranchAddChoice();
+  cancelLineJunction();
   if(mobileUi){setMobileSidebar(false);multiTouchSelect=false;}
   flushPendingSave();
   var old=getCat(curCatId);
@@ -1840,6 +1866,8 @@ function loadCat(id,doFit){
   linkFrom=null;edgePortEdit=null;reconnectMode=false;reconnectNodeId=null;
   document.body.classList.remove('reconnect-mode');
   invalidateModelIndex();
+  _lastLayoutKey=layoutKey();
+  if(groupMemberEdit)closeGroupMembers();
   applyCamera();renderAll();
   if(doFit)setTimeout(fitView,80);
   updateToolbarChip();
@@ -1956,8 +1984,9 @@ function enableArrowMenuDrag(menu){
   handle.addEventListener('lostpointercapture',function(){drag=null;handle.style.cursor='grab';});
   handle.addEventListener('click',function(e){e.stopPropagation();});
 }
-function showArrowMenu(target, cx, cy, type){
+function showArrowMenu(target, cx, cy, type, selectedHandle){
   closeArrowMenu();
+  handleSelection=selectedHandle||null;
   var menu=document.createElement('div');
   menu.id='arrow-menu';
   menu.style.cssText='position:fixed;z-index:600;background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:6px 8px;display:flex;gap:6px;box-shadow:0 8px 28px rgba(0,0,0,.6);';
@@ -2063,10 +2092,17 @@ function showArrowMenu(target, cx, cy, type){
       /* pid를 null로 — 현재 위치 유지하며 독립 노드로 분리 (Ctrl+Z로 복구 가능) */
       pushUndoState();
 
-      n.pid=null;invalidateModelIndex();
+      n.pid=null;invalidateModelIndex();_lastLayoutKey=layoutKey();
       saveAll();renderAll();
     };
     menu.appendChild(discBtn);
+    var refBtn=document.createElement('button');refBtn.className='tbtn';refBtn.textContent='분기선 정리';refBtn.title='선택한 하위 노드만 정리합니다. 다중 선택이 없으면 같은 부모의 하위 노드를 정리하며 참조선은 유지합니다.';
+    refBtn.onclick=function(e){
+      e.stopPropagation();var child=gn(target);if(!child)return;
+      var context=multiSel.length>=2?getBranchContext(target):{hubId:child.pid,ids:null};
+      if(context&&context.hubId===child.pid)organizeBranchConnections(context.hubId,context.ids);
+      else showToast('같은 부모의 하위 노드들을 선택하세요');
+    };menu.appendChild(refBtn);
   }
 
   /* ── 참조선: 삭제 버튼 ── */
@@ -2197,6 +2233,11 @@ function showArrowMenu(target, cx, cy, type){
   });
   attachRow.addEventListener('click',function(e){e.stopPropagation();});
   menu.appendChild(attachRow);
+  var splitContactsBtn=document.createElement('button');splitContactsBtn.className='tbtn';splitContactsBtn.id='arrow-split-contacts';splitContactsBtn.textContent='↕ 겹친 접점 나누기';
+  splitContactsBtn.title='선택한 출발점 또는 도착점에서 겹친 선들을 나눕니다. 좌우 면은 위·아래로, 위아래 면은 좌·우로 분리합니다. 노드 위치와 연결 관계는 유지합니다.';
+  splitContactsBtn.onclick=function(e){e.stopPropagation();splitOverlappingAttachments(target,type,attachEnd.value);};menu.appendChild(splitContactsBtn);
+  var portEditBtn=document.createElement('button');portEditBtn.className='tbtn';portEditBtn.textContent='연결점 포트 수정';
+  portEditBtn.onclick=function(e){e.stopPropagation();var edge=type==='tree'?gn(target):target;if(!edge)return;closeArrowMenu();selEdge={type:type==='tree'?'tree':'ref',id:type==='tree'?edge.id:edge.from+'_'+edge.to};beginEdgePortEdit();};menu.appendChild(portEditBtn);
   var mergeBtn=document.createElement('button');mergeBtn.className='tbtn';mergeBtn.textContent='≡ 주변 선을 이 선에 합치기';
   mergeBtn.title='같은 색과 스타일의 가까운 꺾은선 공통 구간을 이 선 위치에 맞춰 저장';
   mergeBtn.onclick=function(e){e.stopPropagation();alignNearbyEdgeRoutes(target,type);};
@@ -2205,6 +2246,19 @@ function showArrowMenu(target, cx, cy, type){
   insertBtn.title='선 가운데에 새 노드를 넣고 앞 노드 → 새 노드 → 뒤 노드로 연결 (Ctrl+Z로 복구)';
   insertBtn.onclick=function(e){e.stopPropagation();insertNodeOnEdge(target,type);};
   menu.appendChild(insertBtn);
+  var branchEdge=type==='tree'?gn(target):target;
+  var branchBus=selectedHandle&&selectedHandle.kind==='bus'?selectedHandle:(branchEdge&&branchEdge.cp&&branchEdge.cp.organizedBus);
+  if(branchBus&&organizedBranchRecords(branchBus.hubId,branchBus.side).length){
+    var branchAddBtn=document.createElement('button');branchAddBtn.className='tbtn';branchAddBtn.id='arrow-branch-add';branchAddBtn.textContent='＋ 이 분기선에 노드 추가';
+    branchAddBtn.onclick=function(e){e.stopPropagation();closeArrowMenu();addBranchNode(branchBus.hubId,branchBus);};menu.appendChild(branchAddBtn);
+  }
+  var junctionBtn=document.createElement('button');junctionBtn.className='tbtn';junctionBtn.textContent='┬ 이 지점에서 노드 연결';
+  junctionBtn.title='선택한 선의 중간 지점에서 다른 노드로 연결선을 뻗습니다. 기존 선과 노드 위치는 유지합니다.';
+  junctionBtn.onclick=function(e){e.stopPropagation();beginLineJunction(target,type,cx,cy);};menu.appendChild(junctionBtn);
+  var handleTarget=selectedHandle||edgeHandleTarget(type==='tree'?gn(target):target),hidden=edgeHandlesHidden(handleTarget);
+  var handleBtn=document.createElement('button');handleBtn.className='tbtn';handleBtn.textContent=hidden?'원형 손잡이 다시 표시':'원형 손잡이 숨기기';
+  handleBtn.title='연결선과 노드는 유지하며 조절 손잡이의 표시만 변경합니다. 공통선의 손잡이는 같은 분기선 전체에 적용됩니다.';
+  handleBtn.onclick=function(e){e.stopPropagation();setEdgeHandlesHidden(handleTarget,!hidden);};menu.appendChild(handleBtn);
   menu.appendChild(cRow);
   document.body.appendChild(menu);
   enableArrowMenuDrag(menu);
@@ -2214,6 +2268,8 @@ function showArrowMenu(target, cx, cy, type){
   },0);
 }
 function closeArrowMenu(){
+  if(handleMenuTimer){clearTimeout(handleMenuTimer);handleMenuTimer=null;}
+  handleSelection=null;
   var m=document.getElementById('arrow-menu');if(m)m.parentNode.removeChild(m);
 }
 
@@ -2728,6 +2784,7 @@ function exitLinkMode(msg){
   if(msg)showToast(msg);
 }
 function beginEdgePortEdit(){
+  cancelLineJunction();
   if(!selEdge)return false;
   exitMobileMultiSelection();
   var endpoints=getEdgeEndpointIds(selEdge);
@@ -2760,6 +2817,7 @@ function applyEdgePortEdit(nodeId, port){
   } else if(edgePortEdit.type==='ref'){
     var lk=getRefLinkByEdgeId(edgePortEdit.id);
     if(!lk){showToast('⚠️ 수정할 연결선을 다시 선택해 주세요');return true;}
+    if(lk.lineAnchor&&nodeId===(lk.lineAnchor.at==='end'?lk.to:lk.from)){showToast('이 끝점은 선 위의 접점입니다. 접점의 원을 끌어 위치를 조절하세요');return true;}
     if(nodeId!==lk.from&&nodeId!==lk.to){
       showToast('⚠️ 이 선에 연결된 노드의 포트만 선택할 수 있습니다');
       return true;
@@ -2774,17 +2832,291 @@ function applyEdgePortEdit(nodeId, port){
   return true;
 }
 function toggleLinkMode(){
+  cancelLineJunction();
   exitMobileMultiSelection();
   if(edgePortEdit){exitLinkMode('연결점 수정 종료');return;}
-  if(selEdge&&beginEdgePortEdit())return;
+  selEdge=null;closeArrowMenu();
   linkMode=!linkMode;linkFrom=null;linkFromPort=null;
   document.body.classList.toggle('link-mode',linkMode);
   document.getElementById('btn-link-mode').classList.toggle('link-active',linkMode);
   document.querySelectorAll('.node.link-from').forEach(function(el){el.classList.remove('link-from');});
-  if(linkMode) showToast('🔗 연결 모드: 시작 노드를 클릭하세요');
+  if(linkMode) showToast('🔗 연결 모드: 출발 노드 → 대상 노드 또는 선의 원하는 지점');
   else showToast('연결 모드 종료');
+  renderCurves();
 }
+/* 그룹 구성 수정: 체크 목록은 임시 상태이며 적용할 때만 저장합니다. */
+function closeGroupMembers(){
+  var focus=groupMemberEdit&&groupMemberEdit.focus;groupMemberEdit=null;
+  document.getElementById('group-members-modal').style.display='none';
+  document.getElementById('group-members-list').replaceChildren();
+  if(focus&&focus.isConnected)focus.focus();
+}
+function renderGroupMembers(){
+  if(!groupMemberEdit)return;
+  var draft=groupMemberEdit,query=document.getElementById('group-members-search').value.trim().toLocaleLowerCase();
+  var matched=nodes.filter(function(n){return !query||(n.text||'').toLocaleLowerCase().indexOf(query)>=0||String(n.id)===query;});
+  var list=document.getElementById('group-members-list');list.replaceChildren();
+  matched.slice(0,draft.limit).forEach(function(n){
+    var row=document.createElement('label');row.className='group-member-row';
+    var check=document.createElement('input');check.type='checkbox';check.checked=draft.ids.has(n.id);check.dataset.nodeId=n.id;
+    var text=document.createElement('span');text.textContent=(n.text||'이름 없는 노드')+' (ID '+n.id+')';
+    check.onchange=function(){if(check.checked)draft.ids.add(n.id);else draft.ids.delete(n.id);updateGroupMemberCount();};
+    row.append(check,text);list.appendChild(row);
+  });
+  document.getElementById('group-members-more').hidden=matched.length<=draft.limit;
+  if(!matched.length){var empty=document.createElement('p');empty.textContent='검색 결과가 없습니다.';list.appendChild(empty);}
+  updateGroupMemberCount();
+}
+function updateGroupMemberCount(){
+  if(groupMemberEdit)document.getElementById('group-members-count').textContent='포함할 노드 '+groupMemberEdit.ids.size+'개 · 전체 '+nodes.length+'개';
+}
+function openGroupMembers(gid){
+  var group=groups.find(function(g){return g.id===gid;});if(!group)return;
+  groupMemberEdit={gid:gid,ids:new Set(group.nodeIds.filter(function(id){return !!gn(id);})),limit:120,focus:document.activeElement};
+  document.getElementById('group-members-title').textContent=(group.name||'그룹')+' — 노드 수정';
+  document.getElementById('group-members-search').value='';
+  document.getElementById('group-members-modal').style.display='flex';renderGroupMembers();
+  document.getElementById('group-members-search').focus();
+}
+function applyGroupMembers(){
+  if(!groupMemberEdit)return;
+  var group=groups.find(function(g){return g.id===groupMemberEdit.gid;});if(!group){closeGroupMembers();return;}
+  var ids=nodes.filter(function(n){return groupMemberEdit.ids.has(n.id);}).map(function(n){return n.id;});
+  if(!ids.length){showToast('그룹에 포함할 노드를 1개 이상 선택하세요');return;}
+  var unchanged=ids.length===group.nodeIds.length&&ids.every(function(id){return group.nodeIds.indexOf(id)>=0;});
+  if(!unchanged){pushUndoState();group.nodeIds=ids;delete group.boxOffsets;_lastLayoutKey=layoutKey();saveAll();renderAll();}
+  var gid=group.id;closeGroupMembers();showGroupPanel(gid);showToast('📦 그룹 구성 수정 완료 — 노드 위치 유지');
+}
+
 /* ════════════════ LINK HELPERS ════════════════ */
+function edgeHandleTarget(edge){
+  if(!edge)return null;
+  var bus=edge.cp&&edge.cp.organizedBus;if(bus)return {kind:'bus',hubId:bus.hubId,side:bus.side};
+  var tree=edge.pid!==undefined,key=tree?'tree-'+edge.id:'link-'+edge.from+'-'+edge.to,entry=_edgeDomCache[key];
+  if(entry&&entry.referenceBusPairs)return {kind:'reference-bus',pairs:entry.referenceBusPairs};
+  return tree?{kind:'edge',tree:true,id:edge.id}:{kind:'edge',tree:false,from:edge.from,to:edge.to};
+}
+function handleTargetEdges(target){
+  if(!target)return [];
+  if(target.kind==='bus')return organizedBranchRecords(target.hubId,target.side).map(function(r){return r.edge;});
+  if(target.kind==='reference-bus')return links.filter(function(l){return target.pairs.some(function(pair){return pair[0]===l.from&&pair[1]===l.to;});});
+  var edge=target.tree?gn(target.id):links.find(function(l){return l.from===target.from&&l.to===target.to;});return edge?[edge]:[];
+}
+function edgeHandlesHidden(target){
+  return handleTargetEdges(target).some(function(edge){
+    if(target.kind==='bus')return !!edge.cp.organizedBus.handleHidden;
+    if(target.kind==='junction')return !!edge.junctionHandleHidden||!!edge.handlesHidden;
+    return !!edge.handlesHidden||!!edge.junctionHandleHidden;
+  });
+}
+function setEdgeHandlesHidden(target,hidden){
+  var edges=handleTargetEdges(target);if(!edges.length){closeArrowMenu();return;}
+  pushUndoState();edges.forEach(function(edge){
+    var object=target.kind==='bus'?edge.cp.organizedBus:edge,key=target.kind==='bus'?'handleHidden':target.kind==='junction'?'junctionHandleHidden':'handlesHidden';
+    if(hidden)object[key]=true;else{delete object[key];if(target.kind==='edge')delete edge.junctionHandleHidden;}
+  });
+  selEdge=null;closeArrowMenu();saveAll();renderAll();showToast(hidden?'원형 손잡이 숨김 — 연결선과 노드는 유지됩니다 (Ctrl+Z로 복구)':'원형 손잡이 다시 표시');
+}
+function resolveHandleMenu(handle){
+  if(!handle)return null;var key=handle.getAttribute('data-handle'),entry=null,visibility=null;
+  if(key==='organized-bus'){
+    var records=organizedBranchRecords(Number(handle.getAttribute('data-handle-hub')),handle.getAttribute('data-handle-side'));
+    if(!records.length)return null;var record=records[0],edge=record.edge,tree=record.tree;
+    return {target:tree?edge.id:edge,type:tree?'tree':'link',visibility:{kind:'bus',hubId:Number(handle.getAttribute('data-handle-hub')),side:handle.getAttribute('data-handle-side')}};
+  }
+  if(key==='reference-bus'){
+    visibility=handle._handleTarget;var refs=handleTargetEdges(visibility);return refs.length?{target:refs[0],type:'link',visibility:visibility}:null;
+  }
+  if(key==='line-junction'){
+    var branch=links.find(function(l){return l.from===Number(handle.getAttribute('data-junction-from'))&&l.to===Number(handle.getAttribute('data-junction-to'));});
+    if(branch&&branch.lineAnchor){entry=_edgeDomCache[lineJunctionKey(branch.lineAnchor)];visibility={kind:'junction',tree:false,from:branch.from,to:branch.to};}
+  }else{var match=key&&key.match(/^(tree-\d+|link-\d+-\d+)(?:-|$)/);entry=match&&_edgeDomCache[match[1]];}
+  if(!entry)return null;var isTree=entry.obj.pid!==undefined;
+  return {target:isTree?entry.obj.id:entry.obj,type:isTree?'tree':'link',visibility:visibility||edgeHandleTarget(entry.obj)};
+}
+function openHandleMenu(handle,cx,cy){
+  var info=resolveHandleMenu(handle);if(!info)return false;
+  sel=null;multiSel=[];selEdge=null;panelVisible=false;
+  showArrowMenu(info.target,cx,cy,info.type,info.visibility);return true;
+}
+function lineJunctionKey(anchor){
+  return anchor.type==='tree'?'tree-'+anchor.to:'link-'+anchor.from+'-'+anchor.to;
+}
+function lineJunctionSource(anchor,nodeList,linkList){
+  if(!anchor)return null;
+  nodeList=nodeList||nodes;linkList=linkList||links;
+  if(anchor.type==='tree')return nodeList.find(function(n){return n.id===anchor.to&&n.pid===anchor.from;})||null;
+  if(anchor.type==='ref')return linkList.find(function(l){return l.from===anchor.from&&l.to===anchor.to;})||null;
+  return null;
+}
+function pruneLineJunctions(nodeList,linkList){
+  var current=!nodeList;nodeList=nodeList||nodes;linkList=linkList||links;
+  if(!linkList.some(function(l){return !!l.lineAnchor;}))return linkList;
+  // A deleted source line removes its branches, leaving the destination nodes.
+  // Check dependencies once, including branches made from another branch.
+  var byNode={},byLink={},status={};nodeList.forEach(function(n){byNode[n.id]=n;});
+  linkList.forEach(function(l){byLink[l.from+'_'+l.to]=l;});
+  function valid(l){
+    if(!l.lineAnchor)return true;
+    var key=l.from+'_'+l.to;if(status[key]!==undefined)return status[key]===2;
+    status[key]=1;var a=l.lineAnchor,source=a.type==='tree'?byNode[a.to]:byLink[a.from+'_'+a.to];
+    var ok=!!byNode[l.from]&&!!byNode[l.to]&&a.from===(a.at==='end'?l.to:l.from)&&!!source;
+    if(a.type==='tree')ok=ok&&source.pid===a.from;
+    else ok=ok&&a.type==='ref'&&valid(source);
+    status[key]=ok?2:3;return ok;
+  }
+  var kept=linkList.filter(valid);if(current&&kept.length!==links.length)links=kept;return kept;
+}
+function orderedJunctionLinks(){
+  if(!links.some(function(l){return !!l.lineAnchor;}))return links;
+  var byKey={},seen={},ordered=[];links.forEach(function(l){byKey[l.from+'_'+l.to]=l;});
+  function add(l){var key=l.from+'_'+l.to;if(seen[key])return;seen[key]=true;
+    var a=l.lineAnchor;if(a&&a.type==='ref'){var source=byKey[a.from+'_'+a.to];if(source)add(source);}
+    ordered.push(l);
+  }
+  links.forEach(add);return ordered;
+}
+function lineJunctionPoint(anchor){
+  if(!lineJunctionSource(anchor))return null;
+  var entry=_edgeDomCache[lineJunctionKey(anchor)],path=entry&&entry.path;
+  if(!path)return null;
+  try{
+    var length=path.getTotalLength();if(!isFinite(length)||length<1)return null;
+    var at=clampVal(Number(anchor.ratio)||.5,.02,.98)*length;
+    var point=path.getPointAtLength(at),a=path.getPointAtLength(Math.max(0,at-1)),b=path.getPointAtLength(Math.min(length,at+1));
+    return {point:{x:point.x,y:point.y},tangent:{x:b.x-a.x,y:b.y-a.y},entry:entry};
+  }catch(e){return null;}
+}
+function nearestLineJunctionRatio(anchor,screenPoint){
+  var entry=_edgeDomCache[lineJunctionKey(anchor)],path=entry&&entry.path;if(!path)return .5;
+  var length=path.getTotalLength(),best=.5,bestDistance=Infinity;
+  if(length<1)return .5;
+  function test(t){var p=path.getPointAtLength(t*length),d=(p.x-screenPoint.x)*(p.x-screenPoint.x)+(p.y-screenPoint.y)*(p.y-screenPoint.y);if(d<bestDistance){bestDistance=d;best=t;}}
+  for(var i=1;i<64;i++)test(i/64);
+  var low=Math.max(.02,best-1/64),high=Math.min(.98,best+1/64);
+  for(var j=0;j<=16;j++)test(low+(high-low)*j/16);
+  return clampVal(best,.02,.98);
+}
+function cancelLineJunction(message){
+  lineJunctionPending=null;var marker=document.getElementById('line-junction-preview');if(marker)marker.remove();
+  var tip=document.getElementById('line-junction-tip');if(tip)tip.remove();
+  document.body.classList.remove('line-junction-mode');if(message)showToast(message);
+}
+function drawLineJunctionPreview(layer){
+  if(!lineJunctionPending)return;
+  var info=lineJunctionPoint(lineJunctionPending.anchor);if(!info)return;
+  var marker=document.createElementNS('http://www.w3.org/2000/svg','circle');marker.id='line-junction-preview';
+  marker.setAttribute('cx',info.point.x);marker.setAttribute('cy',info.point.y);marker.setAttribute('r','7');
+  marker.setAttribute('fill',lineJunctionPending.color);marker.setAttribute('stroke','#fff');marker.setAttribute('stroke-width','2');marker.style.pointerEvents='none';layer.appendChild(marker);
+}
+function beginLineJunction(target,type,cx,cy){
+  if(lockMode){showToast('🔒 잠금을 해제한 뒤 연결하세요');return false;}
+  var tree=type==='tree',edge=tree?gn(target):target;
+  if(!edge||(tree?edge.pid===null:links.indexOf(edge)<0))return false;
+  var anchor={type:tree?'tree':'ref',from:tree?edge.pid:edge.from,to:tree?edge.id:edge.to,ratio:.5};
+  var world=s2w(cx,cy),screen=w2s(world.x,world.y);
+  anchor.ratio=nearestLineJunctionRatio(anchor,screen);var info=lineJunctionPoint(anchor);if(!info){showToast('선을 다시 선택해 주세요');return false;}
+  exitLinkMode();exitMobileMultiSelection();reconnectMode=false;reconnectNodeId=null;document.body.classList.remove('reconnect-mode');
+  lineJunctionPending={anchor:anchor,color:info.entry.routeColor||'#4a90ff',strokeStyle:edge.strokeStyle||'solid'};
+  document.body.classList.add('line-junction-mode');closeArrowMenu();hideCtx();renderCurves();
+  var oldTip=document.getElementById('line-junction-tip');if(oldTip)oldTip.remove();
+  var tip=document.createElement('div');tip.id='line-junction-tip';tip.setAttribute('role','status');
+  tip.style.cssText='position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:500;display:flex;align-items:center;gap:12px;max-width:calc(100% - 24px);padding:9px 12px;border:1px solid var(--acc);border-radius:12px;background:var(--sur);color:var(--txt);box-shadow:0 4px 16px #0006;font-size:13px;';
+  var label=document.createElement('span');label.textContent='┬ 선 중간 연결 · 연결할 노드를 선택하세요';
+  var cancel=document.createElement('button');cancel.className='tbtn';cancel.textContent='취소';cancel.onclick=function(e){e.stopPropagation();cancelLineJunction('선 중간 연결 취소');};
+  tip.addEventListener('mousedown',function(e){e.stopPropagation();});tip.append(label,cancel);document.getElementById('viewport').appendChild(tip);
+  showToast('┬ 연결할 노드를 클릭하세요 — 취소: Esc / 빈 화면 클릭');return true;
+}
+function connectNodeToLine(target,type,cx,cy){
+  if(edgePortEdit){showToast('현재 접점 수정 모드입니다. 연결 아이콘을 다시 눌러 종료한 뒤 연결하세요');return false;}
+  var nodeId=linkFrom,port=linkFromPort;if(!gn(nodeId)){showToast('먼저 연결을 시작할 노드를 클릭하세요');return false;}
+  var tree=type==='tree',edge=tree?gn(target):target;if(!edge||(tree?edge.pid===null:links.indexOf(edge)<0))return false;
+  var world=s2w(cx,cy),bus=edge.cp&&edge.cp.organizedBus;
+  if(bus){
+    var nearby=[];
+    organizedBranchRecords(bus.hubId,bus.side).forEach(function(r){
+      var entry=_edgeDomCache[r.tree?'tree-'+r.edge.id:'link-'+r.edge.from+'-'+r.edge.to],points=entry&&entry.routePoints;
+      if(!points)return;var distance=Infinity;for(var i=1;i<points.length;i++){
+        var a=points[i-1],b=points[i],dx=b.x-a.x,dy=b.y-a.y,den=dx*dx+dy*dy,t=den?clampVal(((world.x-a.x)*dx+(world.y-a.y)*dy)/den,0,1):0;
+        distance=Math.min(distance,Math.hypot(a.x+t*dx-world.x,a.y+t*dy-world.y));
+      }
+      nearby.push({record:r,distance:distance});
+    });nearby.sort(function(a,b){return a.distance-b.distance;});
+    // At a rounded common corner, raw waypoints can coincide while the visible
+    // paths do not. Prefer the actual SVG path passing through the click.
+    var best=null,bestDistance=Infinity;
+    for(var j=0;j<nearby.length;j++){
+      if(nearby[j].distance>nearby[0].distance+1)break;
+      var r=nearby[j].record,candidate={type:r.tree?'tree':'ref',from:r.tree?r.edge.pid:r.edge.from,to:r.tree?r.edge.id:r.edge.to,ratio:.5};
+      candidate.ratio=nearestLineJunctionRatio(candidate,w2s(world.x,world.y));var point=lineJunctionPoint(candidate);if(!point)continue;
+      var local=screenLocalToWorld(point.point),d=Math.hypot(local.x-world.x,local.y-world.y);
+      if(d<bestDistance){bestDistance=d;best=r;}if(d<.1)break;
+    }
+    if(best){edge=best.edge;tree=best.tree;}
+  }
+  var anchor={type:tree?'tree':'ref',from:tree?edge.pid:edge.from,to:tree?edge.id:edge.to,ratio:.5,at:'end'};
+  anchor.ratio=nearestLineJunctionRatio(anchor,w2s(world.x,world.y));if(!lineJunctionPoint(anchor)){showToast('선을 다시 선택해 주세요');return false;}
+  lineJunctionPending={anchor:anchor,color:getColor(nodeId),strokeStyle:'solid'};
+  var connected=finishLineJunction(nodeId,port,{atEnd:true,keepLinkMode:true});if(!connected)cancelLineJunction();return connected;
+}
+function finishLineJunction(nodeId,port,options){
+  var pending=lineJunctionPending;if(!pending)return false;
+  var a=pending.anchor,atEnd=options&&options.atEnd;
+  if(!gn(nodeId)||!lineJunctionSource(a)){cancelLineJunction();return false;}
+  if(nodeId===a.from||nodeId===a.to){showToast('원래 선의 양 끝 이외의 노드를 선택하세요');return false;}
+  var from=atEnd?nodeId:a.from,to=atEnd?a.from:nodeId;
+  if(links.some(function(l){return l.from===from&&l.to===to;})){showToast('이미 연결된 노드입니다. 기존 연결선을 먼저 확인해 주세요.');return false;}
+  if(lockMode){cancelLineJunction('🔒 잠금을 해제한 뒤 연결하세요');return false;}
+  if(memoOpen)saveMemoTxt();pushUndoState();
+  var link={from:from,to:to,lineType:'elbow',arrow:'none',color:pending.color,strokeStyle:pending.strokeStyle,lineAnchor:JSON.parse(JSON.stringify(a))};
+  if(atEnd)link.lineAnchor.at='end';if(port)link[atEnd?'fromPort':'toPort']=port;
+  links.push(link);cancelLineJunction();closeArrowMenu();sel=nodeId;selEdge={type:'ref',id:link.from+'_'+link.to};
+  if(options&&options.keepLinkMode){selEdge=null;linkMode=true;linkFrom=null;linkFromPort=null;document.body.classList.add('link-mode');document.getElementById('btn-link-mode').classList.add('link-active');}
+  _lastLayoutKey=layoutKey();saveAll();renderAll();showToast('┬ 선 중간에 노드 연결 완료 — 기존 선·위치 유지 (Ctrl+Z로 복구)');return true;
+}
+function lineJunctionPath(link,target,info){
+  if(!info)return null;
+  var start=info.point,world=screenLocalToWorld(start),tw=nwFull(target),th=nhFull(target);
+  var reverse=link.lineAnchor.at==='end',end=resolveSavedAttachment(link,target,tw,th,reverse?'start':'end',null),targetEp=resolveEp(target.x,target.y,tw,th,reverse?link.fromPort:link.toPort,world.x,world.y,false),ep=end?end.point:w2s(targetEp.x,targetEp.y);
+  var points=[start],cp=link.cp||{};
+  if(link.lineType==='curve'){
+    var dist=Math.max(Math.abs(ep.x-start.x),Math.abs(ep.y-start.y))*.5,verticalSource=Math.abs(info.tangent.y)>=Math.abs(info.tangent.x);
+    var normal={x:verticalSource?(ep.x>=start.x?1:-1):0,y:verticalSource?0:(ep.y>=start.y?1:-1)};
+    var center=w2s(target.x,target.y),dx=ep.x-center.x,dy=ep.y-center.y,horizontalEnd=Math.abs(dx)>=Math.abs(dy);
+    var offX=(Number(cp.dx)||0)*cam.z,offY=(Number(cp.dy)||0)*cam.z;
+    var c1={x:start.x+normal.x*dist+offX,y:start.y+normal.y*dist+offY};
+    var c2={x:ep.x+(horizontalEnd?(dx>=0?dist:-dist):0)+offX,y:ep.y+(horizontalEnd?0:(dy>=0?dist:-dist))+offY};
+    var pathStart=reverse?ep:start,pathEnd=reverse?start:ep,control1=reverse?c2:c1,control2=reverse?c1:c2;
+    return {d:'M'+pathStart.x+','+pathStart.y+' C'+control1.x+','+control1.y+' '+control2.x+','+control2.y+' '+pathEnd.x+','+pathEnd.y,startPoint:pathStart,endPoint:pathEnd,handle:{x:(c1.x+c2.x)/2,y:(c1.y+c2.y)/2},control1:control1,control2:control2};
+  }
+  if(cp.points&&cp.points.length)(reverse?cp.points.slice().reverse():cp.points).forEach(function(p){points.push(w2s(p.x,p.y));});
+  else if(Math.abs(ep.x-start.x)>.01&&Math.abs(ep.y-start.y)>.01){
+    var verticalSource=Math.abs(info.tangent.y)>=Math.abs(info.tangent.x);
+    if(verticalSource){var mid=(start.x+ep.x)/2+(Number(cp.dx)||0)*cam.z;points.push({x:mid,y:start.y},{x:mid,y:ep.y});}
+    else{var mid=(start.y+ep.y)/2+(Number(cp.dy)||0)*cam.z;points.push({x:start.x,y:mid},{x:ep.x,y:mid});}
+  }
+  points.push(ep);
+  if(reverse)points.reverse();
+  var result=buildRoundedOrthogonalPath(points,cp.cornerRadius===undefined?0:cp.cornerRadius);
+  result.startPoint=reverse?ep:start;result.endPoint=reverse?start:ep;result.handle={x:(start.x+ep.x)/2,y:(start.y+ep.y)/2};result.handles=[];return result;
+}
+function appendLineJunctionHandle(layer,link,info){
+  if(link.handlesHidden||link.junctionHandleHidden)return;
+  var h=document.createElementNS('http://www.w3.org/2000/svg','circle');h.setAttribute('cx',info.point.x);h.setAttribute('cy',info.point.y);
+  h.setAttribute('r','5');h.setAttribute('fill',link.color||'#4a90ff');h.setAttribute('stroke','#fff');h.setAttribute('stroke-width','1.5');
+  h.setAttribute('data-handle','line-junction');h.setAttribute('data-junction-from',link.from);h.setAttribute('data-junction-to',link.to);h.style.pointerEvents='all';h.style.cursor='grab';
+  var title=document.createElementNS('http://www.w3.org/2000/svg','title');title.textContent='원래 선을 따라 끌어 접점 위치 조절';h.appendChild(title);
+  h.addEventListener('mousedown',function(e){
+    if(e.button!==0)return;e.preventDefault();e.stopPropagation();if(lockMode){showToast('🔒 잠금을 해제하세요');return;}
+    var moved=false;
+    function move(ev){var p=s2w(ev.clientX,ev.clientY),ratio=nearestLineJunctionRatio(link.lineAnchor,w2s(p.x,p.y));
+      if(Math.abs(ratio-link.lineAnchor.ratio)<.0001)return;if(!moved){pushUndoState();moved=true;}
+      link.lineAnchor.ratio=ratio;renderCurves();
+    }
+    function up(){document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up);if(moved){saveAll();renderCurves();drawMM();}}
+    document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
+  });layer.appendChild(h);
+}
 function addLink(fromId, toId, fromPort, toPort){
   if(fromId===toId)return;
   for(var i=0;i<links.length;i++) if(links[i].from===fromId&&links[i].to===toId) return;
@@ -2913,6 +3245,11 @@ function nudgeEdgeAttachment(target,type,which,delta){
   var edge=type==='tree'?gn(target):target;
   if(!edge)return;
   if(lockMode){showToast('🔒 잠금을 해제한 뒤 접점을 조절하세요');return;}
+  if(type!=='tree'&&edge.lineAnchor&&which===(edge.lineAnchor.at==='end'?'end':'start')){
+    var source=lineJunctionPoint(edge.lineAnchor);if(!source)return;
+    pushUndoState();edge.lineAnchor.ratio=delta?clampVal(edge.lineAnchor.ratio+delta/(source.entry.path.getTotalLength()/cam.z),.02,.98):.5;
+    saveAll();renderAll();showToast('선 위의 접점 위치 조절됨 (Ctrl+Z로 복구)');return;
+  }
   var key=(type==='tree'?'tree-'+edge.id:'link-'+edge.from+'-'+edge.to);
   var entry=_edgeDomCache[key],tip=entry&&entry.endpointInfo&&entry.endpointInfo[which];
   var node=gn(which==='start'?(type==='tree'?edge.pid:edge.from):(type==='tree'?edge.id:edge.to));
@@ -2932,6 +3269,51 @@ function nudgeEdgeAttachment(target,type,which,delta){
     edge[which+'Attach']={side:side,offset:clampVal(offset+delta,-limit,limit)};
   }
   saveAll();renderAll();showToast(delta?'접점 이동됨 — 위치가 저장됩니다 (Ctrl+Z로 복구)':'접점 자동 위치로 복원됨');
+}
+function splitOverlappingAttachments(target,type,which){
+  if(lockMode){showToast('🔒 잠금을 해제한 뒤 접점을 나누세요');return false;}
+  var edge=type==='tree'?gn(target):target,key=type==='tree'?'tree-'+target:edge&&'link-'+edge.from+'-'+edge.to;
+  var base=key&&_edgeDomCache[key],tip=base&&base.endpointInfo&&base.endpointInfo[which],node=base&&(which==='start'?base.a:base.b);
+  if(!edge||!node||!tip){showToast('선을 다시 선택한 뒤 접점을 나누세요');return false;}
+  if(edge.lineAnchor&&which===(edge.lineAnchor.at==='end'?'end':'start')){showToast('선 위 접점은 원형 손잡이로 이동하세요');return false;}
+  var side=attachmentSideFromAngle(tip.angle),horizontal=side==='top'||side==='bottom',axis=horizontal?'x':'y';
+  var contacts=[];
+  Object.keys(_edgeDomCache).forEach(function(k){var entry=_edgeDomCache[k];
+    ['start','end'].forEach(function(end){
+      var n=end==='start'?entry.a:entry.b,t=entry.endpointInfo&&entry.endpointInfo[end],anchor=entry.obj.lineAnchor;
+      if(!n||n.id!==node.id||!t||attachmentSideFromAngle(t.angle)!==side)return;
+      if(anchor&&end===(anchor.at==='end'?'end':'start'))return;
+      contacts.push({entry:entry,end:end,offset:t[axis]-node[axis],other:end==='start'?entry.b:entry.a});
+    });
+  });
+  contacts.sort(function(a,b){return a.offset-b.offset;});
+  var at=contacts.findIndex(function(c){return c.entry===base&&c.end===which;}),first=at,last=at;
+  if(at<0)return false;
+  while(first>0&&contacts[first].offset-contacts[first-1].offset<15.99)first--;
+  while(last+1<contacts.length&&contacts[last+1].offset-contacts[last].offset<15.99)last++;
+  var overlap=contacts.slice(first,last+1);
+  if(overlap.length<2){showToast('이 접점에 겹친 선이 없습니다. 다른 선이나 출발점/도착점을 선택하세요');return false;}
+  var limit=Math.max(0,(horizontal?nwFull(node):nhFull(node))/2-10),low=-limit,high=limit;
+  if(first>0)low=Math.max(low,contacts[first-1].offset+16);
+  if(last+1<contacts.length)high=Math.min(high,contacts[last+1].offset-16);
+  if(high-low<6*(overlap.length-1)){showToast('접점을 나눌 공간이 부족합니다. 노드 크기를 늘린 뒤 다시 시도하세요');return false;}
+  var gap=Math.min(24,(high-low)/(overlap.length-1)),span=gap*(overlap.length-1),center=clampVal(tip[axis]-node[axis],low+span/2,high-span/2);
+  overlap.sort(function(a,b){return a.other[axis]-b.other[axis]||a.other.id-b.other.id||a.end.localeCompare(b.end);});
+  if(memoOpen)saveMemoTxt();pushUndoState();
+  overlap.forEach(function(contact,i){
+    var obj=contact.entry.obj;
+    // Keep the existing bend points; move only the final straight approach.
+    // Organized buses retain their original model and use saved face offsets.
+    if((obj.lineType||'curve')==='elbow'&&!(obj.cp&&obj.cp.organizedBus)&&!obj.lineAnchor&&contact.entry.routePoints.length>2){
+      var savedPoints=obj.cp&&obj.cp.points&&obj.cp.points.length?obj.cp.points:contact.entry.routePoints.slice(1,-1);
+      var points=savedPoints.map(function(p){return {x:p.x,y:p.y};}),oldCoordinate=node[axis]+contact.offset,newCoordinate=node[axis]+center-span/2+i*gap;
+      var step=contact.end==='end'?-1:1,index=contact.end==='end'?points.length-1:0;
+      while(index>=0&&index<points.length&&Math.abs(points[index][axis]-oldCoordinate)<1.5){points[index][axis]=newCoordinate;index+=step;}
+      obj.cp=Object.assign({},obj.cp||{},{points:points});
+    }
+    obj[contact.end+'Attach']={side:side,offset:center-span/2+i*gap};
+  });
+  saveAll();renderAll();closeArrowMenu();showToast('↕ '+overlap.length+'개 접점을 '+(horizontal?'좌·우':'위·아래')+'로 분리했습니다 (Ctrl+Z로 복구)');return true;
 }
 function alignNearbyEdgeRoutes(target,type){
   if(lockMode){showToast('🔒 잠금을 해제한 뒤 선을 합치세요');return;}
@@ -2982,6 +3364,185 @@ function alignNearbyEdgeRoutes(target,type){
   saveAll();renderAll();closeArrowMenu();
   showToast('≡ '+updates.length+'개 선의 공통 구간을 한 줄로 맞췄습니다 (Ctrl+Z로 복구)');
 }
+function branchRecords(hubId){
+  var records=[];
+  nodes.forEach(function(n){if(n.pid===hubId)records.push({edge:n,peer:n,tree:true});});
+  links.forEach(function(l){if(l.from===hubId&&gn(l.to))records.push({edge:l,peer:gn(l.to),tree:false});});
+  return records;
+}
+function getBranchContext(contextId){
+  var chosen=multiSel.filter(function(id){return !!gn(id);});
+  if(chosen.length>=2){
+    var parents=chosen.map(function(id){var n=gn(id);if(n.pid!==null)return n.pid;var incoming=links.find(function(l){return l.to===id;});return incoming?incoming.from:null;});
+    if(parents[0]!==null&&parents.every(function(id){return id===parents[0];}))return {hubId:parents[0],ids:chosen};
+    return null;
+  }
+  // The parent command applies to tree children. Outgoing reference lines often
+  // connect different equipment and must not be swept into a child branch.
+  if(gc(contextId).length>=2)return {hubId:contextId,ids:null};
+  var n=gn(contextId);if(n&&n.pid!==null&&gc(n.pid).length>=2)return {hubId:n.pid,ids:null};
+  return null;
+}
+function organizedBranchRecords(hubId,side){
+  var records=[];
+  function add(edge,from,to,tree){
+    var bus=edge.cp&&edge.cp.organizedBus;
+    if(!bus||bus.hubId!==hubId||(side&&bus.side!==side)||!gn(hubId))return;
+    if(['left','right','top','bottom'].indexOf(bus.side)<0)return;
+    var other=from===hubId?to:to===hubId?from:null,peer=gn(other);if(!peer)return;
+    records.push({edge:edge,peer:peer,tree:tree,reversed:to===hubId});
+  }
+  nodes.forEach(function(n){if(n.pid!==null)add(n,n.pid,n.id,true);});
+  links.forEach(function(l){add(l,l.from,l.to,false);});return records;
+}
+function getBranchBuses(contextId,ownOnly){
+  var found=[],seen=new Set();
+  function add(edge,from,to){
+    var b=edge.cp&&edge.cp.organizedBus;
+    if(!b||!gn(from)||!gn(to)||!gn(b.hubId)||['left','right','top','bottom'].indexOf(b.side)<0)return;
+    if(b.hubId!==from&&b.hubId!==to)return;
+    if(from!==contextId&&to!==contextId)return;
+    if(ownOnly&&b.hubId!==contextId)return;
+    var key=b.hubId+'_'+b.side;if(!seen.has(key)){seen.add(key);found.push(b);}
+  }
+  nodes.forEach(function(n){if(n.pid!==null)add(n,n.pid,n.id);});
+  links.forEach(function(l){add(l,l.from,l.to);});
+  return found.sort(function(a,b){return Number(b.hubId===contextId)-Number(a.hubId===contextId);});
+}
+function getBranchBus(contextId,ownOnly){return getBranchBuses(contextId,ownOnly)[0]||null;}
+var branchAddChoice=null;
+function closeBranchAddChoice(){
+  var m=document.getElementById('branch-add-choice'),prev=branchAddChoice;branchAddChoice=null;if(m)m.remove();
+  if(prev&&prev.focus&&prev.focus.isConnected)prev.focus.focus();
+}
+function branchAddDescription(bus,contextId){
+  var peers=organizedBranchRecords(bus.hubId,bus.side).map(function(r){return r.peer.id;}),best=null,bestCount=0;
+  groups.forEach(function(g){var count=(g.nodeIds||[]).filter(function(id){return peers.indexOf(id)>=0;}).length;
+    if(count>bestCount||(count&&count===bestCount&&best&&g.nodeIds.length<best.nodeIds.length)){best=g;bestCount=count;}
+  });
+  var hub=gn(bus.hubId),name=best&&best.name?best.name:(hub?hub.text:'분기선');
+  var side={right:'오른쪽 세로 공통선',left:'왼쪽 세로 공통선',bottom:'아래쪽 가로 공통선',top:'위쪽 가로 공통선'}[bus.side];
+  return {name:name,detail:(bus.hubId===contextId?'이 노드에서 뻗는 분기선':'이 노드가 연결된 상위 분기선')+' · '+side+' · '+peers.length+'개 노드'};
+}
+function chooseBranchToAdd(contextId,candidates){
+  if(lockMode){showToast('잠금을 해제한 뒤 노드를 추가하세요');return null;}
+  if(candidates.length===1)return addBranchNode(contextId,candidates[0]);
+  closeBranchAddChoice();closeArrowMenu();
+  var overlay=document.createElement('div');overlay.id='branch-add-choice';
+  overlay.style.cssText='position:fixed;inset:0;z-index:1600;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);padding:16px;';
+  var panel=document.createElement('div');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','branch-add-title');
+  panel.style.cssText='box-sizing:border-box;width:100%;max-width:480px;max-height:85dvh;overflow:auto;background:var(--sur);color:var(--txt);border:1px solid var(--bdr);border-radius:14px;padding:20px;';
+  var title=document.createElement('h3');title.id='branch-add-title';title.textContent='노드를 추가할 분기선 선택';title.style.margin='0 0 12px';panel.appendChild(title);
+  var intro=document.createElement('p');intro.textContent='선택한 노드는 여러 분기선에 연결되어 있습니다. 추가할 곳을 선택하세요. 기존 노드와 선 위치는 유지합니다.';intro.style.cssText='font-size:14px;line-height:1.6;';panel.appendChild(intro);
+  branchAddChoice={contextId:contextId,catId:curCatId,focus:document.activeElement};
+  candidates.forEach(function(bus){
+    var btn=document.createElement('button'),desc=branchAddDescription(bus,contextId);btn.type='button';btn.dataset.hubId=bus.hubId;btn.dataset.side=bus.side;
+    btn.style.cssText='display:block;width:100%;min-height:64px;text-align:left;white-space:normal;background:var(--sur2);color:var(--txt);border:1px solid var(--bdr);border-radius:10px;padding:12px;margin:8px 0;cursor:pointer;';
+    var name=document.createElement('strong');name.textContent=desc.name;btn.appendChild(name);
+    var detail=document.createElement('span');detail.textContent=desc.detail;detail.style.cssText='display:block;font-size:12px;line-height:1.6;margin-top:5px;';btn.appendChild(detail);
+    btn.onclick=function(){var state=branchAddChoice;closeBranchAddChoice();if(state&&state.catId===curCatId)addBranchNode(contextId,bus);};panel.appendChild(btn);
+  });
+  var cancel=document.createElement('button');cancel.type='button';cancel.className='tbtn';cancel.textContent='취소';cancel.onclick=closeBranchAddChoice;panel.appendChild(cancel);
+  overlay.onclick=function(e){if(e.target===overlay)closeBranchAddChoice();};overlay.appendChild(panel);document.body.appendChild(overlay);panel.querySelector('button').focus();return null;
+}
+function organizeBranchConnections(hubId,ids){
+  if(lockMode){showToast('잠금을 해제한 뒤 분기선을 정리하세요');return false;}
+  var hub=gn(hubId);if(!hub)return false;
+  var records=branchRecords(hubId).filter(function(r){
+    if(!ids)return r.tree;
+    return ids.indexOf(r.peer.id)>=0&&(r.tree||r.peer.pid!==hubId);
+  });
+  if(new Set(records.map(function(r){return r.peer.id;})).size<2){showToast('같은 부모에 연결된 노드를 2개 이상 선택하세요');return false;}
+  var sides={bottom:[],top:[]};records.forEach(function(r){sides[r.peer.y>=hub.y?'bottom':'top'].push(r);});
+  var gaps={};
+  for(var side in sides){
+    if(!sides[side].length)continue;
+    var sign=side==='bottom'?1:-1,faceY=hub.y+sign*nhFull(hub)/2;
+    var gap=Math.min.apply(null,sides[side].map(function(r){return sign*(r.peer.y-sign*nhFull(r.peer)/2-faceY);}));
+    if(gap<12){showToast('부모와 자식 사이에 분기선을 그릴 세로 간격이 필요합니다. 노드를 위아래로 조금 벌려 주세요.');return false;}
+    gaps[side]=gap;
+  }
+  if(memoOpen)saveMemoTxt();pushUndoState();
+  Object.keys(sides).forEach(function(side){sides[side].forEach(function(r){
+    r.edge.lineType='elbow';r.edge.cp={organizedBus:{hubId:hubId,side:side,offset:gaps[side]/2}};
+  });});
+  _lastLayoutKey=layoutKey();closeArrowMenu();saveAll();renderAll();
+  showToast('┬ '+records.length+'개 노드의 분기선만 정리 — 다른 연결선 유지 (Ctrl+Z로 복구)');return true;
+}
+function addBranchNode(contextId,busChoice){
+  if(lockMode){showToast('잠금을 해제한 뒤 노드를 추가하세요');return null;}
+  var candidates=getBranchBuses(contextId,false),bus=null;
+  if(busChoice)bus=candidates.find(function(b){return b.hubId===busChoice.hubId&&b.side===busChoice.side;});
+  else if(candidates.length>1)return chooseBranchToAdd(contextId,candidates);
+  else bus=candidates[0];
+  if(!bus){showToast('추가할 분기선을 다시 선택하세요');return null;}
+  var hub=gn(bus.hubId);if(!hub)return null;
+  var records=organizedBranchRecords(hub.id,bus.side);
+  if(!records.length)return null;
+  var vertical=bus.side==='left'||bus.side==='right';
+  var template=vertical?records.reduce(function(a,b){return a.peer.y+nhFull(a.peer)/2>=b.peer.y+nhFull(b.peer)/2?a:b;}):records[records.length-1];
+  var peer=template.peer,sign=vertical?1:(childDir==='left'?-1:1),arrow=template.edge.arrow||(template.tree?'forward':'none');
+  if(template.reversed){if(arrow==='forward')arrow='backward';else if(arrow==='backward')arrow='forward';}
+  var busX=null;
+  if(vertical){var route=getOrganizedBusPath(template.edge,gn(template.tree?template.edge.pid:template.edge.from),gn(template.tree?template.edge.id:template.edge.to));if(!route)return null;busX=route.organizedBus.x;}
+  var next=Math.max(1,Number(nid)||1);nodes.forEach(function(n){next=Math.max(next,Number(n.id)+1);});
+  var added={id:next,pid:hub.id,text:'새 연결 노드',x:0,y:peer.y,scale:peer.scale||1,star:false,customColor:getColor(peer.id),fontColor:peer.fontColor||null,bold:!!peer.bold,underline:!!peer.underline,fsize:peer.fsize,memo:'',imgs:[],lineType:'elbow',arrow:arrow,lineColor:template.edge.lineColor||template.edge.color||getColor(peer.id),strokeStyle:template.edge.strokeStyle||'solid',cp:{organizedBus:JSON.parse(JSON.stringify(bus))}};
+  added.branchAppend=true;
+  if(vertical){
+    added.x=peer.x;added.y=peer.y+nhFull(peer)/2+60+nhFull(added)/2;
+    keepVerticalBranchClear(added,busX);
+  }else{
+    var edge=sign>0?Math.max.apply(null,records.map(function(r){return r.peer.x+nwFull(r.peer)/2;})):Math.min.apply(null,records.map(function(r){return r.peer.x-nwFull(r.peer)/2;}));
+    added.x=edge+sign*(60+nwFull(added)/2);keepHorizontalBranchClear(added,sign);
+  }
+  if(memoOpen)saveMemoTxt();pushUndoState();nid=next+1;nodes.push(added);pendingBranchName={node:added,sign:sign,vertical:vertical,busX:busX};
+  sel=added.id;multiSel=[];selEdge=null;deselectGroup();exitLinkMode();closeArrowMenu();
+  invalidateModelIndex();_lastLayoutKey=layoutKey();saveAll();renderAll();
+  setTimeout(function(){if(gn(added.id)===added)startEdit(added.id);},80);
+  showToast('＋ 기존 분기선에 노드 추가 — 기존 노드 위치 유지');return added;
+}
+function keepHorizontalBranchClear(node,sign){
+  var blocked=[];
+  nodes.forEach(function(n){if(n!==node&&Math.abs(n.y-node.y)<(nhFull(n)+nhFull(node))/2+14){var half=(nwFull(n)+nwFull(node))/2+18;blocked.push({low:n.x-half,high:n.x+half});}});
+  blocked.sort(function(a,b){return a.low-b.low;});if(sign<0)blocked.reverse();
+  blocked.forEach(function(range){if(node.x>=range.low&&node.x<=range.high)node.x=sign>0?range.high+1:range.low-1;});
+}
+function keepVerticalBranchClear(node,busX){
+  var sign=node.cp.organizedBus.side==='left'?-1:1;
+  // Wider names may require moving only the new node outward. Keep enough
+  // clearance so adding it cannot clamp or shift the existing common line.
+  var face=node.x-sign*(nwFull(node)/2+ARROW_TIP_GAP),gap=sign*(face-busX);
+  if(gap<25)node.x+=sign*(25-gap);
+  var blocked=[];nodes.forEach(function(n){
+    if(n!==node&&Math.abs(n.x-node.x)<(nwFull(n)+nwFull(node))/2+14){var half=(nhFull(n)+nhFull(node))/2+18;blocked.push({low:n.y-half,high:n.y+half});}
+  });
+  blocked.sort(function(a,b){return a.low-b.low;});blocked.forEach(function(range){if(node.y>=range.low&&node.y<=range.high)node.y=range.high+1;});
+}
+function settleBranchNodeName(node){
+  if(!pendingBranchName||pendingBranchName.node!==node||gn(node.id)!==node)return;
+  if(pendingBranchName.vertical)keepVerticalBranchClear(node,pendingBranchName.busX);
+  else keepHorizontalBranchClear(node,pendingBranchName.sign);
+  pendingBranchName=null;_lastLayoutKey=layoutKey();
+}
+function getHorizontalBranchPath(edge,from,to,bus,lanes){
+  var hub=gn(bus.hubId);if(!hub||!from||!to||(from.id!==hub.id&&to.id!==hub.id))return null;
+  var peer=from.id===hub.id?to:from,sign=bus.side==='bottom'?1:-1;
+  var hubFace={x:hub.x,y:hub.y+sign*nhFull(hub)/2};
+  var peerFace={x:peer.x,y:peer.y-sign*(nhFull(peer)/2+ARROW_TIP_GAP)};
+  var hubWhich=from.id===hub.id?'start':'end',peerWhich=from.id===hub.id?'end':'start';
+  var hubSaved=resolveSavedAttachment(edge,hub,nwFull(hub),nhFull(hub),hubWhich,null),peerSaved=resolveSavedAttachment(edge,peer,nwFull(peer),nhFull(peer),peerWhich,null);
+  if(hubSaved&&(hubSaved.side==='top'||hubSaved.side==='bottom'))hubFace=screenLocalToWorld(hubSaved.point);
+  if(peerSaved&&(peerSaved.side==='top'||peerSaved.side==='bottom'))peerFace=screenLocalToWorld(peerSaved.point);
+  lanes=lanes||buildOrganizedBusLanes();
+  var maxOffset=lanes._horizontalLimits[bus.hubId+'_'+bus.side];
+  if(!isFinite(maxOffset))maxOffset=sign*(peerFace.y-hubFace.y)-6;
+  maxOffset=Math.max(2,maxOffset);var offset=clampVal(Number(bus.offset)||50,2,maxOffset),busY=hubFace.y+sign*offset;
+  var points=[hubFace,{x:hubFace.x,y:busY},{x:peerFace.x,y:busY},peerFace];if(from.id!==hub.id)points.reverse();
+  var screen=points.map(function(p){return w2s(p.x,p.y);}),info=buildRoundedOrthogonalPath(screen,0);
+  info.startPoint=screen[0];info.endPoint=screen[screen.length-1];info.handle=w2s((hub.x+peer.x)/2,busY);info.handles=[];info.busLinks=[];
+  info.organizedBus={hubId:hub.id,side:bus.side,horizontal:true,y:busY,x1:Math.min(hub.x,peer.x),x2:Math.max(hub.x,peer.x),maxOffset:maxOffset,color:edge.color||edge.lineColor||getColor(peer.id),handleHidden:!!bus.handleHidden};
+  return info;
+}
 function organizeHubConnections(){
   if(lockMode){showToast('🔒 잠금을 해제한 뒤 연결선을 정리하세요');return;}
   var hub=gn(sel);if(!hub){showToast('먼저 중앙 노드를 선택하세요');return;}
@@ -3007,7 +3568,7 @@ function organizeHubConnections(){
   showToast('≡ '+ids.length+'개 노드와 연결선 정리 완료 — 공통선의 원형 손잡이를 좌우로 드래그하세요 (Ctrl+Z로 복구)');
 }
 function buildOrganizedBusLanes(){
-  var faces={},offsets={};
+  var faces={},offsets={_horizontalLimits:{}};
   function add(node,side,hub,bus){
     var faceKey=node.id+'_'+side,groupKey=bus.hubId+'_'+bus.side;
     if(!faces[faceKey])faces[faceKey]={node:node,groups:{}};
@@ -3018,6 +3579,11 @@ function buildOrganizedBusLanes(){
     var hub=gn(bus.hubId),from=gn(edge.pid!==undefined?edge.pid:edge.from),to=gn(edge.pid!==undefined?edge.id:edge.to);
     if(!hub||!from||!to||from.id===to.id||(from.id!==hub.id&&to.id!==hub.id))return;
     var peer=from.id===hub.id?to:from;
+    if(bus.side==='bottom'||bus.side==='top'){
+      var sign=bus.side==='bottom'?1:-1,key=bus.hubId+'_'+bus.side;
+      var gap=sign*(peer.y-sign*(nhFull(peer)/2+ARROW_TIP_GAP)-(hub.y+sign*nhFull(hub)/2))-6;
+      offsets._horizontalLimits[key]=Math.min(offsets._horizontalLimits[key]===undefined?Infinity:offsets._horizontalLimits[key],gap);return;
+    }
     add(hub,bus.side,hub,bus);
     add(peer,bus.side==='left'?'right':'left',hub,bus);
   });
@@ -3032,6 +3598,7 @@ function buildOrganizedBusLanes(){
 }
 function getOrganizedBusPath(edge,from,to,lanes){
   var bus=edge.cp&&edge.cp.organizedBus;if(!bus)return null;
+  if(bus.side==='bottom'||bus.side==='top')return getHorizontalBranchPath(edge,from,to,bus,lanes);
   var hub=gn(bus.hubId);if(!hub||!from||!to||(from.id!==hub.id&&to.id!==hub.id))return null;
   var peer=from.id===hub.id?to:from,sign=bus.side==='left'?-1:1;
   var hubFace={x:hub.x+sign*(nwFull(hub)/2+ARROW_TIP_GAP),y:hub.y};
@@ -3040,6 +3607,10 @@ function getOrganizedBusPath(edge,from,to,lanes){
   var groupKey=bus.hubId+'_'+bus.side,peerSide=bus.side==='left'?'right':'left';
   hubFace.y+=lanes[hub.id+'_'+bus.side+'_'+groupKey]||0;
   peerFace.y+=lanes[peer.id+'_'+peerSide+'_'+groupKey]||0;
+  var hubWhich=from.id===hub.id?'start':'end',peerWhich=from.id===hub.id?'end':'start';
+  var hubSaved=resolveSavedAttachment(edge,hub,nwFull(hub),nhFull(hub),hubWhich,null),peerSaved=resolveSavedAttachment(edge,peer,nwFull(peer),nhFull(peer),peerWhich,null);
+  if(hubSaved&&(hubSaved.side==='left'||hubSaved.side==='right'))hubFace=screenLocalToWorld(hubSaved.point);
+  if(peerSaved&&(peerSaved.side==='left'||peerSaved.side==='right'))peerFace=screenLocalToWorld(peerSaved.point);
   var offsetLimit=Infinity;
   nodes.concat(links).forEach(function(candidate){
     var saved=candidate.cp&&candidate.cp.organizedBus;if(!saved||saved.hubId!==hub.id||saved.side!==bus.side)return;
@@ -3056,21 +3627,25 @@ function getOrganizedBusPath(edge,from,to,lanes){
   var info=buildRoundedOrthogonalPath(screenPoints,16*cam.z);
   info.handle={x:w2s(busX,hubFace.y).x,y:w2s(busX,(hubFace.y+peerFace.y)/2).y};info.handles=[];info.busLinks=[];
   info.startPoint=screenPoints[0];info.endPoint=screenPoints[screenPoints.length-1];
-  info.organizedBus={hubId:hub.id,side:bus.side,x:busX,maxOffset:offsetLimit,y1:Math.min(hubFace.y,peerFace.y),y2:Math.max(hubFace.y,peerFace.y),color:edge.color||edge.lineColor||getColor(peer.id)};
+  info.organizedBus={hubId:hub.id,side:bus.side,x:busX,maxOffset:offsetLimit,y1:Math.min(hubFace.y,peerFace.y),y2:Math.max(hubFace.y,peerFace.y),color:edge.color||edge.lineColor||getColor(peer.id),handleHidden:!!bus.handleHidden};
   return info;
 }
 function appendOrganizedBusHandle(layer,bus){
-  var h=document.createElementNS('http://www.w3.org/2000/svg','circle'),point=w2s(bus.x,(bus.y1+bus.y2)/2);
+  if(bus.handleHidden)return;
+  var h=document.createElementNS('http://www.w3.org/2000/svg','circle'),point=bus.horizontal?w2s((bus.x1+bus.x2)/2,bus.y):w2s(bus.x,(bus.y1+bus.y2)/2);
+  h.setAttribute('data-handle','organized-bus');
+  h.setAttribute('data-handle-hub',bus.hubId);h.setAttribute('data-handle-side',bus.side);
+  if(bus.horizontal)h.setAttribute('data-branch-hub',bus.hubId);
   h.setAttribute('cx',point.x);h.setAttribute('cy',point.y);h.setAttribute('r','7');h.setAttribute('fill','var(--sur)');h.setAttribute('stroke',bus.color);h.setAttribute('stroke-width','2');
-  h.style.pointerEvents='all';h.style.cursor='ew-resize';
-  var title=document.createElementNS('http://www.w3.org/2000/svg','title');title.textContent='공통선 좌우 이동';h.appendChild(title);
+  h.style.pointerEvents='all';h.style.cursor=bus.horizontal?'ns-resize':'ew-resize';
+  var title=document.createElementNS('http://www.w3.org/2000/svg','title');title.textContent=bus.horizontal?'분기선 높이 조정':'공통선 좌우 이동';h.appendChild(title);
   h.addEventListener('mousedown',function(e){
     if(e.button!==0)return;e.preventDefault();e.stopPropagation();
     if(lockMode){showToast('🔒 잠금을 해제하세요');return;}
-    pushUndoState();var startX=e.clientX,original=[];
+    var moved=false,startX=e.clientX,startY=e.clientY,original=[];
     nodes.concat(links).forEach(function(edge){var b=edge.cp&&edge.cp.organizedBus;if(b&&b.hubId===bus.hubId&&b.side===bus.side)original.push({bus:b,offset:b.offset});});
-    function move(ev){var delta=(ev.clientX-startX)/cam.z*(bus.side==='left'?-1:1);original.forEach(function(item){item.bus.offset=clampVal(item.offset+delta,25,bus.maxOffset);});renderCurves();}
-    function up(){document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up);saveAll();renderCurves();drawMM();}
+    function move(ev){var delta=bus.horizontal?(ev.clientY-startY)/cam.z*(bus.side==='top'?-1:1):(ev.clientX-startX)/cam.z*(bus.side==='left'?-1:1);if(!moved&&!delta)return;if(!moved){pushUndoState();moved=true;}original.forEach(function(item){item.bus.offset=clampVal(item.offset+delta,bus.horizontal?2:25,bus.maxOffset);});renderCurves();}
+    function up(){document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up);if(moved){saveAll();renderCurves();drawMM();}}
     document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
   });layer.appendChild(h);
 }
@@ -4306,7 +4881,7 @@ function makeElbowHandleCircle(info,keyPrefix,idx){
 }
 
 function getElbowHandleLimit(edgeObj){
-  return Infinity;
+  return edgeObj&&edgeObj.handlesHidden?0:Infinity;
 }
 
 function prioritizeElbowHandlesForAdding(list){
@@ -4726,6 +5301,8 @@ function renderCurves(){
   refreshModelIndex();
   var organizedLanes=buildOrganizedBusLanes();
   if(_edgeCacheNodes!==nodes||_edgeCacheLinks!==links){_edgeDomCache={};_edgeCacheNodes=nodes;_edgeCacheLinks=links;}
+  var junctionSources=new Set();links.forEach(function(l){if(l.lineAnchor)junctionSources.add(lineJunctionKey(l.lineAnchor));});
+  if(lineJunctionPending)junctionSources.add(lineJunctionKey(lineJunctionPending.anchor));
   var curveBounds=getWorldViewportBounds(520);
   edgeMergeGuides={h:[],v:[]};
   var edgeTopPaths=[],organizedBuses={};
@@ -4733,7 +5310,8 @@ function renderCurves(){
     if(!info||!info.organizedBus)return;
     var b=info.organizedBus,key=b.hubId+'_'+b.side,old=organizedBuses[key];
     if(!old)organizedBuses[key]=Object.assign({},b);
-    else{old.y1=Math.min(old.y1,b.y1);old.y2=Math.max(old.y2,b.y2);}
+    else if(b.horizontal){old.x1=Math.min(old.x1,b.x1);old.x2=Math.max(old.x2,b.x2);old.handleHidden=old.handleHidden||b.handleHidden;}
+    else{old.y1=Math.min(old.y1,b.y1);old.y2=Math.max(old.y2,b.y2);old.handleHidden=old.handleHidden||b.handleHidden;}
   }
   var svg=document.getElementById('svg-layer');
   var svgH=document.getElementById('svg-handle-layer');
@@ -4856,6 +5434,9 @@ function renderCurves(){
   var childMap={},siblingIndex={},departureCache={};
   for(var ci=0;ci<nodes.length;ci++){
     var cn=nodes[ci];if(cn.pid===null)continue;
+    // Appending a shared branch must not change the spacing/control distance of
+    // unrelated automatic curves from this parent.
+    if(cn.branchAppend&&cn.cp&&cn.cp.organizedBus)continue;
     if(!childMap[cn.pid])childMap[cn.pid]=[];
     siblingIndex[cn.id]=childMap[cn.pid].length;childMap[cn.pid].push(cn.id);
   }
@@ -5001,7 +5582,7 @@ function renderCurves(){
     // Reserve slots for all edges before culling offscreen DOM, so zoom cannot
     // renumber the slots of edges that remain visible.
     var treeBoundsPoints=(edgePathInfo.points||[ps,{x:cp1x,y:cp1y},{x:cp2x,y:cp2y},cs]).map(screenLocalToWorld);
-    if(!edgeMaybeVisible(p,c,curveBounds,treeBoundsPoints))continue;
+    if(!edgeMaybeVisible(p,c,curveBounds,treeBoundsPoints)&&!junctionSources.has('tree-'+c.id))continue;
     rememberOrganizedBus(organizedTree);
     var treeSignature=JSON.stringify([typeof isLight!=='undefined'&&isLight,edgePathInfo,ps,cs,cp1x,cp1y,cp2x,cp2y,color,cam.z,sel,selEdge,edgeLineType,edgeStrokeStyle,c.arrow,c.parentPort,c.childPort,c.cp,p.pid,getElbowHandleLimit(c)]);
     if(!beginEdge('tree-'+c.id,treeSignature,c,p,c,treeTop))continue;
@@ -5055,6 +5636,7 @@ function renderCurves(){
     (function(cid){
       function openTreeMenu(e){
         e.preventDefault();e.stopPropagation();
+        if(linkMode){connectNodeToLine(cid,'tree',e.clientX,e.clientY);return;}
         selEdge={type:'tree',id:cid};
         renderCurves();
         showArrowMenu(cid,e.clientX,e.clientY,'tree');
@@ -5307,6 +5889,7 @@ function renderCurves(){
   }
 
   function hasManualEdgeShape(edgeObj){
+    if(edgeObj&&edgeObj.lineAnchor)return true;
     if(edgeObj&&edgeObj.cp&&edgeObj.cp.organizedBus)return true;
     if(edgeObj&&(edgeObj.startAttach||edgeObj.endAttach))return true;
     var cp=edgeObj&&edgeObj.cp;
@@ -5382,6 +5965,7 @@ function renderCurves(){
           busOwner:info.lk===targetInfos[0].lk,
           busLinks:arr,
           busHandle:busHandle,
+          handlesHidden:arr.some(function(l){return !!l.handlesHidden;}),
           startPoint:p1,
           endPoint:p4
         };
@@ -5390,8 +5974,9 @@ function renderCurves(){
     return busMap;
   }
   function appendReferenceBusHandle(svgH,busInfo,pathEl){
-    if(!busInfo||!busInfo.busOwner||!busInfo.busHandle)return;
+    if(!busInfo||!busInfo.busOwner||!busInfo.busHandle||busInfo.handlesHidden)return;
     var h=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    h.setAttribute('data-handle','reference-bus');h._handleTarget={kind:'reference-bus',pairs:busInfo.busLinks.map(function(l){return [l.from,l.to];})};
     h.setAttribute('cx',busInfo.busHandle.x);
     h.setAttribute('cy',busInfo.busHandle.y);
     h.setAttribute('r','8');
@@ -5449,10 +6034,13 @@ function renderCurves(){
   var referenceBusMap=buildReferenceBusMap();
 
   /* ── 참조 연결선 ── */
-  for(var li=0;li<links.length;li++){
-    var lk=links[li];
+  var renderLinks=orderedJunctionLinks();
+  for(var li=0;li<renderLinks.length;li++){
+    var lk=renderLinks[li];
     var fa=gn(lk.from),ta=gn(lk.to);
     if(!fa||!ta)continue;
+    var junctionInfo=lk.lineAnchor?lineJunctionPoint(lk.lineAnchor):null;
+    if(lk.lineAnchor&&!junctionInfo)continue;
     var fw=nwFull(fa),tw=nwFull(ta);
     var fh=nhFull(fa), th=nhFull(ta);
     var fx,fy,tx2,ty2;
@@ -5493,12 +6081,12 @@ function renderCurves(){
     var linkStartMode=linkLineType==='elbow'?(elbowPortModeFromName(lk.fromPort)||(faPreferred&&faPreferred.mode)):null;
     var linkEndMode=linkLineType==='elbow'?(elbowPortModeFromName(lk.toPort)||(taPreferred&&taPreferred.mode)):null;
     var linkBaseCpOff=linkLineType==='elbow'?applyElbowEndpointModes(lcpOff,linkStartMode,linkEndMode):lcpOff;
-    var busInfo=getOrganizedBusPath(lk,fa,ta,organizedLanes)||referenceBusMap[refLinkKey(lk)];
+    var busInfo=junctionInfo?null:(getOrganizedBusPath(lk,fa,ta,organizedLanes)||referenceBusMap[refLinkKey(lk)]);
     if(busInfo){
       sc1=busInfo.startPoint;
       sc2=busInfo.endPoint;
     }
-    if(!busInfo&&linkLineType!=='elbow'){
+    if(!junctionInfo&&!busInfo&&linkLineType!=='elbow'){
       if(larr==='forward'||larr==='both'){
         var lfwAttachment=getCurveArrowEndpoint(ta,tw,th,sc2,{x:lcp2x,y:lcp2y});
         sc2=lfwAttachment.point;lcp2x=lfwAttachment.control.x;lcp2y=lfwAttachment.control.y;
@@ -5514,7 +6102,7 @@ function renderCurves(){
         lcp1x+=sc1.x-lbwBase.x;lcp1y+=sc1.y-lbwBase.y;
       }
     }
-    if(linkLineType!=='elbow'){
+    if(!junctionInfo&&linkLineType!=='elbow'){
       var manualFrom=resolveSavedAttachment(lk,fa,fw,fh,'start',null),manualTo=resolveSavedAttachment(lk,ta,tw,th,'end',null);
       if(manualFrom){lcp1x+=manualFrom.point.x-sc1.x;lcp1y+=manualFrom.point.y-sc1.y;sc1=manualFrom.point;}
       if(manualTo){lcp2x+=manualTo.point.x-sc2.x;lcp2y+=manualTo.point.y-sc2.y;sc2=manualTo.point;}
@@ -5527,7 +6115,7 @@ function renderCurves(){
       startAngle:Math.atan2(sc1.y-lcp1y,sc1.x-lcp1x),
       endAngle:Math.atan2(sc2.y-lcp2y,sc2.x-lcp2x)
     };
-    if(!busInfo&&linkLineType==='elbow'&&(larr!=='none'||lk.startAttach||lk.endAttach)){
+    if(!junctionInfo&&!busInfo&&linkLineType==='elbow'&&(larr!=='none'||lk.startAttach||lk.endAttach)){
       var lStartAutoPort=resolveSavedAttachment(lk,fa,fw,fh,'start',getNamedElbowPort(fa,fw,fh,lk.fromPort)||getElbowAutoPortAngle(fa,fw,fh,linkPathInfo,true));
       var lEndAutoPort=resolveSavedAttachment(lk,ta,tw,th,'end',getNamedElbowPort(ta,tw,th,lk.toPort)||getElbowAutoPortAngle(ta,tw,th,linkPathInfo,false));
       if(!shouldUseElbowAutoPort(lk.fromPort,lStartAutoPort))lStartAutoPort=null;
@@ -5553,18 +6141,23 @@ function renderCurves(){
       if(lStartAutoPort){linkPathInfo.startAngle=lStartAutoPort.angle;}
       if(lEndAutoPort){linkPathInfo.endAngle=lEndAutoPort.angle;}
     }
-    if(larr==='forward'||larr==='both'){linkPathInfo=clipArrowRouteAtNode(linkPathInfo,ta,false);if(linkPathInfo.endPoint)sc2=linkPathInfo.endPoint;}
-    if(larr==='backward'||larr==='both'){linkPathInfo=clipArrowRouteAtNode(linkPathInfo,fa,true);if(linkPathInfo.startPoint)sc1=linkPathInfo.startPoint;}
+    if(junctionInfo){
+      linkPathInfo=lineJunctionPath(lk,lk.lineAnchor.at==='end'?fa:ta,junctionInfo);sc1=linkPathInfo.startPoint;sc2=linkPathInfo.endPoint;
+      if(linkPathInfo.control1){lcp1x=linkPathInfo.control1.x;lcp1y=linkPathInfo.control1.y;lcp2x=linkPathInfo.control2.x;lcp2y=linkPathInfo.control2.y;}
+    }
+    if((!junctionInfo||lk.lineAnchor.at!=='end')&&(larr==='forward'||larr==='both')){linkPathInfo=clipArrowRouteAtNode(linkPathInfo,ta,false);if(linkPathInfo.endPoint)sc2=linkPathInfo.endPoint;}
+    if((!junctionInfo||lk.lineAnchor.at==='end')&&(larr==='backward'||larr==='both')){linkPathInfo=clipArrowRouteAtNode(linkPathInfo,fa,true);if(linkPathInfo.startPoint)sc1=linkPathInfo.startPoint;}
     linkPathInfo=syncArrowGeometryWithPath(linkPathInfo);
     sc1=linkPathInfo.startPoint||sc1;sc2=linkPathInfo.endPoint||sc2;
     var refTop=(selEdge&&selEdge.type==='ref'&&selEdge.id===(lk.from+'_'+lk.to))||(sel&&(sel===lk.from||sel===lk.to));
     var refBoundsPoints=(linkPathInfo.points||[sc1,{x:lcp1x,y:lcp1y},{x:lcp2x,y:lcp2y},sc2]).map(screenLocalToWorld);
-    if(!edgeMaybeVisible(fa,ta,curveBounds,refBoundsPoints))continue;
+    if(!edgeMaybeVisible(fa,ta,curveBounds,refBoundsPoints)&&!junctionSources.has('link-'+lk.from+'-'+lk.to))continue;
     rememberOrganizedBus(busInfo);
-    var refSignature=JSON.stringify([typeof isLight!=='undefined'&&isLight,linkPathInfo.d,linkPathInfo.handle,linkPathInfo.handles,linkPathInfo.points,linkPathInfo.startAngle,linkPathInfo.endAngle,sc1,sc2,lcp1x,lcp1y,lcp2x,lcp2y,linkColor,cam.z,sel,selEdge,linkMode,linkLineType,linkStrokeStyle,lk.arrow,lk.fromPort,lk.toPort,lk.cp,getElbowHandleLimit(lk),busInfo&&busInfo.busOwner,busInfo&&busInfo.busHandle,busInfo&&busInfo.busLinks.map(function(l){return [l.from,l.to];})]);
+    var refSignature=JSON.stringify([typeof isLight!=='undefined'&&isLight,linkPathInfo.d,linkPathInfo.handle,linkPathInfo.handles,linkPathInfo.points,linkPathInfo.startAngle,linkPathInfo.endAngle,sc1,sc2,lcp1x,lcp1y,lcp2x,lcp2y,linkColor,cam.z,sel,selEdge,linkMode,linkLineType,linkStrokeStyle,lk.arrow,lk.fromPort,lk.toPort,lk.cp,getElbowHandleLimit(lk),lk.junctionHandleHidden,busInfo&&busInfo.busOwner,busInfo&&busInfo.busHandle,busInfo&&busInfo.handlesHidden,busInfo&&busInfo.busLinks.map(function(l){return [l.from,l.to];})]);
     if(!beginEdge('link-'+lk.from+'-'+lk.to,refSignature,lk,fa,ta,refTop))continue;
     activeEdge.endpointInfo={start:Object.assign(screenLocalToWorld(sc1),{angle:linkPathInfo.startAngle}),end:Object.assign(screenLocalToWorld(sc2),{angle:linkPathInfo.endAngle})};
     activeEdge.routePoints=(linkPathInfo.points||[]).map(screenLocalToWorld);activeEdge.routeColor=linkColor;activeEdge.routeStyle=linkStrokeStyle;
+    if(busInfo&&busInfo.busLinks&&!busInfo.organizedBus)activeEdge.referenceBusPairs=busInfo.busLinks.map(function(l){return [l.from,l.to];});
     /* 교차 구분용 배경 외곽선 */
     var lbgPath=document.createElementNS('http://www.w3.org/2000/svg','path');
     lbgPath.setAttribute('d',linkPathInfo.d);
@@ -5611,8 +6204,8 @@ function renderCurves(){
     lpath.style.pointerEvents='stroke'; lpath.style.cursor='pointer';
     (function(lkref){
       function openReferenceMenu(e){
-        if(linkMode)return;
         e.preventDefault();e.stopPropagation();
+        if(linkMode){connectNodeToLine(lkref,'link',e.clientX,e.clientY);return;}
         selEdge={type:'ref',id:lkref.from+'_'+lkref.to};
         renderCurves();
         showArrowMenu(lkref,e.clientX,e.clientY,'link');
@@ -5621,6 +6214,7 @@ function renderCurves(){
       lpath.addEventListener('contextmenu',openReferenceMenu);
     })(lk);
     svg.appendChild(lpath);activeEdge.path=lpath;
+    if(junctionInfo)appendLineJunctionHandle(svgH,lk,junctionInfo);
     if(busInfo&&busInfo.organizedBus)continue;
     if(busInfo&&shouldShowReferenceBusHandle(busInfo)){
       appendReferenceBusHandle(svgH,busInfo,lpath);
@@ -5628,6 +6222,7 @@ function renderCurves(){
     /* ── 참조선 컨트롤 핸들 ── */
     var lhmx=linkPathInfo.handle.x, lhmy=linkPathInfo.handle.y;
     var lhandle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    lhandle.setAttribute('data-handle','link-'+lk.from+'-'+lk.to);
     lhandle.setAttribute('cx',lhmx); lhandle.setAttribute('cy',lhmy);
     lhandle.setAttribute('r','7');
     lhandle.setAttribute('fill','rgba(56,178,255,0.22)');
@@ -5878,6 +6473,7 @@ function renderCurves(){
   finishEdge();
   var busHandleLayer=document.createDocumentFragment();
   Object.keys(organizedBuses).forEach(function(key){appendOrganizedBusHandle(busHandleLayer,organizedBuses[key]);});
+  drawLineJunctionPreview(busHandleLayer);
   desired[1].push.apply(desired[1],Array.from(busHandleLayer.childNodes));
   // Selected paths stay above other edges, with their original handle/arrow layers.
   var topSet=new Set(edgeTopPaths);
@@ -5939,9 +6535,13 @@ function renderNodes(){
       var bsx=minX, bsy=minY;
       var gc2=grp.color||'#7c6fcd';
       var wrap=exG[grp.id];
+      // Undo/import can replace a group while keeping its id. Rebind the label,
+      // resize and style handlers so they all use the current member list.
+      if(wrap&&wrap._groupModel!==grp){wrap.remove();wrap=null;}
 
       if(!wrap){
         wrap=document.createElement('div');
+        wrap._groupModel=grp;
         wrap.className='group-box-wrap';
         wrap.dataset.gid=grp.id;
         wrap.style.cssText='position:absolute;pointer-events:none;z-index:'+(2+(grp.id%100))+';';
@@ -6127,6 +6727,7 @@ function renderNodes(){
         dot.style.left=pd.sx; dot.style.top=pd.sy;
         (function(capturedDir, capturedNode){
           dot.addEventListener('mousedown',function(e){
+            if(lineJunctionPending){e.stopPropagation();e.preventDefault();finishLineJunction(Number(capturedNode.dataset.id),capturedDir);return;}
             if(edgePortEdit){
               e.stopPropagation();
               e.preventDefault();
@@ -6138,6 +6739,7 @@ function renderNodes(){
             e.preventDefault();
             var nid3=parseInt(capturedNode.dataset.id);
             if(linkFrom===null){
+              selEdge=null;
               linkFrom=nid3; linkFromPort=capturedDir;
               document.querySelectorAll('.node.link-from').forEach(function(x){x.classList.remove('link-from');});
               capturedNode.classList.add('link-from');
@@ -6773,7 +7375,7 @@ function startEdit(id){
   inp.style.resize='none';inp.style.overflow='hidden';
   lbl.replaceWith(inp);inp.focus();inp.select();
   function done(){
-    var v=inp.value.trim()||n.text;n.text=v;
+    var v=inp.value.trim()||n.text;n.text=v;settleBranchNodeName(n);
     var nl=document.createElement('span');nl.className='node-label';
     /* 줄바꿈을 <br>로 표시 */
     nl.textContent=v;
@@ -6875,6 +7477,7 @@ function insertNodeOnEdge(target,type){
   }else{
     var first=Object.assign({},edge,{from:a.id,to:newNode.id,color:color,cp:routes[0]});
     var second=Object.assign({},edge,{from:newNode.id,to:b.id,color:color,cp:routes[1]});
+    delete second.lineAnchor;
     delete first.toPort;delete first.endAttach;delete second.fromPort;delete second.startAttach;
     first.toPort=incoming;second.fromPort=outgoing;
     links.splice(links.indexOf(edge),1,first,second);
@@ -6896,6 +7499,7 @@ function insertNodeOnEdge(target,type){
   return newNode;
 }
 function addChild(pid){
+  var ownBuses=getBranchBuses(pid,true);if(ownBuses.length)return chooseBranchToAdd(pid,ownBuses);
   var par=gn(pid);if(!par)return;
   var dir, isVertical=false;
   if(childDir==='right') dir=1;
@@ -7157,6 +7761,9 @@ document.getElementById('delete-node-cancel').onclick=closeNodeDeleteModal;
 document.getElementById('delete-node-modal').addEventListener('click',function(e){if(e.target===this)closeNodeDeleteModal();});
 
 function undoDelete(){
+  closeBranchAddChoice();
+  cancelLineJunction();
+  closeArrowMenu();
   if(!undoStack.length){showToast('↩ 되돌릴 내용이 없습니다');return;}
   var prev=undoStack.pop();
   if(prev.transferCats){
@@ -7181,6 +7788,8 @@ function undoDelete(){
   if(prev.groups!==undefined) groups=prev.groups;
   if(prev.nextGid!==undefined) nextGid=prev.nextGid;
   multiSel=prev.multiSel||[];
+  selEdge=null;
+  invalidateModelIndex();_lastLayoutKey=layoutKey();
   saveAll();renderAll();
   showToast('↩ 복구되었습니다');
 }
@@ -7229,11 +7838,17 @@ function appendNodeBundle(target,bundle,point){
     n.x+=dx;n.y+=dy;
   });
   copies.links.forEach(function(l){l.from=idMap[l.from];l.to=idMap[l.to];shiftCp(l.cp);});
+  copies.links=copies.links.filter(function(l){
+    var a=l.lineAnchor;if(!a)return true;
+    if(idMap[a.from]===undefined||idMap[a.to]===undefined)return false;
+    a.from=idMap[a.from];a.to=idMap[a.to];return true;
+  });
   target.links=target.links||[];target.groups=target.groups||[];
   var maxGid=0;target.groups.forEach(function(g){maxGid=Math.max(maxGid,g.id);});
   target.nextGid=Math.max(target.nextGid||1,maxGid+1);
   copies.groups.forEach(function(g){g.id=target.nextGid++;g.nodeIds=g.nodeIds.map(function(id){return idMap[id];});});
   target.nodes=target.nodes.concat(copies.nodes);target.links=target.links.concat(copies.links);target.groups=target.groups.concat(copies.groups);
+  target.links=pruneLineJunctions(target.nodes,target.links);
   return copies.nodes.map(function(n){return n.id;});
 }
 function pasteNodeBundle(point){
@@ -7443,6 +8058,7 @@ function toggleStar(id){var n=gn(id);if(!n)return;n.star=!n.star;saveAll();rende
 function bindNode(el,id){
   el.addEventListener('mousedown',function(e){
     if(e.button!==0)return;e.stopPropagation();
+    if(lineJunctionPending){e.preventDefault();finishLineJunction(id);return;}
     if(el.querySelector('.node-edit'))return;
     hideMemoTooltip();
     /* ── 연결 변경 모드: 클릭한 노드를 새 부모로 설정 ── */
@@ -7486,6 +8102,7 @@ function bindNode(el,id){
     }
     if(linkMode){
       if(linkFrom===null){
+        selEdge=null;
         linkFrom=id; linkFromPort=null;
         document.querySelectorAll('.node.link-from').forEach(function(el2){el2.classList.remove('link-from');});
         el.classList.add('link-from');
@@ -7548,6 +8165,10 @@ function showCtx(x,y,id,emptySpace,wx,wy){
   /* 노드 전용 메뉴들 */
   document.getElementById('ctx-node-settings').style.display=mobileUi&&!isEmptySpace?'flex':'none';
   document.getElementById('ctx-child').style.display=isEmptySpace?'none':'flex';
+  document.getElementById('ctx-reference-add').style.display=(!isEmptySpace&&getBranchBus(id,false))?'flex':'none';
+  var branchContext=isEmptySpace?null:getBranchContext(id),branchCommand=document.getElementById('ctx-reference-convert');
+  branchCommand.style.display=branchContext?'flex':'none';
+  branchCommand.textContent=branchContext&&branchContext.ids?'┬ 선택한 '+branchContext.ids.length+'개 노드만 분기선 정리 (위치 유지)':'┬ 하위 노드만 분기선 정리 (위치 유지)';
   document.getElementById('ctx-sib').style.display=(isEmptySpace||isRoot)?'none':'flex';
   document.getElementById('ctx-edit').style.display=isEmptySpace?'none':'flex';
   document.getElementById('ctx-star').style.display=isEmptySpace?'none':'flex';
@@ -7701,6 +8322,8 @@ function exportHTML(){
     
     // 메모리 상에서 안전하게 동적 DOM 상태를 정리하기 위해 documentElement 복제
     var clone = document.documentElement.cloneNode(true);
+    var branchChoice=clone.querySelector('#branch-add-choice');if(branchChoice)branchChoice.remove();
+    var junctionTip=clone.querySelector('#line-junction-tip');if(junctionTip)junctionTip.remove();
     // HTML 백업은 별도 설치 파일 없이 열 수 있는 단일 파일로 유지합니다.
     Array.prototype.forEach.call(clone.querySelectorAll('[data-pwa]'),function(el){el.remove();});
     
@@ -7727,6 +8350,8 @@ function exportHTML(){
     
     var groupPanel = clone.querySelector('#group-panel');
     if(groupPanel) groupPanel.style.display = 'none';
+    var groupMembers = clone.querySelector('#group-members-modal');if(groupMembers)groupMembers.style.display='none';
+    var groupMemberList = clone.querySelector('#group-members-list');if(groupMemberList)groupMemberList.innerHTML='';
     
     var memoPanel = clone.querySelector('#memo-panel');
     if(memoPanel) memoPanel.classList.remove('open');
@@ -7797,7 +8422,27 @@ document.getElementById('viewport').addEventListener('contextmenu',function(e){
   var wp=s2w(e.clientX,e.clientY);
   showCtx(e.clientX,e.clientY,null,true,wp.x,wp.y);
 });
+document.getElementById('viewport').addEventListener('contextmenu',function(e){
+  var handle=e.target.closest('[data-handle]');if(!handle||linkMode)return;
+  if(openHandleMenu(handle,e.clientX,e.clientY)){e.preventDefault();e.stopPropagation();}
+},{capture:true});
 document.getElementById('viewport').addEventListener('mousedown',function(e){
+  var h=e.target.closest('[data-handle]');handleClickStart=h&&e.button===0?{x:e.clientX,y:e.clientY,moved:false}:null;
+  if(h&&linkMode&&e.button===0){e.preventDefault();e.stopPropagation();}
+},{capture:true});
+document.addEventListener('mousemove',function(e){if(handleClickStart&&Math.hypot(e.clientX-handleClickStart.x,e.clientY-handleClickStart.y)>4)handleClickStart.moved=true;},{capture:true});
+document.getElementById('viewport').addEventListener('click',function(e){
+  var h=e.target.closest('[data-handle]');if(!h||(handleClickStart&&handleClickStart.moved))return;
+  if(linkMode){var connection=resolveHandleMenu(h);if(connection){e.preventDefault();e.stopPropagation();connectNodeToLine(connection.target,connection.type,e.clientX,e.clientY);}return;}
+  if(handleMenuTimer){clearTimeout(handleMenuTimer);handleMenuTimer=null;}
+  if(e.detail>1){handleSelection=null;return;}
+  var info=resolveHandleMenu(h);if(!info)return;
+  e.preventDefault();e.stopPropagation();sel=null;multiSel=[];selEdge=null;panelVisible=false;handleSelection=info.visibility;
+  if(e.detail===1){var cx=e.clientX,cy=e.clientY;handleMenuTimer=setTimeout(function(){handleMenuTimer=null;openHandleMenu(h,cx,cy);},220);}
+  else openHandleMenu(h,e.clientX,e.clientY);
+},{capture:true});
+document.getElementById('viewport').addEventListener('mousedown',function(e){
+  if(lineJunctionPending&&e.button===0){e.preventDefault();cancelLineJunction('선 중간 연결 취소');return;}
   if(e.button!==0)return;hideCtx();closeIconPicker();
   panelVisible=false;
   deselectGroup();
@@ -7885,6 +8530,15 @@ document.addEventListener('click',function(e){
   if(!document.getElementById('memo-tooltip').contains(e.target))hideMemoTooltip();
 });
 document.addEventListener('keydown',function(e){
+  if(branchAddChoice){
+    if(e.key==='Escape'){e.preventDefault();closeBranchAddChoice();}
+    if(e.key==='Tab'){
+      var options=Array.from(document.querySelectorAll('#branch-add-choice button')),at=options.indexOf(document.activeElement);
+      if(e.shiftKey&&at<=0){e.preventDefault();options[options.length-1].focus();}
+      else if(!e.shiftKey&&(at<0||at===options.length-1)){e.preventDefault();options[0].focus();}
+    }
+    return;
+  }
   if(document.getElementById('mobile-edit-modal').style.display==='flex'){
     if(e.key==='Escape'){e.preventDefault();closeMobileNodeEditor();}
     if(e.key==='Tab'){
@@ -7917,6 +8571,7 @@ document.addEventListener('keydown',function(e){
   else if(e.key==='Enter'){if(sel)addSibling(sel);}
   else if(e.key==='Delete'||e.key==='Backspace'){
     e.preventDefault();
+    if(handleSelection){setEdgeHandlesHidden(handleSelection,true);return;}
     if(multiSel.length){
       deleteSelectedNodes();
     } else if(selEdge){
@@ -7947,6 +8602,8 @@ document.addEventListener('keydown',function(e){
   else if(e.altKey&&e.key==='ArrowDown'){e.preventDefault();if(sel)moveSibling(sel,1);}
   else if(e.key==='m'||e.key==='M'){if(sel){if(memoOpen)closeMemo();else openMemo(sel);}}
   else if(e.key==='Escape'){
+    if(handleSelection){closeArrowMenu();return;}
+    if(lineJunctionPending){cancelLineJunction('선 중간 연결 취소');return;}
     if(linkMode){exitLinkMode(edgePortEdit?'연결점 수정 종료':'연결 모드 종료');return;}
     if(multiSel.length){multiSel=[];renderAll();return;}sel=null;selEdge=null;renderAll();if(memoOpen)closeMemo();}
   else if(e.key==='F2'){if(sel)startEdit(sel);}
@@ -8431,6 +9088,8 @@ document.getElementById('lb-close').onclick=closeLightbox;
 
 /* ctx menu */
 document.getElementById('ctx-child').onclick=function(){var id=parseInt(document.getElementById('ctx').dataset.nid);hideCtx();addChild(id);};
+document.getElementById('ctx-reference-add').onclick=function(){var id=Number(document.getElementById('ctx').dataset.nid);hideCtx();addBranchNode(id);};
+document.getElementById('ctx-reference-convert').onclick=function(){var id=Number(document.getElementById('ctx').dataset.nid),context=getBranchContext(id);hideCtx();if(context)organizeBranchConnections(context.hubId,context.ids);};
 document.getElementById('ctx-sib').onclick=function(){var id=parseInt(document.getElementById('ctx').dataset.nid);hideCtx();addSibling(id);};
 document.getElementById('ctx-edit').onclick=function(){var id=parseInt(document.getElementById('ctx').dataset.nid);hideCtx();startEdit(id);};
 document.getElementById('ctx-star').onclick=function(){var id=parseInt(document.getElementById('ctx').dataset.nid);hideCtx();toggleStar(id);};
@@ -8698,13 +9357,14 @@ function openMobileNodeEditor(id){
   document.getElementById('mobile-edit-modal').style.display='flex';input.focus();input.select();
 }
 function closeMobileNodeEditor(){
+  if(mobileEditor&&mobileEditor.catId===curCatId)settleBranchNodeName(gn(mobileEditor.id));
   document.getElementById('mobile-edit-text').blur();document.getElementById('mobile-edit-modal').style.display='none';mobileEditor=null;
 }
 function saveMobileNodeEditor(){
   if(!mobileEditor)return;
   var n=mobileEditor.catId===curCatId?gn(mobileEditor.id):null;
   if(n){var value=document.getElementById('mobile-edit-text').value.trim()||n.text;
-    if(value!==n.text){pushUndoState();n.text=value;if(memoOpen&&Number(document.getElementById('memo-ta').dataset.nid)===n.id)document.getElementById('memo-node-name').textContent=value;saveAll();renderAll();}
+    if(value!==n.text){pushUndoState();n.text=value;settleBranchNodeName(n);if(memoOpen&&Number(document.getElementById('memo-ta').dataset.nid)===n.id)document.getElementById('memo-node-name').textContent=value;saveAll();renderAll();}
   }
   closeMobileNodeEditor();updateMobileControls();
 }
@@ -8850,6 +9510,7 @@ document.getElementById('mobile-multi').onclick=function(e){
   hideCtx();renderAll();updateMobileControls();showToast(multiTouchSelect?'빈 공간을 끌어 영역 선택하거나 노드를 눌러 선택하세요':'다중 선택 모드 종료');
 };
 document.getElementById('mobile-clear').onclick=function(e){
+  cancelLineJunction();
   e.stopPropagation();sel=null;selEdge=null;multiSel=[];multiTouchSelect=false;panelVisible=false;deselectGroup();hideCtx();renderAll();updateMobileControls();
 };
 document.getElementById('mobile-new-node').onclick=function(e){
@@ -8889,7 +9550,7 @@ document.getElementById('sidebar').addEventListener('mouseleave', function(){
 });
 
 /* ════════════════ INIT ════════════════ */
-loadAll();applyCamera();renderAll();fitView();
+loadAll();_lastLayoutKey=layoutKey();applyCamera();renderAll();fitView();
 /* Group panel buttons */
 document.getElementById('gp-transparent').onclick=function(){
   if(!selGroup)return;
@@ -8913,6 +9574,7 @@ document.getElementById('gp-del').onclick=function(){
   deselectGroup();saveAll();renderNodes();
 };
 document.getElementById('gp-close').onclick=function(){deselectGroup();};
+document.getElementById('gp-members').onclick=function(){openGroupMembers(selGroup);};
 setTimeout(function(){document.getElementById('hint').style.opacity='0';},6000);
 
 
@@ -9088,6 +9750,37 @@ function updateNodeConnHighlight(){
   }
   if(document.readyState==='complete')registerPwa();
   else window.addEventListener('load',registerPwa,{once:true});
+})();
+</script>
+
+<div id="group-members-modal" role="dialog" aria-modal="true" aria-labelledby="group-members-title">
+  <div id="group-members-box">
+    <h2 id="group-members-title">그룹 노드 수정</h2>
+    <p>포함할 노드를 체크하세요. 체크 해제는 그룹에서만 제외하며 노드를 삭제하지 않습니다.</p>
+    <input id="group-members-search" type="search" placeholder="노드 이름 또는 ID 검색" aria-label="그룹 노드 검색">
+    <div id="group-members-count" aria-live="polite"></div>
+    <div id="group-members-list"></div>
+    <button class="tbtn" id="group-members-more" type="button" hidden>목록 더 보기</button>
+    <div id="group-members-actions"><button class="tbtn" id="group-members-cancel" type="button">취소</button><button class="tbtn" id="group-members-apply" type="button">적용</button></div>
+  </div>
+</div>
+<script>
+(function(){
+  var modal=document.getElementById('group-members-modal');
+  document.getElementById('group-members-search').oninput=function(){if(groupMemberEdit)groupMemberEdit.limit=120;renderGroupMembers();};
+  document.getElementById('group-members-more').onclick=function(){if(groupMemberEdit){groupMemberEdit.limit+=120;renderGroupMembers();}};
+  document.getElementById('group-members-cancel').onclick=closeGroupMembers;
+  document.getElementById('group-members-apply').onclick=applyGroupMembers;
+  modal.onclick=function(e){if(e.target===modal)closeGroupMembers();};
+  modal.addEventListener('keydown',function(e){
+    e.stopPropagation();if(e.key==='Escape'){e.preventDefault();closeGroupMembers();}
+    if(e.key==='Tab'){
+      var focus=Array.from(modal.querySelectorAll('input,button')).filter(function(el){return !el.disabled&&el.offsetParent!==null;});
+      var first=focus[0],last=focus[focus.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    }
+  });
 })();
 </script>
 
