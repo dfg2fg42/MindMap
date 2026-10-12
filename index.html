@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>MindMap</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -608,6 +608,351 @@ body.link-mode .link-del-btn{display:block;}
 .delete-node-choice:hover,.delete-node-choice:focus-visible{border-color:var(--acc);outline:2px solid var(--acc);outline-offset:2px;}
 #delete-node-cascade strong{color:#f16c78;}
 #delete-node-cancel{display:block;margin:18px 0 0 auto;background:var(--sur2);color:var(--txt);border:1px solid var(--bdr);border-radius:8px;padding:8px 18px;cursor:pointer;}
+/* Mobile layout is enabled by the app's media-query handler.
+   Keep desktop presentation unchanged. Visual viewport values are optional. */
+#mobile-controls,#mobile-categories,#mobile-sidebar-backdrop,#mobile-search,.mobile-cat-rename,#gp-font-mobile{display:none;}
+body.mobile-ui #mobile-search{display:flex;}
+body.mobile-ui .mobile-cat-rename{display:flex;}
+body.mobile-ui #gp-font-mobile{display:inline-flex;}
+body.mobile-ui #btn-child>span,body.mobile-ui #btn-sibling>span{display:none;}
+body.mobile-ui{
+  --tb:calc(60px + env(safe-area-inset-top,0px));
+  --mobile-control-height:calc(68px + env(safe-area-inset-bottom,0px));
+  --mobile-inset:var(--mobile-bottom-inset,0px);
+  height:100vh;height:var(--mobile-view-height,100dvh);
+  overscroll-behavior:none;
+  -webkit-tap-highlight-color:transparent;
+}
+body.mobile-ui button,body.mobile-ui [role="button"]{touch-action:manipulation;}
+body.mobile-ui button:focus-visible,body.mobile-ui [role="button"]:focus-visible{
+  outline:2px solid var(--acc);outline-offset:3px;
+}
+body.mobile-ui #toolbar{
+  top:var(--mobile-view-top,0px);left:0!important;right:0;
+  height:var(--tb);padding:env(safe-area-inset-top,0px) 10px 0;
+  padding-left:max(10px,env(safe-area-inset-left,0px));
+  padding-right:max(10px,env(safe-area-inset-right,0px));
+  overflow-x:auto;overflow-y:hidden;gap:6px;
+  overscroll-behavior-x:contain;touch-action:pan-x;
+  scrollbar-width:thin;scrollbar-color:var(--acc) transparent;
+  -webkit-overflow-scrolling:touch;transition:none;
+}
+body.mobile-ui #toolbar>*{flex-shrink:0;}
+body.mobile-ui #toolbar .logo{display:none;}
+body.mobile-ui #toolbar .tbtn{
+  min-width:44px;min-height:44px;padding:8px 10px;
+  justify-content:center;font-size:.82rem;
+}
+body.mobile-ui #toolbar .tinfo{margin-left:6px;margin-right:8px;}
+body.mobile-ui .cur-chip{max-width:120px;min-height:44px;}
+body.mobile-ui #mobile-categories{
+  display:flex;position:sticky;left:env(safe-area-inset-left,0px);z-index:3;flex-shrink:0;
+  align-items:center;justify-content:center;gap:4px;
+  min-width:44px;min-height:44px;background:var(--sur2);
+  border:1.5px solid var(--bdr);border-radius:8px;color:var(--txt);
+  padding:8px 10px;font:inherit;font-size:.82rem;font-weight:700;
+  box-shadow:5px 0 8px var(--sur);
+}
+body.mobile-ui #mobile-categories[aria-expanded="true"]{
+  border-color:var(--acc);color:var(--acc);
+}
+body.mobile-ui #viewport{
+  top:calc(var(--tb) + var(--mobile-view-top,0px));
+  left:0!important;right:0!important;
+  bottom:calc(var(--mobile-control-height) + var(--mobile-inset));
+  touch-action:none;overscroll-behavior:none;transition:none;
+}
+body.mobile-ui #world,body.mobile-ui .node,body.mobile-ui .group-box-wrap,
+body.mobile-ui #svg-layer,body.mobile-ui #svg-handle-layer,
+body.mobile-ui #svg-arrow-layer{touch-action:none;}
+body.mobile-ui #mobile-controls{
+  display:flex;position:fixed;left:0;right:0;
+  bottom:var(--mobile-inset);height:var(--mobile-control-height);z-index:125;
+  align-items:flex-start;gap:4px;
+  padding:8px max(8px,env(safe-area-inset-right,0px))
+    env(safe-area-inset-bottom,0px) max(8px,env(safe-area-inset-left,0px));
+  background:var(--sur);border-top:1px solid var(--bdr);
+  box-shadow:0 -4px 20px rgba(0,0,0,.18);
+}
+body.mobile-ui #mobile-controls button{
+  flex:1;min-width:0;min-height:48px;border:1px solid var(--bdr);
+  background:var(--sur2);color:var(--txt);border-radius:10px;
+  padding:5px 3px;display:flex;align-items:center;justify-content:center;
+  gap:3px;flex-direction:column;font:inherit;font-size:.72rem;line-height:1.3;
+}
+body.mobile-ui #mobile-controls button[aria-pressed="true"]{
+  background:var(--acc);border-color:var(--acc);color:#fff;
+}
+body.mobile-ui #mobile-controls button:disabled{opacity:.4;}
+body.mobile-ui #mobile-controls button span{white-space:nowrap;}
+body.mobile-ui #mobile-sidebar-backdrop{
+  position:fixed;inset:0;z-index:180;background:rgba(0,0,0,.52);
+  touch-action:none;
+}
+body.mobile-ui.mobile-sidebar-open #mobile-sidebar-backdrop{display:block;}
+body.mobile-ui #sidebar{
+  top:var(--mobile-view-top,0px);bottom:auto;
+  height:var(--mobile-view-height,100dvh);
+  width:min(360px,calc(100vw - 48px));max-width:100%;z-index:190;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  transform:translateX(-105%)!important;box-shadow:none;
+}
+body.mobile-ui.mobile-sidebar-open #sidebar{
+  transform:translateX(0)!important;box-shadow:5px 0 36px rgba(0,0,0,.5);
+}
+body.mobile-ui #sb-handle{display:none;}
+body.mobile-ui #sb-head{padding:12px;}
+body.mobile-ui #btn-new-cat{min-height:44px;}
+body.mobile-ui #cat-list{
+  min-height:0;padding:8px;touch-action:pan-y;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+}
+body.mobile-ui .cat-row{
+  min-height:52px;flex-wrap:wrap;gap:2px;padding-top:4px;padding-bottom:4px;
+}
+body.mobile-ui .cat-row>span[title="드래그하여 이동"]{display:none;}
+body.mobile-ui .cat-toggle,body.mobile-ui .cat-icon-btn,body.mobile-ui .cact{
+  width:44px;height:44px;min-width:44px;min-height:44px;
+}
+body.mobile-ui .cat-toggle.blank{width:16px;min-width:16px;}
+body.mobile-ui .cat-name-el{min-width:60px;font-size:.92rem;}
+body.mobile-ui .cat-name-inp{min-height:44px;font-size:16px;}
+body.mobile-ui .cat-acts{opacity:1;gap:2px;margin-left:auto;}
+body.mobile-ui .cat-count-badge{font-size:.75rem;padding:3px 6px;}
+/* Settings are scrollable bottom sheets rather than clipped node anchors. */
+body.mobile-ui #node-panel,body.mobile-ui #group-panel,body.mobile-ui #arrow-menu,
+body.mobile-ui #ctx{
+  position:fixed!important;left:max(8px,env(safe-area-inset-left,0px))!important;
+  right:max(8px,env(safe-area-inset-right,0px))!important;top:auto!important;
+  bottom:calc(var(--mobile-control-height) + var(--mobile-inset) + 8px)!important;
+  width:auto!important;min-width:0!important;max-width:none!important;
+  max-height:calc(var(--mobile-view-height,100dvh) - var(--tb) - var(--mobile-control-height) - 20px);
+  border-radius:16px!important;padding:12px!important;gap:7px!important;
+  overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  touch-action:pan-y;transform:none!important;
+}
+body.mobile-ui #node-panel,body.mobile-ui #group-panel{flex-wrap:wrap;}
+body.mobile-ui #node-panel{z-index:160;}
+body.mobile-ui #group-panel{z-index:161!important;}
+body.mobile-ui #arrow-menu{z-index:600!important;align-items:stretch!important;}
+body.mobile-ui #arrow-menu>div{max-width:100%!important;flex-wrap:wrap;}
+body.mobile-ui #arrow-menu>div:first-child{flex-basis:100%;min-height:44px;}
+body.mobile-ui #ctx{z-index:300;}
+body.mobile-ui #ctx .ctx-row{min-height:44px;padding:10px 12px;font-size:.9rem;}
+body.mobile-ui #ctx .ctx-sep{min-height:0;height:1px;padding:0;}
+body.mobile-ui .npbtn,body.mobile-ui #arrow-menu button,
+body.mobile-ui #group-panel .tbtn{
+  min-width:44px!important;min-height:44px!important;
+}
+body.mobile-ui #np-ext{max-width:100%;flex-wrap:wrap;overflow:visible;}
+body.mobile-ui #np-colors.open{max-width:100%;max-height:160px;gap:7px;}
+body.mobile-ui .npc,body.mobile-ui .npc-rst{
+  width:44px;height:44px;min-width:44px;min-height:44px;
+}
+body.mobile-ui #group-panel .gp-colors{max-width:100%!important;gap:7px!important;}
+body.mobile-ui #group-panel .gp-colors>[title],
+body.mobile-ui #arrow-menu label[title]{min-width:44px;min-height:44px;}
+body.mobile-ui #node-panel input[type="color"],
+body.mobile-ui #group-panel input[type="color"],
+body.mobile-ui #arrow-menu input[type="color"]{
+  min-width:44px;min-height:44px;
+}
+body.mobile-ui #group-panel .gp-name{min-height:44px;font-size:16px!important;flex:1;min-width:100px;}
+body.mobile-ui #gp-drag-handle{min-height:44px;display:flex;align-items:center;}
+body.mobile-ui #memo-panel{
+  z-index:210;top:var(--mobile-view-top,0px);bottom:auto;
+  height:var(--mobile-view-height,100dvh);width:100%;border-left:0;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  box-shadow:-6px 0 36px rgba(0,0,0,.3);
+}
+body.mobile-ui #memo-head{min-height:60px;padding:8px 12px;}
+body.mobile-ui #memo-close-btn{min-height:44px;min-width:68px;}
+body.mobile-ui #memo-body{
+  min-height:0;padding:12px;touch-action:pan-y;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+}
+body.mobile-ui #memo-toolbar{flex-wrap:nowrap;overflow-x:auto;flex-shrink:0;touch-action:pan-x;}
+body.mobile-ui .mtb-btn{min-height:44px;min-width:44px;flex-shrink:0;}
+body.mobile-ui .mtb-sep{flex-shrink:0;}
+body.mobile-ui #memo-ta{
+  font-size:16px;min-height:180px;height:240px;max-height:none;
+  flex-shrink:0;resize:vertical;touch-action:auto;user-select:text;
+}
+body.mobile-ui #memo-preview-wrap{max-height:none;flex-shrink:0;}
+body.mobile-ui #memo-img-add{min-height:48px;}
+body.mobile-ui .memo-img-thumb .img-del{
+  width:44px;height:44px;opacity:1;font-size:.9rem;
+}
+body.mobile-ui #memo-tooltip{display:none!important;}
+body.mobile-ui #search-bar{
+  left:max(8px,env(safe-area-inset-left,0px));
+  right:max(8px,env(safe-area-inset-right,0px));
+  top:calc(var(--tb) + var(--mobile-view-top,0px) + 6px);
+  transform:none;
+}
+body.mobile-ui #search-inner{min-width:0;width:100%;gap:4px;padding:6px;}
+body.mobile-ui #search-icon{display:none;}
+body.mobile-ui #search-inp{min-width:0;width:0;font-size:16px;min-height:44px;}
+body.mobile-ui #search-prev,body.mobile-ui #search-next,body.mobile-ui #search-close{
+  width:44px;height:44px;min-width:44px;
+}
+body.mobile-ui #search-count{min-width:32px;font-size:.7rem;}
+/* A fixed submenu escapes the horizontally scrolling toolbar's clip. */
+body.mobile-ui #dir-menu,body.mobile-ui #align-menu{
+  position:fixed!important;top:calc(var(--tb) + var(--mobile-view-top,0px) + 6px)!important;
+  left:max(8px,env(safe-area-inset-left,0px))!important;right:auto!important;
+  margin-top:0!important;z-index:510!important;
+  width:min(300px,calc(100vw - 16px));
+  max-height:calc(var(--mobile-view-height,100dvh) - var(--tb) - var(--mobile-control-height) - 20px);
+  overflow:auto;touch-action:pan-y;overscroll-behavior:contain;
+}
+body.mobile-ui .dir-opt,body.mobile-ui .align-opt{min-height:44px;font-size:.9rem;}
+body.mobile-ui #align-gap-input{min-height:44px;font-size:16px;}
+body.mobile-ui #icon-picker{
+  left:max(8px,env(safe-area-inset-left,0px))!important;right:auto!important;
+  top:calc(var(--mobile-view-top,0px) + env(safe-area-inset-top,0px) + 8px)!important;
+  width:min(352px,calc(100vw - 16px));
+  max-height:calc(var(--mobile-view-height,100dvh) - 16px);
+  overflow:auto;touch-action:pan-y;overscroll-behavior:contain;
+}
+body.mobile-ui #ip-search{min-height:44px;font-size:16px;}
+body.mobile-ui .ip-tab{min-width:44px;min-height:44px;}
+body.mobile-ui #ip-grid{grid-template-columns:repeat(6,minmax(0,1fr));max-height:none;}
+body.mobile-ui .ip-btn{min-height:44px;}
+body.mobile-ui #grp-font-slider-wrap{
+  left:max(8px,env(safe-area-inset-left,0px))!important;right:8px!important;
+  top:auto!important;bottom:calc(var(--mobile-control-height) + var(--mobile-inset) + 8px)!important;
+  width:auto;min-width:0;max-height:calc(var(--mobile-view-height,100dvh) - var(--tb) - var(--mobile-control-height) - 20px);
+  overflow:auto;touch-action:pan-y;
+}
+body.mobile-ui #grp-font-slider,body.mobile-ui .co-slider{min-height:32px;touch-action:pan-x;}
+body.mobile-ui #grp-font-slider::-webkit-slider-thumb,
+body.mobile-ui .co-slider::-webkit-slider-thumb{width:28px;height:28px;}
+body.mobile-ui #grp-font-slider::-moz-range-thumb,
+body.mobile-ui .co-slider::-moz-range-thumb{width:28px;height:28px;}
+body.mobile-ui #backup-modal,body.mobile-ui #color-opt-modal,
+body.mobile-ui #help-modal,body.mobile-ui #transfer-modal,body.mobile-ui #delete-node-modal,
+body.mobile-ui #img-lightbox,body.mobile-ui #mobile-edit-modal{
+  top:var(--mobile-view-top,0px);bottom:auto;
+  height:var(--mobile-view-height,100dvh);padding:12px;
+  padding-top:max(12px,env(safe-area-inset-top,0px));
+  padding-bottom:max(12px,env(safe-area-inset-bottom,0px));
+  overscroll-behavior:contain;
+}
+body.mobile-ui #backup-box,body.mobile-ui #color-opt-box,
+body.mobile-ui #help-box,body.mobile-ui #delete-node-box,
+body.mobile-ui #transfer-modal>div,body.mobile-ui #mobile-edit-box{
+  width:100%;max-width:560px;max-height:100%;padding:18px;
+  overflow:auto;touch-action:pan-y;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+body.mobile-ui #help-box{max-width:820px;}
+body.mobile-ui #help-box .hr{grid-template-columns:minmax(0,1fr);gap:6px;}
+body.mobile-ui .help-header{gap:8px;}
+body.mobile-ui .help-header button,body.mobile-ui .help-nav a,
+body.mobile-ui #help-box summary.help-title{min-height:44px;}
+body.mobile-ui #help-box summary.help-title{padding:9px 0;}
+body.mobile-ui #help-box .hk{min-width:0;white-space:normal;}
+body.mobile-ui #backup-close,body.mobile-ui .co-footer button,
+body.mobile-ui #delete-node-cancel,body.mobile-ui .delete-node-choice,
+body.mobile-ui #transfer-modal button{min-height:44px;}
+body.mobile-ui #transfer-target,body.mobile-ui #arrow-menu select{min-height:44px;font-size:16px;}
+body.mobile-ui #transfer-modal input[type="checkbox"]{width:24px;height:24px;vertical-align:middle;margin-right:5px;}
+body.mobile-ui #transfer-modal label{line-height:1.6;}
+body.mobile-ui #transfer-modal>div>div:last-child{flex-wrap:wrap;}
+body.mobile-ui #mobile-edit-modal{
+  display:none;position:fixed;left:0;right:0;z-index:850;
+  background:rgba(0,0,0,.7);align-items:center;justify-content:center;
+}
+body.mobile-ui #mobile-edit-box{
+  background:var(--sur);color:var(--txt);border:1px solid var(--bdr);
+  border-radius:16px;box-shadow:0 16px 60px rgba(0,0,0,.5);
+}
+body.mobile-ui #mobile-edit-box h2{font-size:1.1rem;margin:0 0 12px;}
+body.mobile-ui #mobile-edit-text{
+  display:block;width:100%;min-height:100px;height:140px;
+  max-height:calc(var(--mobile-view-height,100dvh) - 190px);
+  resize:vertical;border:1.5px solid var(--bdr);border-radius:10px;
+  background:var(--sur2);color:var(--txt);font:inherit;font-size:16px;
+  line-height:1.6;padding:12px;outline:none;user-select:text;touch-action:auto;
+}
+body.mobile-ui #mobile-edit-text:focus{border-color:var(--acc);}
+body.mobile-ui #mobile-edit-box>div:last-child{
+  display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap;
+}
+body.mobile-ui #mobile-edit-save,body.mobile-ui #mobile-edit-cancel{
+  min-height:44px;min-width:84px;border:1px solid var(--bdr);
+  background:var(--sur2);color:var(--txt);border-radius:8px;
+  padding:8px 14px;font:inherit;font-size:.9rem;
+}
+body.mobile-ui #mobile-edit-save{background:var(--acc);border-color:var(--acc);color:#fff;}
+body.mobile-ui #lb-close{
+  top:calc(var(--mobile-view-top,0px) + env(safe-area-inset-top,0px) + 8px);
+  right:max(8px,env(safe-area-inset-right,0px));width:44px;height:44px;
+  display:flex;align-items:center;justify-content:center;opacity:1;
+}
+body.mobile-ui #img-lightbox img{max-width:100%;max-height:calc(var(--mobile-view-height,100dvh) - 80px);}
+body.mobile-ui #minimap{display:none;}
+body.mobile-ui #zoom-badge{
+  bottom:calc(var(--mobile-control-height) + var(--mobile-inset) + 8px);
+  left:max(8px,env(safe-area-inset-left,0px));padding:5px 8px;font-size:.7rem;
+  pointer-events:none;
+}
+body.mobile-ui #hint{display:none;}
+body.mobile-ui #conn-legend{
+  left:50%;bottom:calc(var(--mobile-control-height) + var(--mobile-inset) + 8px);
+  max-width:calc(100vw - 100px);padding:5px 9px;gap:7px;
+  flex-wrap:wrap;white-space:normal;border-radius:12px;font-size:.65rem;
+}
+body.mobile-ui #conn-legend>span:first-child{display:none;}
+body.mobile-ui #conn-legend.show~#zoom-badge{display:none;}
+body.mobile-ui.mobile-group-font-open #zoom-badge{display:none;}
+body.mobile-ui.mobile-group-font-open #toast{bottom:calc(var(--mobile-control-height) + var(--mobile-inset) + 120px);}
+body.mobile-ui #toast{
+  bottom:calc(var(--mobile-control-height) + var(--mobile-inset) + 48px);
+  max-width:calc(100vw - 24px);padding:10px 14px;
+  white-space:normal;text-align:center;border-radius:12px;
+}
+body.mobile-ui .group-box-wrap.grp-selected .group-box-del{opacity:1;}
+body.mobile-ui .group-box-del{width:44px;height:44px;}
+body.mobile-ui .group-resize-handle{width:24px;height:24px;border-width:3px;}
+body.mobile-ui .group-resize-handle::before{content:'';position:absolute;inset:-13px;}
+body.mobile-ui .link-port{width:24px;height:24px;}
+body.mobile-ui .link-port::before{content:'';position:absolute;inset:-12px;}
+body.mobile-ui.link-mode .node .link-port{opacity:.85;}
+@media(min-width:768px) and (min-height:500px){
+  body.mobile-ui #memo-panel{
+    top:calc(var(--tb) + var(--mobile-view-top,0px));
+    height:calc(var(--mobile-view-height,100dvh) - var(--tb));
+    width:min(440px,55vw);padding-top:0;border-left:1px solid var(--bdr);
+  }
+  body.mobile-ui #node-panel,body.mobile-ui #group-panel,body.mobile-ui #arrow-menu,
+  body.mobile-ui #ctx{
+    left:auto!important;right:max(12px,env(safe-area-inset-right,0px))!important;
+    width:min(520px,calc(100vw - 24px))!important;
+  }
+  body.mobile-ui #ctx{width:340px!important;}
+  body.mobile-ui #mobile-controls{justify-content:center;}
+  body.mobile-ui #mobile-controls button{max-width:150px;flex-direction:row;font-size:.8rem;gap:5px;}
+  body.mobile-ui #help-box .hr{grid-template-columns:minmax(0,180px) minmax(0,1fr);gap:12px;}
+}
+@media(max-height:480px){
+  body.mobile-ui{--tb:calc(54px + env(safe-area-inset-top,0px));--mobile-control-height:calc(58px + env(safe-area-inset-bottom,0px));}
+  body.mobile-ui #mobile-controls{padding-top:5px;}
+  body.mobile-ui #mobile-controls button{min-height:46px;flex-direction:row;font-size:.7rem;}
+  body.mobile-ui #memo-head{min-height:54px;}
+  body.mobile-ui #memo-body{padding:8px;}
+  body.mobile-ui #memo-ta{min-height:120px;height:160px;}
+  body.mobile-ui #conn-legend{display:none!important;}
+}
+@media(prefers-reduced-motion:reduce){
+  body.mobile-ui #sidebar,body.mobile-ui #memo-panel{transition:none;}
+  body.mobile-ui .node.selected,body.mobile-ui .node.starred,
+  body.mobile-ui .node.search-current,body.mobile-ui .group-box-bg{animation:none!important;}
+}
+
 </style>
 </head>
 <body>
@@ -633,6 +978,8 @@ body.link-mode .link-del-btn{display:block;}
 
 <!-- TOOLBAR -->
 <div id="toolbar">
+  <button id="mobile-categories" type="button" aria-label="카테고리 열기" aria-controls="sidebar" aria-expanded="false">☰ 카테고리</button>
+  <button id="mobile-search" class="tbtn" type="button" aria-label="노드 검색">⌕ 검색</button>
   <div class="logo">🧠Mind<b>Map</b></div>
   <div id="cur-chip" class="cur-chip"><span id="cur-icon">🗂</span><span id="cur-name">기본</span></div>
   <div class="sep"></div>
@@ -702,6 +1049,22 @@ body.link-mode .link-del-btn{display:block;}
 </div>
 </div>
 
+<div id="mobile-sidebar-backdrop" aria-hidden="true"></div>
+<div id="mobile-controls" role="toolbar" aria-label="터치 도구">
+ <button id="mobile-new-node" type="button" aria-label="독립 노드 추가">＋<span>새 노드</span></button>
+ <button id="mobile-node-menu" type="button" disabled>⋯<span>노드 메뉴</span></button>
+ <button id="mobile-multi" type="button" aria-pressed="false">☑<span>다중 선택</span></button>
+ <button id="mobile-undo" type="button" disabled>↶<span>되돌리기</span></button>
+ <button id="mobile-clear" type="button" disabled>✕<span>선택 해제</span></button>
+</div>
+<div id="mobile-edit-modal" role="dialog" aria-modal="true" aria-labelledby="mobile-edit-title" style="display:none;">
+ <div id="mobile-edit-box">
+  <h2 id="mobile-edit-title">노드 이름 편집</h2>
+  <label for="mobile-edit-text">노드 이름 · 줄바꿈 가능</label>
+  <textarea id="mobile-edit-text" rows="4"></textarea>
+  <div class="mobile-edit-actions"><button id="mobile-edit-cancel" type="button">취소</button><button id="mobile-edit-save" type="button">저장</button></div>
+ </div>
+</div>
 <!-- FLOATING NODE PANEL -->
 <div id="node-panel">
   <!-- 기본 버튼 -->
@@ -749,6 +1112,7 @@ body.link-mode .link-del-btn{display:block;}
   <button class="npbtn" id="gp-transparent" title="그룹 박스 비활성화 (라벨만 표시, 내부 노드 클릭 가능)" style="font-size:.8rem;">🔲</button>
   <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;white-space:nowrap;">글자색 <input type="color" id="gp-font-color" title="그룹 제목 글자색" style="width:28px;height:26px;border:0;background:transparent;cursor:pointer;"></label>
   <button class="tbtn" id="gp-font-auto" title="배경색에 맞춰 제목 글자색 자동 선택">자동</button>
+  <button class="tbtn" id="gp-font-mobile" type="button">글자 크기</button>
   <button class="tbtn" id="gp-box-auto" title="테두리를 내부 노드에 맞는 자동 크기로 복원">테두리 자동</button>
   <button class="npbtn" id="gp-del" title="그룹 삭제" style="color:#ff6b6b;border-color:#ff6b6b;">🗑</button>
   <button class="npbtn" id="gp-close" title="닫기" style="font-size:.8rem;opacity:.6;">✕</button>
@@ -819,6 +1183,7 @@ body.link-mode .link-del-btn{display:block;}
   <div class="ctx-row ctx-sep" id="ctx-sep-top" style="display:none;"></div>
   <div class="ctx-row" id="ctx-child">＋ 하위 노드 추가</div>
   <div class="ctx-row" id="ctx-sib">＋ 같은 단계 노드 추가</div>
+  <div class="ctx-row" id="ctx-node-settings" style="display:none">🎛 노드 설정</div>
   <div class="ctx-row" id="ctx-edit">✏️ 텍스트 편집</div>
   <div class="ctx-row" id="ctx-star">⭐ 중요 표시</div>
   <div class="ctx-row" id="ctx-memo">📝 메모 열기</div>
@@ -851,8 +1216,8 @@ body.link-mode .link-del-btn{display:block;}
 <div id="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-heading" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:800;align-items:center;justify-content:center;">
  <div id="help-box">
   <div class="help-header"><h2 id="help-heading">❓ 기능 안내 &amp; 사용법</h2><button onclick="closeHelp()" aria-label="도움말 닫기">✕</button></div>
-  <p class="help-intro">처음이라면 아래의 5단계부터 따라 해 보세요. 기능 이름을 누르면 해당 설명으로 이동합니다. 각 제목을 클릭해 설명을 펼치거나 접을 수 있습니다.</p>
-  <nav class="help-nav" aria-label="도움말 기능 바로가기"><a href="#help-start" onclick="document.getElementById('help-start').open=true">처음 시작하기</a>
+  <p class="help-intro">처음이라면 「처음 시작하기」를, 폰·태블릿에서는 「휴대폰·태블릿 조작」을 먼저 확인하세요. 기능 이름을 누르면 해당 설명으로 이동합니다. 각 제목을 눌러 설명을 펼치거나 접을 수 있습니다.</p>
+  <nav class="help-nav" aria-label="도움말 기능 바로가기"><a href="#help-mobile" onclick="document.getElementById('help-mobile').open=true">휴대폰·태블릿</a><a href="#help-start" onclick="document.getElementById('help-start').open=true">처음 시작하기</a>
 <a href="#help-category" onclick="document.getElementById('help-category').open=true">카테고리</a>
 <a href="#help-node" onclick="document.getElementById('help-node').open=true">노드</a>
 <a href="#help-selection" onclick="document.getElementById('help-selection').open=true">여러 노드 선택·이동·정렬</a>
@@ -863,6 +1228,18 @@ body.link-mode .link-del-btn{display:block;}
 <a href="#help-view" onclick="document.getElementById('help-view').open=true">화면 보기·구슬·잠금·검색</a>
 <a href="#help-backup" onclick="document.getElementById('help-backup').open=true">저장·백업·복원·초기화</a>
 <a href="#help-keys" onclick="document.getElementById('help-keys').open=true">자주 쓰는 단축키 한눈에 보기</a></nav>
+  <details class="help-section" id="help-mobile">
+  <summary class="help-title">휴대폰·태블릿 조작 <span class="help-section-count">7개 항목</span></summary>
+  <div class="help-table">
+    <div class="hr"><span class="hk">화면 이동·확대</span><span class="hd">빈 공간을 한 손가락으로 끌어 이동하고, 두 손가락을 벌리거나 오므려 확대·축소합니다. 잠긴 노드 위에서도 화면을 이동할 수 있습니다.</span></div>
+    <div class="hr"><span class="hk">노드 선택·이동</span><span class="hd">노드를 한 번 누르면 선택합니다. 잠금이 꺼져 있으면 노드를 끌어 위치를 바꿀 수 있습니다.</span></div>
+    <div class="hr"><span class="hk">이름·메모·삭제</span><span class="hd">노드를 길게 누르거나 선택 후 아래의 「노드 메뉴」를 누르세요. 두 번 누르면 이름을 편집합니다. 메뉴의 「노드 설정」에서 색상·크기·글자 모양을 바꿉니다.</span></div>
+    <div class="hr"><span class="hk">여러 노드 선택</span><span class="hd">아래의 「다중 선택」을 켠 뒤 노드를 눌러 선택·해제합니다. 선택된 노드를 끌면 함께 이동합니다. 위쪽 「그룹」으로 묶거나 메뉴에서 함께 삭제할 수 있습니다.</span></div>
+    <div class="hr"><span class="hk">카테고리·검색·상단 도구</span><span class="hd">「카테고리」로 목록을 열고, 연필 버튼으로 이름을 바꿉니다. 「검색」으로 노드를 찾습니다. 상단 도구는 좌우로 밀면 나머지 버튼을 볼 수 있습니다.</span></div>
+    <div class="hr"><span class="hk">새 노드·되돌리기</span><span class="hd">아래의 「새 노드」는 화면 중앙에 독립 노드를 만듭니다. 「되돌리기」로 이동·이름 변경·삭제 등 지원 작업을 복구하고 「선택 해제」로 선택을 지웁니다.</span></div>
+    <div class="hr"><span class="hk">모바일 메모와 저장</span><span class="hd">메모창에서 입력한 내용은 자동 저장됩니다. 「닫기」로 지도로 돌아갑니다. 저장 데이터는 기기별로 다르므로 PC에서 옮길 때는 JSON 백업·불러오기를 사용하세요.</span></div>
+  </div>
+  </details>
   <details class="help-section" id="help-start" open>
   <summary class="help-title">처음 시작하기 <span class="help-section-count">5개 항목</span></summary>
   <div class="help-table"><div class="hr"><span class="hk">1. 작업할 카테고리 선택</span><span class="hd">화면 왼쪽 가장자리에 마우스를 대고, 기존 카테고리를 클릭하거나 「＋ 새 카테고리」를 누르세요. 카테고리마다 별도의 지도가 있습니다.</span></div>
@@ -1369,6 +1746,7 @@ function getNodeFontColor(bgHex, customFontColor){
 
 /* ════════════════ SIDEBAR SLIDE ════════════════ */
 function toggleSbPin(){
+  if(mobileUi){setMobileSidebar(!document.body.classList.contains('mobile-sidebar-open'));return;}
   sbPinned=!sbPinned;
   var sb=document.getElementById('sidebar');
   sb.classList.toggle('pinned',sbPinned);
@@ -1437,6 +1815,7 @@ function loadAll(){
 
 /* ════════════════ LOAD CATEGORY ════════════════ */
 function loadCat(id,doFit){
+  if(mobileUi){setMobileSidebar(false);multiTouchSelect=false;}
   flushPendingSave();
   var old=getCat(curCatId);
   if(old){old.nodes=nodes;old.nid=nid;old.cam=cam;old.links=links;old.groups=groups;old.nextGid=nextGid;}
@@ -1470,6 +1849,7 @@ function newCat(parentId){
     nodes:[{id:1,text:'중심 주제',x:0,y:0,pid:null,star:false,customColor:null,memo:'',imgs:[]}],nid:2,cam:{x:0,y:0,z:1}};
   cats.push(newC);
   loadCat(newC.id,true);saveAll();
+  if(mobileUi)setMobileSidebar(true);
   setTimeout(function(){
     var rows=document.querySelectorAll('.cat-row[data-id="'+newC.id+'"]');
     if(rows.length){startCatRename(newC.id,rows[0].querySelector('.cat-name-el'));}
@@ -1643,6 +2023,7 @@ function showArrowMenu(target, cx, cy, type){
     reconnBtn.onclick=function(e){
       e.stopPropagation();
       closeArrowMenu();
+      exitMobileMultiSelection();
       reconnectMode=true;
       reconnectNodeId=target;
       document.body.classList.add('reconnect-mode');
@@ -1887,6 +2268,9 @@ function renderTree(parentId,depth,container){
     badge.textContent=(cat.id===curCatId?nodes:cat.nodes).length;
 
     var acts=document.createElement('div');acts.className='cat-acts';
+    var renameBtn=document.createElement('button');renameBtn.className='cact mobile-cat-rename';renameBtn.textContent='✎';renameBtn.title='카테고리 이름 바꾸기';renameBtn.setAttribute('aria-label','카테고리 이름 바꾸기');
+    (function(id){renameBtn.onclick=function(e){e.stopPropagation();startCatRename(id,row.querySelector('.cat-name-el'));};})(cat.id);
+    acts.appendChild(renameBtn);
     var addBtn=document.createElement('button');addBtn.className='cact';addBtn.textContent='＋';addBtn.title='하위 카테고리 추가';
     (function(id){addBtn.onclick=function(e){e.stopPropagation();newCat(id);};})(cat.id);
     var delBtn=document.createElement('button');delBtn.className='cact del';delBtn.textContent='✕';delBtn.title='삭제';
@@ -2333,6 +2717,7 @@ function exitLinkMode(msg){
 }
 function beginEdgePortEdit(){
   if(!selEdge)return false;
+  exitMobileMultiSelection();
   var endpoints=getEdgeEndpointIds(selEdge);
   if(endpoints.length<2){
     showToast('⚠️ 수정할 연결선을 다시 선택해 주세요');
@@ -2377,6 +2762,7 @@ function applyEdgePortEdit(nodeId, port){
   return true;
 }
 function toggleLinkMode(){
+  exitMobileMultiSelection();
   if(edgePortEdit){exitLinkMode('연결점 수정 종료');return;}
   if(selEdge&&beginEdgePortEdit())return;
   linkMode=!linkMode;linkFrom=null;linkFromPort=null;
@@ -2608,12 +2994,40 @@ function organizeHubConnections(){
   invalidateModelIndex();saveAll();renderAll();
   showToast('≡ '+ids.length+'개 노드와 연결선 정리 완료 — 공통선의 원형 손잡이를 좌우로 드래그하세요 (Ctrl+Z로 복구)');
 }
-function getOrganizedBusPath(edge,from,to){
+function buildOrganizedBusLanes(){
+  var faces={},offsets={};
+  function add(node,side,hub,bus){
+    var faceKey=node.id+'_'+side,groupKey=bus.hubId+'_'+bus.side;
+    if(!faces[faceKey])faces[faceKey]={node:node,groups:{}};
+    faces[faceKey].groups[groupKey]={key:groupKey,hub:hub};
+  }
+  nodes.concat(links).forEach(function(edge){
+    var bus=edge.cp&&edge.cp.organizedBus;if(!bus)return;
+    var hub=gn(bus.hubId),from=gn(edge.pid!==undefined?edge.pid:edge.from),to=gn(edge.pid!==undefined?edge.id:edge.to);
+    if(!hub||!from||!to||from.id===to.id||(from.id!==hub.id&&to.id!==hub.id))return;
+    var peer=from.id===hub.id?to:from;
+    add(hub,bus.side,hub,bus);
+    add(peer,bus.side==='left'?'right':'left',hub,bus);
+  });
+  Object.keys(faces).forEach(function(faceKey){
+    var face=faces[faceKey],groups=Object.keys(face.groups).map(function(key){return face.groups[key];});
+    groups.sort(function(a,b){return a.hub.y-b.hub.y||a.hub.x-b.hub.x||a.hub.id-b.hub.id||a.key.localeCompare(b.key);});
+    var limit=Math.max(0,nhFull(face.node)/2-12);
+    var gap=groups.length>1?Math.min(28,limit*2/(groups.length-1)):0;
+    groups.forEach(function(group,index){offsets[faceKey+'_'+group.key]=(index-(groups.length-1)/2)*gap;});
+  });
+  return offsets;
+}
+function getOrganizedBusPath(edge,from,to,lanes){
   var bus=edge.cp&&edge.cp.organizedBus;if(!bus)return null;
   var hub=gn(bus.hubId);if(!hub||!from||!to||(from.id!==hub.id&&to.id!==hub.id))return null;
   var peer=from.id===hub.id?to:from,sign=bus.side==='left'?-1:1;
   var hubFace={x:hub.x+sign*(nwFull(hub)/2+ARROW_TIP_GAP),y:hub.y};
   var peerFace={x:peer.x-sign*(nwFull(peer)/2+ARROW_TIP_GAP),y:peer.y};
+  lanes=lanes||buildOrganizedBusLanes();
+  var groupKey=bus.hubId+'_'+bus.side,peerSide=bus.side==='left'?'right':'left';
+  hubFace.y+=lanes[hub.id+'_'+bus.side+'_'+groupKey]||0;
+  peerFace.y+=lanes[peer.id+'_'+peerSide+'_'+groupKey]||0;
   var offsetLimit=Infinity;
   nodes.concat(links).forEach(function(candidate){
     var saved=candidate.cp&&candidate.cp.organizedBus;if(!saved||saved.hubId!==hub.id||saved.side!==bus.side)return;
@@ -2624,13 +3038,13 @@ function getOrganizedBusPath(edge,from,to){
   });
   var offset=Math.max(25,Math.min(Number(bus.offset)||100,offsetLimit));
   var busX=hubFace.x+sign*offset;
-  var points=[peerFace,{x:busX,y:peer.y},{x:busX,y:hub.y},hubFace];
+  var points=[peerFace,{x:busX,y:peerFace.y},{x:busX,y:hubFace.y},hubFace];
   if(from.id===hub.id)points.reverse();
   var screenPoints=points.map(function(p){return w2s(p.x,p.y);});
   var info=buildRoundedOrthogonalPath(screenPoints,16*cam.z);
-  info.handle={x:w2s(busX,hub.y).x,y:w2s(busX,(hub.y+peer.y)/2).y};info.handles=[];info.busLinks=[];
+  info.handle={x:w2s(busX,hubFace.y).x,y:w2s(busX,(hubFace.y+peerFace.y)/2).y};info.handles=[];info.busLinks=[];
   info.startPoint=screenPoints[0];info.endPoint=screenPoints[screenPoints.length-1];
-  info.organizedBus={hubId:hub.id,side:bus.side,x:busX,maxOffset:offsetLimit,y1:Math.min(hub.y,peer.y),y2:Math.max(hub.y,peer.y),color:edge.color||edge.lineColor||getColor(peer.id)};
+  info.organizedBus={hubId:hub.id,side:bus.side,x:busX,maxOffset:offsetLimit,y1:Math.min(hubFace.y,peerFace.y),y2:Math.max(hubFace.y,peerFace.y),color:edge.color||edge.lineColor||getColor(peer.id)};
   return info;
 }
 function appendOrganizedBusHandle(layer,bus){
@@ -4298,6 +4712,7 @@ function edgeNeedsLightOutline(color){
 }
 function renderCurves(){
   refreshModelIndex();
+  var organizedLanes=buildOrganizedBusLanes();
   if(_edgeCacheNodes!==nodes||_edgeCacheLinks!==links){_edgeDomCache={};_edgeCacheNodes=nodes;_edgeCacheLinks=links;}
   var curveBounds=getWorldViewportBounds(520);
   edgeMergeGuides={h:[],v:[]};
@@ -4564,7 +4979,7 @@ function renderCurves(){
       if(startAutoPort){edgePathInfo.startAngle=startAutoPort.angle;}
       if(endAutoPort){edgePathInfo.endAngle=endAutoPort.angle;}
     }
-    var organizedTree=getOrganizedBusPath(c,p,c);
+    var organizedTree=getOrganizedBusPath(c,p,c,organizedLanes);
     if(organizedTree){edgePathInfo=organizedTree;ps=organizedTree.startPoint;cs=organizedTree.endPoint;}
     if(arr==='forward'||arr==='both'){edgePathInfo=clipArrowRouteAtNode(edgePathInfo,c,false);if(edgePathInfo.endPoint)cs=edgePathInfo.endPoint;}
     if(arr==='backward'||arr==='both'){edgePathInfo=clipArrowRouteAtNode(edgePathInfo,p,true);if(edgePathInfo.startPoint)ps=edgePathInfo.startPoint;}
@@ -5066,7 +5481,7 @@ function renderCurves(){
     var linkStartMode=linkLineType==='elbow'?(elbowPortModeFromName(lk.fromPort)||(faPreferred&&faPreferred.mode)):null;
     var linkEndMode=linkLineType==='elbow'?(elbowPortModeFromName(lk.toPort)||(taPreferred&&taPreferred.mode)):null;
     var linkBaseCpOff=linkLineType==='elbow'?applyElbowEndpointModes(lcpOff,linkStartMode,linkEndMode):lcpOff;
-    var busInfo=getOrganizedBusPath(lk,fa,ta)||referenceBusMap[refLinkKey(lk)];
+    var busInfo=getOrganizedBusPath(lk,fa,ta,organizedLanes)||referenceBusMap[refLinkKey(lk)];
     if(busInfo){
       sc1=busInfo.startPoint;
       sc2=busInfo.endPoint;
@@ -5881,6 +6296,7 @@ function hideMemoTooltip(){
 /* ════════════════ FLOATING PANEL ════════════════ */
 var _panelKey=null;
 function updatePanel(){
+  updateMobileControls();
   var panel=document.getElementById('node-panel');
   if(!sel||!panelVisible){panel.style.display='none';return;}
   var n=gn(sel);if(!n){panel.style.display='none';return;}
@@ -6251,6 +6667,7 @@ function openMemo(id){
   updatePanel();
 }
 function closeMemo(){
+  if(mobileUi)document.getElementById('memo-ta').blur();
   if(memoOpen)saveMemoTxt();
   memoOpen=false;document.getElementById('memo-ta').dataset.nid='';
   document.getElementById('memo-panel').classList.remove('open');
@@ -6334,6 +6751,7 @@ function closeLightbox(){
 
 /* ════════════════ EDIT ════════════════ */
 function startEdit(id){
+  if(mobileUi){openMobileNodeEditor(id);return;}
   var el=document.getElementById('world').querySelector('[data-id="'+id+'"]');if(!el)return;
   var n=gn(id);if(!n)return;
   var lbl=el.querySelector('.node-label');if(!lbl)return;
@@ -6871,7 +7289,7 @@ var searchResults=[], searchIdx=0;
 
 
 /* ════════════════ HELP ════════════════ */
-function openHelp(){document.getElementById('help-modal').style.display='flex';}
+function openHelp(){document.getElementById('help-modal').style.display='flex';if(mobileUi){document.getElementById('help-mobile').open=true;document.getElementById('help-start').open=false;document.getElementById('help-box').scrollTop=0;}}
 function closeHelp(){document.getElementById('help-modal').style.display='none';}
 function openSearch(){
   document.getElementById('search-bar').classList.add('open');
@@ -6879,6 +7297,7 @@ function openSearch(){
   document.getElementById('search-inp').select();
 }
 function closeSearch(){
+  if(mobileUi)document.getElementById('search-inp').blur();
   document.getElementById('search-bar').classList.remove('open');
   document.getElementById('search-inp').value='';
   searchResults=[];searchIdx=0;
@@ -7077,6 +7496,7 @@ function bindNode(el,id){
     renderAll();
   });
   el.addEventListener('mouseenter',function(e){
+    if(mobileUi&&!window.matchMedia('(hover: hover)').matches)return;
     var n=gn(id);
     if(n&&((n.memo&&n.memo.trim())||(n.imgs&&n.imgs.length))){showMemoTooltip(id,e.clientX,e.clientY);}
   });
@@ -7114,6 +7534,7 @@ function showCtx(x,y,id,emptySpace,wx,wy){
   document.getElementById('ctx-new-independent').style.display=isEmptySpace?'flex':'none';
   document.getElementById('ctx-sep-top').style.display=isEmptySpace?'flex':'none';
   /* 노드 전용 메뉴들 */
+  document.getElementById('ctx-node-settings').style.display=mobileUi&&!isEmptySpace?'flex':'none';
   document.getElementById('ctx-child').style.display=isEmptySpace?'none':'flex';
   document.getElementById('ctx-sib').style.display=(isEmptySpace||isRoot)?'none':'flex';
   document.getElementById('ctx-edit').style.display=isEmptySpace?'none':'flex';
@@ -7282,8 +7703,10 @@ function exportHTML(){
     var sidebar = clone.querySelector('#sidebar');
     if(sidebar) sidebar.classList.remove('pinned', 'sb-hover');
     
+    var mobileEdit = clone.querySelector('#mobile-edit-modal');if(mobileEdit)mobileEdit.style.display='none';
     var body = clone.querySelector('body');
     if(body) body.className = '';
+    var mobileCat = clone.querySelector('#mobile-categories');if(mobileCat)mobileCat.setAttribute('aria-expanded','false');
     
     var nodePanel = clone.querySelector('#node-panel');
     if(nodePanel) nodePanel.style.display = 'none';
@@ -7448,6 +7871,16 @@ document.addEventListener('click',function(e){
   if(!document.getElementById('memo-tooltip').contains(e.target))hideMemoTooltip();
 });
 document.addEventListener('keydown',function(e){
+  if(document.getElementById('mobile-edit-modal').style.display==='flex'){
+    if(e.key==='Escape'){e.preventDefault();closeMobileNodeEditor();}
+    if(e.key==='Tab'){
+      var fields=Array.from(document.querySelectorAll('#mobile-edit-modal textarea,#mobile-edit-modal button')),at=fields.indexOf(document.activeElement);
+      if(e.shiftKey&&at<=0){e.preventDefault();fields[fields.length-1].focus();}
+      else if(!e.shiftKey&&at===fields.length-1){e.preventDefault();fields[0].focus();}
+    }
+    return;
+  }
+
   if(document.getElementById('delete-node-modal').style.display==='flex'){
     if(e.key==='Escape'){e.preventDefault();closeNodeDeleteModal();}
     if(e.key==='Tab'){
@@ -8007,6 +8440,7 @@ document.getElementById('ctx-new-independent').onclick=function(){
   var m=document.getElementById('ctx');
   var wx=parseFloat(m.dataset.wx)||0, wy=parseFloat(m.dataset.wy)||0;
   hideCtx();
+  pushUndoState();
   var newN={id:nid++,text:'새 아이디어',x:wx,y:wy,pid:null,star:false,customColor:null,memo:'',imgs:[],scale:1};
   nodes.push(newN);sel=newN.id;
   renderAll();saveAll();
@@ -8164,6 +8598,215 @@ function ipInit(){
 }
 /* openIconPicker 호출 시 초기화 */
 
+/* Touch canvas uses the same drag/undo handlers as desktop. Native scrolling
+   stays enabled in forms and panels; only the map owns pan/pinch gestures. */
+var mobileUi=false,multiTouchSelect=false,mobileEditor=null,_grpFontTouchAt=-2000;
+var _mobileMedia=window.matchMedia('(max-width: 1024px), (pointer: coarse)');
+var _touchPoints={},_touchGesture=null,_mobileMouseDispatch=false,_touchSuppressUntil=0,_lastNodeTap=null,_mobileViewportRAF=null;
+function updateMobileControls(){
+  if(!mobileUi)return;
+  var selected=!!gn(sel)||multiSel.length>0;
+  document.getElementById('mobile-node-menu').disabled=!selected;
+  document.getElementById('mobile-undo').disabled=!undoStack.length;
+  document.getElementById('mobile-clear').disabled=!selected&&!selEdge&&!selGroup;
+  document.getElementById('mobile-multi').setAttribute('aria-pressed',String(multiTouchSelect));
+  document.getElementById('mobile-multi').querySelector('span').textContent=multiTouchSelect?'선택 '+multiSel.length+'개':'다중 선택';
+}
+function exitMobileMultiSelection(){
+  if(!mobileUi)return;
+  var changed=multiTouchSelect||multiSel.length;multiTouchSelect=false;multiSel=[];
+  if(changed)renderAll();updateMobileControls();
+}
+function setMobileSidebar(open){
+  document.body.classList.toggle('mobile-sidebar-open',!!open&&mobileUi);
+  document.getElementById('mobile-categories').setAttribute('aria-expanded',String(!!open&&mobileUi));
+  document.getElementById('sidebar').setAttribute('aria-hidden',String(mobileUi&&!open));
+  if(!mobileUi)document.getElementById('sidebar').removeAttribute('aria-hidden');
+}
+function updateMobileViewport(){
+  if(_mobileViewportRAF)return;
+  _mobileViewportRAF=requestAnimationFrame(function(){
+    _mobileViewportRAF=null;
+    var viewport=window.visualViewport,root=document.documentElement;
+    root.style.setProperty('--mobile-view-height',(viewport?viewport.height:window.innerHeight)+'px');
+    root.style.setProperty('--mobile-view-top',(viewport?viewport.offsetTop:0)+'px');
+    root.style.setProperty('--mobile-bottom-inset',Math.max(0,window.innerHeight-(viewport?viewport.height:window.innerHeight)-(viewport?viewport.offsetTop:0))+'px');
+    if(mobileUi){requestViewportRender({forceNodes:true});updatePanel();}
+  });
+}
+function updateMobileUi(){
+  mobileUi=_mobileMedia.matches;document.body.classList.toggle('mobile-ui',mobileUi);
+  setMobileSidebar(false);updateMobileControls();updateMobileViewport();
+  if(mobileUi)document.getElementById('hint').textContent='한 손가락 이동 · 두 손가락 확대 · 노드 길게 눌러 메뉴';
+  else document.getElementById('hint').textContent='사이드바에 마우스를 가져가면 열림 | 📌 핸들을 클릭으로 고정 | 노드 메모 마우스 올리면 미리보기 | 카테고리 드래그로 순서 변경';
+}
+function openMobileNodeEditor(id){
+  var n=gn(id);if(!n)return;
+  mobileEditor={id:id,catId:curCatId};hideCtx();panelVisible=false;updatePanel();
+  var input=document.getElementById('mobile-edit-text');input.value=n.text;
+  document.getElementById('mobile-edit-modal').style.display='flex';input.focus();input.select();
+}
+function closeMobileNodeEditor(){
+  document.getElementById('mobile-edit-text').blur();document.getElementById('mobile-edit-modal').style.display='none';mobileEditor=null;
+}
+function saveMobileNodeEditor(){
+  if(!mobileEditor)return;
+  var n=mobileEditor.catId===curCatId?gn(mobileEditor.id):null;
+  if(n){var value=document.getElementById('mobile-edit-text').value.trim()||n.text;
+    if(value!==n.text){pushUndoState();n.text=value;if(memoOpen&&Number(document.getElementById('memo-ta').dataset.nid)===n.id)document.getElementById('memo-node-name').textContent=value;saveAll();renderAll();}
+  }
+  closeMobileNodeEditor();updateMobileControls();
+}
+function mobileEmitMouse(type,target,x,y){
+  _mobileMouseDispatch=true;
+  try{(target||document).dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,view:window,button:0,buttons:type==='mouseup'||type==='click'?0:1,clientX:x,clientY:y}));}
+  finally{_mobileMouseDispatch=false;}
+}
+function mobileClearLongPress(){if(_touchGesture&&_touchGesture.timer){clearTimeout(_touchGesture.timer);_touchGesture.timer=null;}}
+function mobileFinishDrag(){
+  if(_touchGesture&&_touchGesture.dragStarted){mobileEmitMouse('mouseup',document,_touchGesture.x,_touchGesture.y);_touchGesture.dragStarted=false;}
+}
+function mobileCancelGestures(){
+  if(!_touchGesture)return;
+  mobileClearLongPress();mobileFinishDrag();
+  if(_touchGesture&&_touchGesture.kind==='pinch'){saveAll();requestViewportRender({forceNodes:true});}
+  _touchPoints={};_touchGesture=null;panSt=null;movSt=null;multiDrag=null;
+  document.getElementById('viewport').classList.remove('panning','moving');updateMobileControls();
+}
+function mobileBeginPinch(){
+  mobileClearLongPress();mobileFinishDrag();
+  var points=Object.values(_touchPoints),a=points[0],b=points[1],x=(a.x+b.x)/2,y=(a.y+b.y)/2;
+  _touchGesture={kind:'pinch',anchor:s2w(x,y),distance:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),zoom:cam.z};
+  hideCtx();hideMemoTooltip();panelVisible=false;updatePanel();
+}
+function mobileShowNodeMenu(id,x,y){
+  if(!gn(id))return;
+  _lastNodeTap=null;
+  sel=id;panelVisible=false;hideMemoTooltip();renderAll();showCtx(x,y,id,false,0,0);updateMobileControls();
+}
+function mobileCanvasTarget(e){
+  var target=e.target;
+  if(target.closest('.node'))return target;
+  if(!linkMode&&!edgePortEdit&&target.closest('svg')){
+    var stack=document.elementsFromPoint(e.clientX,e.clientY);
+    for(var i=0;i<stack.length;i++){var node=stack[i].closest&&stack[i].closest('.node');if(node)return node;}
+  }
+  return target;
+}
+(function(){
+  var viewport=document.getElementById('viewport');
+  function usable(e){return mobileUi&&e.pointerType!=='mouse'&&!e.target.closest('input,textarea,select,button,[contenteditable="true"],#grp-font-slider-wrap');}
+  viewport.addEventListener('pointerdown',function(e){
+    if(!usable(e))return;
+    e.preventDefault();_touchSuppressUntil=performance.now()+1200;
+    _touchPoints[e.pointerId]={x:e.clientX,y:e.clientY};
+    try{viewport.setPointerCapture(e.pointerId);}catch(err){}
+    if(Object.keys(_touchPoints).length>1){mobileBeginPinch();return;}
+    var target=mobileCanvasTarget(e),node=target.closest('.node');
+    _touchGesture={kind:'single',id:e.pointerId,target:target,nodeId:node?Number(node.dataset.id):null,startX:e.clientX,startY:e.clientY,x:e.clientX,y:e.clientY,dragStarted:false,longPressed:false,moved:false};
+    if(node||target===viewport||target.id==='world'||target.tagName.toLowerCase()==='svg'){
+      _touchGesture.timer=setTimeout(function(){
+        var g=_touchGesture;if(!g||g.kind!=='single'||g.moved)return;g.longPressed=true;_lastNodeTap=null;
+        if(g.nodeId!==null)mobileShowNodeMenu(g.nodeId,g.x,g.y);
+        else{var world=s2w(g.x,g.y);showCtx(g.x,g.y,null,true,world.x,world.y);}
+      },550);
+    }
+  },{passive:false});
+  viewport.addEventListener('pointermove',function(e){
+    if(!_touchPoints[e.pointerId])return;
+    e.preventDefault();_touchPoints[e.pointerId]={x:e.clientX,y:e.clientY};
+    var g=_touchGesture;if(!g)return;
+    if(g.kind==='pinch'){
+      var points=Object.values(_touchPoints);if(points.length<2)return;
+      var a=points[0],b=points[1],x=(a.x+b.x)/2,y=(a.y+b.y)/2,rect=viewport.getBoundingClientRect();
+      cam.z=clampVal(g.zoom*Math.hypot(a.x-b.x,a.y-b.y)/g.distance,.15,3.5);
+      cam.x=x-rect.left-g.anchor.x*cam.z;cam.y=y-rect.top-g.anchor.y*cam.z;requestViewportRender({forceNodes:true});return;
+    }
+    g.x=e.clientX;g.y=e.clientY;if(g.longPressed)return;
+    if(!g.moved&&Math.hypot(g.x-g.startX,g.y-g.startY)<7)return;
+    g.moved=true;mobileClearLongPress();_lastNodeTap=null;
+    if(!g.dragStarted){
+      var plain=g.target===viewport||g.target.id==='world'||g.target.tagName.toLowerCase()==='svg';
+      if(plain||(g.nodeId!==null&&lockMode)||(multiTouchSelect&&g.nodeId!==null&&multiSel.indexOf(g.nodeId)<0)){
+        hideCtx();hideMemoTooltip();panelVisible=false;
+        panSt={sx:g.startX,sy:g.startY,cx:cam.x,cy:cam.y};viewport.classList.add('panning');
+      }else mobileEmitMouse('mousedown',g.target,g.startX,g.startY);
+      g.dragStarted=true;
+    }
+    mobileEmitMouse('mousemove',document,g.x,g.y);
+  },{passive:false});
+  function end(e,cancelled){
+    if(!_touchPoints[e.pointerId])return;
+    e.preventDefault();_touchSuppressUntil=performance.now()+1000;mobileClearLongPress();
+    var g=_touchGesture;delete _touchPoints[e.pointerId];
+    if(g&&g.kind==='pinch'){
+      if(!Object.keys(_touchPoints).length){saveAll();requestViewportRender({forceNodes:true});_touchGesture=null;}return;
+    }
+    if(g){
+      mobileFinishDrag();
+      if(!cancelled&&!g.moved&&!g.longPressed){
+        if(g.nodeId!==null&&multiTouchSelect&&!linkMode&&!edgePortEdit&&!reconnectMode){
+          var index=multiSel.indexOf(g.nodeId);if(index<0)multiSel.push(g.nodeId);else multiSel.splice(index,1);sel=null;selEdge=null;panelVisible=false;renderAll();
+        }else{
+          mobileEmitMouse('mousedown',g.target,g.startX,g.startY);mobileEmitMouse('mouseup',document,e.clientX,e.clientY);
+          var blank=g.target===viewport||g.target.id==='world'||g.target.tagName.toLowerCase()==='svg';
+          if(blank&&!multiTouchSelect){sel=null;selEdge=null;panelVisible=false;renderAll();}
+          if(g.nodeId!==null&&!linkMode&&!edgePortEdit){
+            var now=performance.now();
+            if(_lastNodeTap&&_lastNodeTap.id===g.nodeId&&now-_lastNodeTap.at<320){_lastNodeTap=null;startEdit(g.nodeId);}
+            else _lastNodeTap={id:g.nodeId,at:now};
+          }else mobileEmitMouse('click',g.target,e.clientX,e.clientY);
+        }
+      }
+    }
+    _touchGesture=null;updateMobileControls();
+  }
+  viewport.addEventListener('pointerup',function(e){end(e,false);},{passive:false});
+  viewport.addEventListener('pointercancel',function(e){end(e,true);},{passive:false});
+  viewport.addEventListener('lostpointercapture',function(e){if(_touchPoints[e.pointerId])mobileCancelGestures();});
+  ['mousedown','mouseup','click','dblclick','contextmenu'].forEach(function(type){
+    window.addEventListener(type,function(e){
+      if(_mobileMouseDispatch||!mobileUi||performance.now()>_touchSuppressUntil||!viewport.contains(e.target))return;
+      if(e.target.closest('input,textarea,select,button,[contenteditable="true"],#grp-font-slider-wrap'))return;
+      if(e.isTrusted){e.preventDefault();e.stopImmediatePropagation();}
+    },true);
+  });
+})();
+document.getElementById('mobile-categories').onclick=function(e){e.stopPropagation();setMobileSidebar(!document.body.classList.contains('mobile-sidebar-open'));};
+document.getElementById('mobile-search').onclick=function(e){e.stopPropagation();setMobileSidebar(false);openSearch();};
+document.getElementById('mobile-sidebar-backdrop').onclick=function(){setMobileSidebar(false);};
+document.getElementById('mobile-node-menu').onclick=function(e){
+  e.stopPropagation();var id=gn(sel)?sel:multiSel[0],n=gn(id);if(!n)return;var point=w2s(n.x,n.y),rect=document.getElementById('viewport').getBoundingClientRect();mobileShowNodeMenu(id,point.x+rect.left,point.y+rect.top);
+};
+document.getElementById('mobile-undo').onclick=function(e){e.stopPropagation();hideCtx();closeArrowMenu();closeGrpFontSlider();deselectGroup();panelVisible=false;multiTouchSelect=false;undoDelete();updateMobileControls();};
+document.getElementById('mobile-multi').onclick=function(e){
+  e.stopPropagation();if(linkMode||edgePortEdit)exitLinkMode();if(reconnectMode){reconnectMode=false;reconnectNodeId=null;document.body.classList.remove('reconnect-mode');}multiTouchSelect=!multiTouchSelect;
+  if(multiTouchSelect){if(!multiSel.length&&gn(sel))multiSel=[sel];sel=null;selEdge=null;panelVisible=false;}
+  hideCtx();renderAll();updateMobileControls();showToast(multiTouchSelect?'노드를 눌러 선택하거나 해제하세요':'다중 선택 모드 종료');
+};
+document.getElementById('mobile-clear').onclick=function(e){
+  e.stopPropagation();sel=null;selEdge=null;multiSel=[];multiTouchSelect=false;panelVisible=false;deselectGroup();hideCtx();renderAll();updateMobileControls();
+};
+document.getElementById('mobile-new-node').onclick=function(e){
+  e.stopPropagation();setMobileSidebar(false);var viewport=document.getElementById('viewport'),rect=viewport.getBoundingClientRect(),point=s2w(rect.left+rect.width/2,rect.top+rect.height/2),menu=document.getElementById('ctx');
+  menu.dataset.wx=point.x;menu.dataset.wy=point.y;multiTouchSelect=false;multiSel=[];document.getElementById('ctx-new-independent').onclick();updateMobileControls();
+};
+document.getElementById('ctx-node-settings').onclick=function(e){e.stopPropagation();var id=Number(document.getElementById('ctx').dataset.nid);hideCtx();if(gn(id)){sel=id;panelVisible=true;renderAll();}};
+document.getElementById('mobile-edit-save').onclick=saveMobileNodeEditor;
+document.getElementById('mobile-edit-cancel').onclick=closeMobileNodeEditor;
+document.getElementById('mobile-edit-modal').addEventListener('click',function(e){if(e.target===this)closeMobileNodeEditor();});
+document.getElementById('gp-font-mobile').onclick=function(e){
+  e.stopPropagation();var group=groups.filter(function(g){return g.id===selGroup;})[0],label=document.querySelector('.group-box-wrap[data-gid="'+selGroup+'"] .group-box-label');
+  if(group&&label){document.getElementById('group-panel').style.display='none';openGrpFontSlider(group,label);}
+};
+document.getElementById('grp-font-slider').addEventListener('pointerdown',function(e){if(mobileUi&&e.pointerType!=='mouse'&&_grpFontTarget){_grpFontTouchAt=performance.now();pushUndoState();updateMobileControls();}});
+if(_mobileMedia.addEventListener)_mobileMedia.addEventListener('change',updateMobileUi);
+window.addEventListener('resize',updateMobileViewport);
+if(window.visualViewport){window.visualViewport.addEventListener('resize',updateMobileViewport);window.visualViewport.addEventListener('scroll',updateMobileViewport);}
+window.addEventListener('blur',mobileCancelGestures);
+document.addEventListener('visibilitychange',function(){if(document.hidden)mobileCancelGestures();});
+updateMobileUi();
+
 /* ════════════════ EMBEDDED DATA HOOK ════════════════ */
 /* __EMBEDDED_DATA__ */
 
@@ -8171,7 +8814,7 @@ function ipInit(){
 document.addEventListener('mousemove', function(e){
   if(!sbPinned){
     var sb=document.getElementById('sidebar');
-    if(e.clientX < 14){
+    if(!mobileUi&&e.clientX < 14){
       sb.classList.add('sb-hover');
     }
   }
@@ -8239,6 +8882,7 @@ function drawArrowHead(svgA, ex, ey, angle, color,opacity){
 var _grpFontTarget = null; // 현재 슬라이더로 조절 중인 grp 객체
 
 function openGrpFontSlider(grp, anchorEl){
+  if(mobileUi)document.body.classList.add('mobile-group-font-open');
   _grpFontTarget = grp;
   var wrap = document.getElementById('grp-font-slider-wrap');
   var slider = document.getElementById('grp-font-slider');
@@ -8258,6 +8902,7 @@ function openGrpFontSlider(grp, anchorEl){
 }
 
 function closeGrpFontSlider(){
+  document.body.classList.remove('mobile-group-font-open');
   document.getElementById('grp-font-slider-wrap').style.display = 'none';
   _grpFontTarget = null;
 }
@@ -8275,6 +8920,7 @@ document.getElementById('grp-font-slider-wrap').addEventListener('wheel', functi
 
 /* 슬라이더 드래그 시 캔버스 pan 차단 */
 document.getElementById('grp-font-slider').addEventListener('mousedown', function(e){
+  if(mobileUi&&performance.now()-_grpFontTouchAt<1000){e.stopPropagation();return;}
   e.stopPropagation();
 });
 document.getElementById('grp-font-slider').addEventListener('mousemove', function(e){
